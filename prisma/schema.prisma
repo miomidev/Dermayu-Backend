@@ -1,0 +1,449 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  OFFICER
+  ADMIN
+  SUPERADMIN
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WaterLevel {
+  ANKLE
+  KNEE
+  THIGH
+  WAIST
+  ABOVE_CHEST
+}
+
+enum ReportStatus {
+  SUBMITTED
+  VERIFIED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  DUPLICATE
+  CANCELLED
+}
+
+enum MediaType {
+  IMAGE
+  RESOLUTION_PROOF
+}
+
+enum AiPredictionStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+enum AlertLevel {
+  WASPADA
+  SIAGA
+  AWAS
+  EVAKUASI
+}
+
+enum AlertStatus {
+  DRAFT
+  ACTIVE
+  UPDATED
+  ENDED
+}
+
+enum AlertTargetType {
+  ALL
+  DISTRICT
+  VILLAGE
+  RADIUS
+}
+
+enum DeliveryChannel {
+  FCM
+  WEBPUSH
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  OPENED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS_PWA
+  WEB
+}
+
+model User {
+  id                BigInt    @id @default(autoincrement())
+  public_id         String    @unique @default(uuid())
+  full_name         String    @db.VarChar(120)
+  email             String?   @unique @db.VarChar(160)
+  phone             String?   @unique @db.VarChar(20)
+  password_hash     String    @db.VarChar(255)
+  role              Role      @default(CITIZEN)
+  district_id       BigInt?
+  village_id        BigInt?
+  avatar_url        String?   @db.VarChar(255)
+  is_active         Boolean   @default(true)
+  email_verified_at DateTime?
+  phone_verified_at DateTime?
+  last_login_at     DateTime?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  district         District?             @relation(fields: [district_id], references: [id])
+  village          Village?              @relation(fields: [village_id], references: [id])
+  reports          Report[]              @relation("ReporterRelation")
+  refresh_tokens   RefreshToken[]
+  device_tokens    DeviceToken[]
+  notifications    Notification[]
+  assignments      ReportAssignment[]    @relation("OfficerRelation")
+  assigned_by_me   ReportAssignment[]    @relation("AssignerRelation")
+  verified_reports Report[]              @relation("VerifierRelation")
+  audit_logs       AuditLog[]
+  status_changes   ReportStatusHistory[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          BigInt    @id @default(autoincrement())
+  user_id     BigInt
+  token_hash  String    @unique @db.VarChar(255)
+  device_info String?   @db.VarChar(255)
+  expires_at  DateTime
+  revoked_at  DateTime?
+  created_at  DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model District {
+  id         BigInt   @id @default(autoincrement())
+  code       String   @unique @db.VarChar(20)
+  name       String   @db.VarChar(100)
+  geojson    String?  @db.LongText
+  created_at DateTime @default(now())
+
+  villages          Village[]
+  reports           Report[]
+  users             User[]
+  alert_targets     AlertTarget[]
+  evacuation_points EvacuationPoint[]
+
+  @@map("districts")
+}
+
+model Village {
+  id          BigInt   @id @default(autoincrement())
+  district_id BigInt
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  created_at  DateTime @default(now())
+
+  district          District          @relation(fields: [district_id], references: [id], onDelete: Cascade)
+  reports           Report[]
+  users             User[]
+  alert_targets     AlertTarget[]
+  evacuation_points EvacuationPoint[]
+
+  @@map("villages")
+}
+
+model ReportCategory {
+  id          BigInt   @id @default(autoincrement())
+  code        String   @unique @db.VarChar(30)
+  name        String   @db.VarChar(100)
+  icon        String?  @db.VarChar(50)
+  requires_ai Boolean  @default(false)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  reports Report[]
+
+  @@map("report_categories")
+}
+
+model Report {
+  id                  BigInt       @id @default(autoincrement())
+  public_id           String       @unique @default(uuid())
+  ticket_code         String       @unique @db.VarChar(30)
+  reporter_id         BigInt
+  category_id         BigInt
+  title               String       @db.VarChar(160)
+  description         String       @db.Text
+  severity            Severity     @default(MEDIUM)
+  water_level         WaterLevel?
+  status              ReportStatus @default(SUBMITTED)
+  latitude            Decimal      @db.Decimal(10, 7)
+  longitude           Decimal      @db.Decimal(10, 7)
+  gps_accuracy_m      Float?
+  address_text        String?      @db.VarChar(255)
+  district_id         BigInt?
+  village_id          BigInt?
+  occurred_at         DateTime     @default(now())
+  is_anonymous_public Boolean      @default(false)
+  duplicate_of_id     BigInt?
+  rejection_reason    String?      @db.VarChar(255)
+  verified_by         BigInt?
+  verified_at         DateTime?
+  resolved_at         DateTime?
+  client_uuid         String?      @unique @db.VarChar(36)
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  reporter     User           @relation("ReporterRelation", fields: [reporter_id], references: [id])
+  category     ReportCategory @relation(fields: [category_id], references: [id])
+  district     District?      @relation(fields: [district_id], references: [id])
+  village      Village?       @relation(fields: [village_id], references: [id])
+  verifier     User?          @relation("VerifierRelation", fields: [verified_by], references: [id])
+  duplicate_of Report?        @relation("ReportDuplicates", fields: [duplicate_of_id], references: [id])
+  duplicates   Report[]       @relation("ReportDuplicates")
+
+  media          ReportMedia[]
+  status_history ReportStatusHistory[]
+  assignments    ReportAssignment[]
+
+  @@index([status, created_at])
+  @@index([category_id, status])
+  @@index([district_id, created_at])
+  @@index([reporter_id, created_at])
+  @@map("reports")
+}
+
+model ReportMedia {
+  id          BigInt    @id @default(autoincrement())
+  report_id   BigInt
+  type        MediaType @default(IMAGE)
+  storage_key String    @db.VarChar(255)
+  url         String    @db.VarChar(255)
+  mime_type   String    @db.VarChar(60)
+  size_bytes  Int
+  width       Int?
+  height      Int?
+  uploaded_by BigInt
+  created_at  DateTime  @default(now())
+
+  report        Report        @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  ai_prediction AiPrediction?
+
+  @@map("report_media")
+}
+
+model AiPrediction {
+  id             BigInt             @id @default(autoincrement())
+  media_id       BigInt             @unique
+  label          String             @db.VarChar(50)
+  confidence     Float
+  prob_flood     Float
+  prob_non_flood Float
+  model_version  String             @db.VarChar(50)
+  inference_ms   Int?
+  status         AiPredictionStatus @default(PENDING)
+  error_message  String?            @db.VarChar(255)
+  created_at     DateTime           @default(now())
+
+  media ReportMedia @relation(fields: [media_id], references: [id], onDelete: Cascade)
+
+  @@map("ai_predictions")
+}
+
+model ReportStatusHistory {
+  id          BigInt        @id @default(autoincrement())
+  report_id   BigInt
+  from_status ReportStatus?
+  to_status   ReportStatus
+  changed_by  BigInt
+  note        String?       @db.VarChar(255)
+  created_at  DateTime      @default(now())
+
+  report Report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [changed_by], references: [id])
+
+  @@map("report_status_history")
+}
+
+model ReportAssignment {
+  id           BigInt    @id @default(autoincrement())
+  report_id    BigInt
+  officer_id   BigInt
+  assigned_by  BigInt
+  assigned_at  DateTime  @default(now())
+  accepted_at  DateTime?
+  completed_at DateTime?
+  notes        String?   @db.Text
+
+  report   Report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  officer  User   @relation("OfficerRelation", fields: [officer_id], references: [id])
+  assigner User   @relation("AssignerRelation", fields: [assigned_by], references: [id])
+
+  @@map("report_assignments")
+}
+
+model EvacuationPoint {
+  id            BigInt   @id @default(autoincrement())
+  name          String   @db.VarChar(150)
+  address       String   @db.VarChar(255)
+  latitude      Decimal  @db.Decimal(10, 7)
+  longitude     Decimal  @db.Decimal(10, 7)
+  district_id   BigInt?
+  village_id    BigInt?
+  capacity      Int      @default(0)
+  facilities    String?  @db.Text
+  contact_name  String?  @db.VarChar(100)
+  contact_phone String?  @db.VarChar(20)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  district     District?              @relation(fields: [district_id], references: [id])
+  village      Village?               @relation(fields: [village_id], references: [id])
+  alert_points AlertEvacuationPoint[]
+
+  @@map("evacuation_points")
+}
+
+model Alert {
+  id          BigInt          @id @default(autoincrement())
+  public_id   String          @unique @default(uuid())
+  title       String          @db.VarChar(160)
+  message     String          @db.Text
+  level       AlertLevel
+  status      AlertStatus     @default(ACTIVE)
+  target_type AlertTargetType @default(ALL)
+  center_lat  Decimal?        @db.Decimal(10, 7)
+  center_lng  Decimal?        @db.Decimal(10, 7)
+  radius_m    Float?
+  starts_at   DateTime        @default(now())
+  ends_at     DateTime?
+  created_by  BigInt
+  ended_by    BigInt?
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+
+  targets           AlertTarget[]
+  evacuation_points AlertEvacuationPoint[]
+  deliveries        AlertDelivery[]
+
+  @@map("alerts")
+}
+
+model AlertTarget {
+  id          BigInt  @id @default(autoincrement())
+  alert_id    BigInt
+  district_id BigInt?
+  village_id  BigInt?
+
+  alert    Alert     @relation(fields: [alert_id], references: [id], onDelete: Cascade)
+  district District? @relation(fields: [district_id], references: [id])
+  village  Village?  @relation(fields: [village_id], references: [id])
+
+  @@map("alert_targets")
+}
+
+model AlertEvacuationPoint {
+  id                  BigInt @id @default(autoincrement())
+  alert_id            BigInt
+  evacuation_point_id BigInt
+
+  alert            Alert           @relation(fields: [alert_id], references: [id], onDelete: Cascade)
+  evacuation_point EvacuationPoint @relation(fields: [evacuation_point_id], references: [id], onDelete: Cascade)
+
+  @@unique([alert_id, evacuation_point_id])
+  @@map("alert_evacuation_points")
+}
+
+model AlertDelivery {
+  id              BigInt          @id @default(autoincrement())
+  alert_id        BigInt
+  user_id         BigInt?
+  device_token_id BigInt?
+  channel         DeliveryChannel
+  status          DeliveryStatus  @default(QUEUED)
+  error           String?         @db.VarChar(255)
+  sent_at         DateTime?
+  opened_at       DateTime?
+
+  alert        Alert        @relation(fields: [alert_id], references: [id], onDelete: Cascade)
+  device_token DeviceToken? @relation(fields: [device_token_id], references: [id])
+
+  @@map("alert_deliveries")
+}
+
+model DeviceToken {
+  id             BigInt         @id @default(autoincrement())
+  user_id        BigInt
+  platform       DevicePlatform
+  token          String         @db.Text
+  last_known_lat Decimal?       @db.Decimal(10, 7)
+  last_known_lng Decimal?       @db.Decimal(10, 7)
+  last_seen_at   DateTime       @default(now())
+  is_active      Boolean        @default(true)
+
+  user       User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deliveries AlertDelivery[]
+
+  @@map("device_tokens")
+}
+
+model Notification {
+  id         BigInt    @id @default(autoincrement())
+  user_id    BigInt
+  type       String    @db.VarChar(50)
+  title      String    @db.VarChar(160)
+  body       String    @db.Text
+  data       String?   @db.Text
+  read_at    DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, read_at])
+  @@map("notifications")
+}
+
+model EmergencyContact {
+  id          BigInt  @id @default(autoincrement())
+  name        String  @db.VarChar(100)
+  phone       String  @db.VarChar(30)
+  description String? @db.VarChar(255)
+  sort_order  Int     @default(0)
+  is_active   Boolean @default(true)
+
+  @@map("emergency_contacts")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actor_id    BigInt?
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(50)
+  entity_id   String?  @db.VarChar(50)
+  ip          String?  @db.VarChar(50)
+  user_agent  String?  @db.VarChar(255)
+  metadata    String?  @db.Text
+  created_at  DateTime @default(now())
+
+  actor User? @relation(fields: [actor_id], references: [id])
+
+  @@map("audit_logs")
+}

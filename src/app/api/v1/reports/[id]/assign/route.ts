@@ -84,6 +84,22 @@ export async function POST(
       },
     });
 
+    // Record audit log
+    const { recordAuditLog } = await import("@/lib/audit");
+    await recordAuditLog({
+      req,
+      actorId: payload.userId,
+      action: "ASSIGN_REPORT",
+      entityType: "REPORT",
+      entityId: report.id,
+      metadata: {
+        ticketCode: report.ticket_code,
+        officerId: officer.id.toString(),
+        officerName: officer.full_name,
+        notes,
+      },
+    });
+
     return apiSuccess({
       message: `Laporan berhasil ditugaskan ke ${officer.full_name}`,
       assignment,

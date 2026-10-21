@@ -62,6 +62,17 @@ export async function PATCH(
       },
     });
 
+    // Record audit log
+    const { recordAuditLog } = await import("@/lib/audit");
+    await recordAuditLog({
+      req,
+      actorId: payload.userId,
+      action: "REJECT_REPORT",
+      entityType: "REPORT",
+      entityId: report.id,
+      metadata: { ticketCode: report.ticket_code, reason: result.data.reason },
+    });
+
     return apiSuccess({
       message: "Laporan berhasil ditolak",
       report: updated,

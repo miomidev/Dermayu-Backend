@@ -58,6 +58,17 @@ export async function PATCH(
       },
     });
 
+    // Record audit log
+    const { recordAuditLog } = await import("@/lib/audit");
+    await recordAuditLog({
+      req,
+      actorId: payload.userId,
+      action: "VERIFY_REPORT",
+      entityType: "REPORT",
+      entityId: report.id,
+      metadata: { ticketCode: report.ticket_code, title: report.title },
+    });
+
     return apiSuccess({
       message: "Laporan berhasil diverifikasi",
       report: updated,

@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
-  title: "DERMAYU — Platform Pelaporan & Dering Evakuasi Indramayu",
+  title: "DERMAYU — Sistem Mitigasi & Pantauan Banjir Indramayu",
   description:
-    "Dering Evakuasi, Respons Masyarakat, dan Aduan Wilayah Indramayu. Platform pelaporan bencana dan infrastruktur berbasis lokasi dengan integrasi validasi AI CNN.",
+    "Platform peringatan dini tinggi muka air (TMA), respons darurat, dan koordinasi evakuasi banjir terpadu di Kabupaten Indramayu.",
 };
 
 export default function RootLayout({
@@ -19,8 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-black">
+    <html lang="id" className={`${plusJakartaSans.variable} h-full scroll-smooth antialiased`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-full flex flex-col font-sans bg-white text-gray-900 selection:bg-[#38746D] selection:text-white">
         {children}
       </body>
     </html>

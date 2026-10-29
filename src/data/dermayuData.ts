@@ -1,14 +1,16 @@
 export interface NavRoute {
   href: string;
   label: string;
+  sectionId?: string;
 }
 
 export const ROUTES: NavRoute[] = [
-  { href: "/", label: "Beranda" },
-  { href: "#tentang", label: "Tentang" },
-  { href: "#fitur-fitur", label: "Fitur-fitur" },
-  { href: "#cara-kerja", label: "Cara Kerja" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#beranda", label: "Beranda", sectionId: "beranda" },
+  { href: "/#tentang", label: "Tentang", sectionId: "tentang" },
+  { href: "/#fitur", label: "Fitur-fitur", sectionId: "fitur" },
+  { href: "/#cara-kerja", label: "Cara Kerja", sectionId: "cara-kerja" },
+  { href: "/#faq", label: "FAQ", sectionId: "faq" },
+  { href: "/panduan", label: "Panduan", sectionId: "panduan" },
 ];
 
 export interface TmaStation {

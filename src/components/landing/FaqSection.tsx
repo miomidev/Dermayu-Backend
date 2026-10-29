@@ -112,7 +112,7 @@ export function FaqSection() {
                   }}
                   className="h-full px-6 bg-[#38746D] hover:bg-[#24544E] text-white text-sm font-medium rounded-full -mr-[1px] shrink-0 flex items-center justify-center transition-colors cursor-pointer border-none"
                 >
-                  Langganan
+                  Submit
                 </motion.button>
               </motion.form>
 

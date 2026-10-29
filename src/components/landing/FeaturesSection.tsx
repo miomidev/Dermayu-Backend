@@ -95,7 +95,7 @@ export function FeaturesSection() {
   ];
 
   return (
-    <section id="fitur-fitur" aria-label="Features Section" className="bg-white py-16 sm:py-20 lg:py-24 border-t border-[#E8F1EE] scroll-mt-20">
+    <section id="fitur" aria-label="Features Section" className="bg-white py-16 sm:py-20 lg:py-24 border-t border-[#E8F1EE] scroll-mt-20">
       <div className="max-w-6xl mx-auto px-6 sm:px-8">
         {/* Section Header Sesuai Wireframe */}
         <motion.div

@@ -41,7 +41,7 @@ export function HeroSection() {
 
   return (
     <section
-      id="home"
+      id="beranda"
       className="relative overflow-x-clip bg-white bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(56,116,109,0.08),rgba(255,255,255,0))] pt-2 sm:pt-3 lg:pt-4 pb-12 sm:pb-16 lg:pb-20 scroll-mt-20"
     >
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center w-full min-h-[460px] sm:min-h-[500px] lg:min-h-[560px]">
@@ -93,7 +93,7 @@ export function HeroSection() {
             transition={{ duration: 1.05, delay: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
             className="text-[#4B635F] text-xs sm:text-sm max-w-sm sm:max-w-md mt-3 mb-5 leading-relaxed font-normal"
           >
-            DERMAYU mengintegrasikan pantauan sensor Tinggi Muka Air (TMA) Sungai Cimanuk, pemetaan titik banjir real-time, dan koordinasi evakuasi cepat untuk melindungi warga dari risiko banjir luapan dan rob.
+            Sistem mitigasi dan tanggap darurat banjir terpadu di Indramayu. Hadir dengan peringatan dini, aduan darurat warga, dan panduan jalur evakuasi bebas genangan menuju posko terdekat.
           </motion.p>
 
           {/* CTA Button Group: Animasi Masuk dari Bawah ke Atas (Lebih Lama Sedikit dari Deskripsi, Mendarat Santai) */}
@@ -163,7 +163,7 @@ export function HeroSection() {
               alt="Antarmuka Pemantauan TMA dan Peringatan Dini DERMAYU Kabupaten Indramayu"
               width={700}
               height={912}
-              className="w-[300px] sm:w-[390px] md:w-[450px] lg:w-[500px] xl:w-[560px] max-w-none h-auto object-contain drop-shadow-2xl mx-auto select-none"
+              className="w-[300px] sm:w-[390px] md:w-[450px] lg:w-[500px] xl:w-[560px] max-w-none h-auto object-contain drop-shadow-2xl mx-auto select-none translate-x-7.5 md:translate-x-0"
               priority
             />
           </motion.div>

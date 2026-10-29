@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ROUTES } from "@/data/dermayuData";
@@ -32,10 +33,55 @@ const navItemVariants = {
 };
 
 export function SiteHeader({ path = "/" }: SiteHeaderProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("beranda");
+
+  useEffect(() => {
+    // Jika berada di halaman /panduan, set active ke panduan
+    if (pathname === "/panduan") {
+      setActiveSection("panduan");
+      return;
+    }
+
+    // Scroll-spy untuk section anchor di landing page
+    const handleScroll = () => {
+      // Jika masih di paling atas layar (< 150px), aktifkan beranda
+      if (window.scrollY < 150) {
+        setActiveSection("beranda");
+        return;
+      }
+
+      const scrollPosition = window.scrollY + 140; // Offset navbar
+
+      // Periksa dari bawah ke atas
+      const sections = ["faq", "cara-kerja", "fitur", "tentang", "beranda"];
+      for (const section of sections) {
+        const el = document.getElementById(section);
+        if (el) {
+          const top = el.offsetTop;
+          if (scrollPosition >= top) {
+            setActiveSection(section);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll(); // Jalankan sekali saat mount
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#E8F1EE] bg-white/95 backdrop-blur-md">
+    <motion.header
+      key={pathname}
+      initial={{ opacity: 0, y: -25 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
+      className="sticky top-0 z-50 border-b border-[#E8F1EE] bg-white/95 backdrop-blur-md"
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 w-full">
         {/* Kolom Kiri: Logo & Brand DERMAYU (Meluncur Halus dari Kiri) */}
         <motion.div
@@ -69,16 +115,30 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
           animate="visible"
           className="hidden md:flex items-center gap-8"
         >
-          {ROUTES.map((r) => (
-            <motion.div key={r.href} variants={navItemVariants}>
-              <Link
-                href={r.href}
-                className="text-sm font-medium text-[#4B635F] hover:text-[#132422] transition-colors whitespace-nowrap block"
-              >
-                {r.label}
-              </Link>
-            </motion.div>
-          ))}
+          {ROUTES.map((r) => {
+            const isActive =
+              pathname === "/panduan"
+                ? r.sectionId === "panduan"
+                : activeSection === r.sectionId;
+
+            return (
+              <motion.div key={r.href} variants={navItemVariants}>
+                <Link
+                  href={r.href}
+                  onClick={() => {
+                    if (r.sectionId) setActiveSection(r.sectionId);
+                  }}
+                  className={`text-sm transition-colors whitespace-nowrap block ${
+                    isActive
+                      ? "text-[#38746D] font-bold"
+                      : "text-[#4B635F] font-medium hover:text-[#132422]"
+                  }`}
+                >
+                  {r.label}
+                </Link>
+              </motion.div>
+            );
+          })}
         </motion.nav>
 
         {/* Kolom Kanan: Tombol Aksi Desktop (Paling Lama & Mendarat Lembut dari Jauh di Kanan) */}
@@ -140,17 +200,31 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
             className="border-t border-[#E8F1EE] bg-white px-6 py-5 md:hidden shadow-lg"
           >
             <ul className="flex flex-col gap-3.5">
-              {ROUTES.map((r) => (
-                <li key={r.href}>
-                  <Link
-                    href={r.href}
-                    onClick={() => setOpen(false)}
-                    className="text-sm font-medium text-[#4B635F] hover:text-[#132422] block py-1 transition-colors"
-                  >
-                    {r.label}
-                  </Link>
-                </li>
-              ))}
+              {ROUTES.map((r) => {
+                const isActive =
+                  pathname === "/panduan"
+                    ? r.sectionId === "panduan"
+                    : activeSection === r.sectionId;
+
+                return (
+                  <li key={r.href}>
+                    <Link
+                      href={r.href}
+                      onClick={() => {
+                        if (r.sectionId) setActiveSection(r.sectionId);
+                        setOpen(false);
+                      }}
+                      className={`text-sm block py-1 transition-colors ${
+                        isActive
+                          ? "text-[#38746D] font-bold"
+                          : "text-[#4B635F] font-medium hover:text-[#132422]"
+                      }`}
+                    >
+                      {r.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-5 flex flex-col gap-2.5 pt-4 border-t border-[#E8F1EE]">
               <Link
@@ -171,6 +245,6 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </header>
+    </motion.header>
   );
 }

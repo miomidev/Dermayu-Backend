@@ -19,10 +19,11 @@ const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: "TAUTAN UTAMA",
     links: [
-      { label: "Tentang", href: "#tentang" },
-      { label: "Fitur-fitur", href: "#fitur-fitur" },
-      { label: "Cara Kerja", href: "#cara-kerja" },
-      { label: "FAQ", href: "#faq" },
+      { label: "Tentang", href: "/#tentang" },
+      { label: "Fitur-fitur", href: "/#fitur" },
+      { label: "Cara Kerja", href: "/#cara-kerja" },
+      { label: "FAQ", href: "/#faq" },
+      { label: "Panduan", href: "/panduan" },
     ],
   },
   {
@@ -167,7 +168,7 @@ export function SiteFooter() {
 
         </div>
 
-        {/* Bottom Bar: Hak Cipta (Meluncur dari Kiri ke Kanan) */}
+        {/* Bottom Bar: Kredit Tim (Meluncur dari Kiri ke Kanan) */}
         <motion.div
           initial={{ opacity: 0, x: -30 }}
           whileInView={{ opacity: 1, x: 0 }}
@@ -175,7 +176,7 @@ export function SiteFooter() {
           transition={{ duration: 0.5, delay: 0.7, ease: [0.16, 1, 0.3, 1] as const }}
           className="mt-12 border-t border-[#2E6A63]/60 pt-8 text-left text-xs text-[#A4C6C1]"
         >
-          <p>&copy; 2026 DERMAYU. Hak cipta dilindungi undang-undang.</p>
+          <p>&copy; 2026 DERMAYU &middot; Tim POLIWINDRA</p>
         </motion.div>
       </div>
     </footer>

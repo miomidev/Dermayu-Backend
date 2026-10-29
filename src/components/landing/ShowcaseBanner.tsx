@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
 import { MapPin, Activity, Search } from "lucide-react";
 import { INDRAMAYU_MAP_PATH } from "@/data/indramayuContour";
@@ -124,6 +124,7 @@ interface ExpandingPinMarkerProps {
   index: number;
   isSelected: boolean;
   isInView: boolean;
+  isMobile: boolean;
   onSelect: (pin: PinData) => void;
 }
 
@@ -132,6 +133,7 @@ function ExpandingPinMarker({
   index,
   isSelected,
   isInView,
+  isMobile,
   onSelect,
 }: ExpandingPinMarkerProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -157,21 +159,21 @@ function ExpandingPinMarker({
           ? {
               scale: 1,
               opacity: 1,
-              rotate: [0, 4, -2, 0], // Ayunan inersia saat peta bergeser ke kiri
+              rotate: [0, 5, -3, 0], // Efek goyang inersia adaptif
               transition: {
                 scale: {
                   type: "spring" as const,
                   stiffness: 260,
                   damping: 18,
-                  delay: 0.2 + index * 0.15,
+                  delay: isMobile ? 0.25 + index * 0.08 : 0.2 + index * 0.15,
                 },
                 opacity: {
                   duration: 0.2,
-                  delay: 0.2 + index * 0.15,
+                  delay: isMobile ? 0.25 + index * 0.08 : 0.2 + index * 0.15,
                 },
                 rotate: {
-                  delay: 1.1 + index * 0.05,
-                  duration: 0.8,
+                  delay: isMobile ? 0.4 + index * 0.05 : 1.1 + index * 0.05,
+                  duration: isMobile ? 0.6 : 0.8,
                   ease: "easeInOut" as const,
                 },
               },
@@ -272,6 +274,14 @@ function ExpandingPinMarker({
 export function ShowcaseBanner() {
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { amount: 0.2 });
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const [selectedLocation, setSelectedLocation] = useState("Semua Wilayah");
   const [selectedStatus, setSelectedStatus] = useState("Semua Status");
@@ -303,22 +313,43 @@ export function ShowcaseBanner() {
         {/* Open 2-Column Split Sesuai Desain Campty (Tanpa Kotak Kartu Bertingkat) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
           
-          {/* Kolom Kiri: Peta Mini-Hexagon Indramayu (Animasi 2 Fase Terkoordinasi) */}
+          {/* Kolom Kiri: Peta Mini-Hexagon Indramayu (Animasi Adaptif Mobile vs Desktop) */}
           <div className="lg:col-span-6 relative z-10 w-full flex items-center justify-center select-none overflow-visible">
             <motion.div
               className="relative w-full lg:w-[130%] -ml-0 lg:-ml-16 pointer-events-auto origin-center overflow-visible"
-              initial={{ x: "42%", scale: 1.52, opacity: 0 }}
+              initial={
+                isMobile
+                  ? { x: -60, scale: 1, opacity: 0 }
+                  : { x: "42%", scale: 1.52, opacity: 0 }
+              }
               animate={
                 isInView
+                  ? isMobile
+                    ? {
+                        x: 0,
+                        scale: 1,
+                        opacity: 1,
+                        transition: {
+                          duration: 0.7,
+                          ease: [0.16, 1, 0.3, 1] as const,
+                        },
+                      }
+                    : {
+                        x: 0,
+                        scale: 1.05,
+                        opacity: 1,
+                        transition: {
+                          opacity: { duration: 0.4 },
+                          x: { duration: 1.25, delay: 0.9, ease: [0.16, 1, 0.3, 1] as const },
+                          scale: { duration: 1.25, delay: 0.9, ease: [0.16, 1, 0.3, 1] as const },
+                        },
+                      }
+                  : isMobile
                   ? {
-                      x: 0,
-                      scale: 1.05,
-                      opacity: 1,
-                      transition: {
-                        opacity: { duration: 0.4 },
-                        x: { duration: 1.25, delay: 0.9, ease: [0.16, 1, 0.3, 1] as const },
-                        scale: { duration: 1.25, delay: 0.9, ease: [0.16, 1, 0.3, 1] as const },
-                      },
+                      x: -60,
+                      scale: 1,
+                      opacity: 0,
+                      transition: { duration: 0.2 },
                     }
                   : {
                       x: "42%",
@@ -426,6 +457,7 @@ export function ShowcaseBanner() {
                     index={index}
                     isSelected={activePin === pin.id}
                     isInView={isInView}
+                    isMobile={isMobile}
                     onSelect={handlePinClick}
                   />
                 ))}
@@ -435,52 +467,78 @@ export function ShowcaseBanner() {
 
           {/* Kolom Kanan: Teks Konten & Filter Box Masuk Bertahap Terkoordinasi */}
           <div className="lg:col-span-6 relative z-20 text-left flex flex-col justify-center space-y-6">
-            {/* 1. Judul: Mulai meluncur bertepatan saat peta bergeser ke kiri (delay: 1.0s) */}
+            {/* 1. Judul: Adaptif Mobile (Slide Up dari Bawah) vs Desktop (Slide dari Kanan) */}
             <motion.h2
               className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#132422] leading-[1.2]"
-              initial={{ opacity: 0, x: 60 }}
+              initial={isMobile ? { opacity: 0, y: 25, x: 0 } : { opacity: 0, x: 60, y: 0 }}
               animate={
                 isInView
                   ? {
                       opacity: 1,
                       x: 0,
-                      transition: { duration: 0.7, delay: 1.0, ease: [0.16, 1, 0.3, 1] as const },
+                      y: 0,
+                      transition: {
+                        duration: isMobile ? 0.6 : 0.7,
+                        delay: isMobile ? 0.5 : 1.0,
+                        ease: [0.16, 1, 0.3, 1] as const,
+                      },
+                    }
+                  : isMobile
+                  ? {
+                      opacity: 0,
+                      y: 25,
+                      x: 0,
+                      transition: { duration: 0.2 },
                     }
                   : {
                       opacity: 0,
                       x: 60,
+                      y: 0,
                       transition: { duration: 0.2 },
                     }
               }
             >
-              Pantauan Real–Time Sungai Cimanuk &amp; Wilayah Pesisir
+              Tentang DERMAYU sebagai Solusi Digital Tanggap Banjir Indramayu
             </motion.h2>
 
-            {/* 2. Deskripsi: Menyusul cepat sebelum judul selesai (delay: 1.15s) */}
+            {/* 2. Deskripsi: Adaptif Mobile (Slide Up dari Bawah) vs Desktop (Slide dari Kanan) */}
             <motion.p
               className="text-sm sm:text-base text-[#4B635F] leading-relaxed max-w-lg"
-              initial={{ opacity: 0, x: 50 }}
+              initial={isMobile ? { opacity: 0, y: 25, x: 0 } : { opacity: 0, x: 50, y: 0 }}
               animate={
                 isInView
                   ? {
                       opacity: 1,
                       x: 0,
-                      transition: { duration: 0.7, delay: 1.15, ease: [0.16, 1, 0.3, 1] as const },
+                      y: 0,
+                      transition: {
+                        duration: isMobile ? 0.6 : 0.7,
+                        delay: isMobile ? 0.62 : 1.15,
+                        ease: [0.16, 1, 0.3, 1] as const,
+                      },
+                    }
+                  : isMobile
+                  ? {
+                      opacity: 0,
+                      y: 25,
+                      x: 0,
+                      transition: { duration: 0.2 },
                     }
                   : {
                       opacity: 0,
                       x: 50,
+                      y: 0,
                       transition: { duration: 0.2 },
                     }
               }
             >
-              Telusuri data ketinggian muka air dari hulu Bendung Rentang hingga hilir muara secara akurat dari perangkat Anda.
+              DERMAYU mengintegrasikan <em className="italic">Civic Reporting &amp; Accountability</em> dengan <em className="italic">Data-Driven Decision Support</em> untuk merevolusi penanganan banjir rob dan luapan sungai di Kabupaten Indramayu. Melalui platform ini, aduan darurat masyarakat dilaporkan secara presisi dan dipantau tindak lanjutnya secara terbuka dan akuntabel. Di saat bersamaan, data spasial genangan serta ketersediaan posko diolah menjadi dasar keputusan navigasi evakuasi aman yang transparan dan tepat sasaran.
             </motion.p>
 
-            {/* 3. Panel Filter Search: Menyusul terakhir dengan transisi halus (delay: 1.3s) */}
+            {/* 3. Panel Filter Search: Adaptif Mobile (Slide Up dari Bawah) vs Desktop */}
             <motion.div
               className="pt-1 sm:pt-2"
-              initial={{ opacity: 0, x: 40, y: 15 }}
+              initial={isMobile ? { opacity: 0, y: 25, x: 0 } : { opacity: 0, x: 40, y: 15 }}
               animate={
                 isInView
                   ? {
@@ -488,7 +546,19 @@ export function ShowcaseBanner() {
                       x: 0,
                       y: 0,
                       pointerEvents: "auto",
-                      transition: { duration: 0.7, delay: 1.3, ease: [0.16, 1, 0.3, 1] as const },
+                      transition: {
+                        duration: isMobile ? 0.6 : 0.7,
+                        delay: isMobile ? 0.74 : 1.3,
+                        ease: [0.16, 1, 0.3, 1] as const,
+                      },
+                    }
+                  : isMobile
+                  ? {
+                      opacity: 0,
+                      y: 25,
+                      x: 0,
+                      pointerEvents: "none",
+                      transition: { duration: 0.2 },
                     }
                   : {
                       opacity: 0,

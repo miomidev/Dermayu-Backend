@@ -61,17 +61,21 @@ export function WhyUsSection() {
                   delay: idx * 0.08,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                whileHover={{ y: -3 }}
-                className="rounded-3xl border border-[#D5E4E0] bg-[#EEF5F3]/70 hover:bg-[#EEF5F3] p-6 sm:p-7 flex flex-col justify-between text-left transition-all duration-150 shadow-2xs hover:shadow-sm group"
+                whileHover={{ y: -5 }}
+                className="relative overflow-hidden rounded-3xl border border-[#D5E4E0] hover:border-[#38746D] bg-[#EEF5F3]/70 p-6 sm:p-7 flex flex-col justify-between text-left transition-all duration-300 shadow-2xs hover:shadow-lg group cursor-pointer"
               >
-                <div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-[#A4C6C1]/60 text-[#38746D] shadow-2xs mb-5 group-hover:scale-105 transition-transform">
-                    <Icon className="h-5 w-5" />
+                {/* Layer Motion Fill: Mengisi warna hijau dari Bawah ke Atas */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#24544E] to-[#38746D] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] z-0 pointer-events-none" />
+
+                {/* Konten Kartu di Atas Layer Fill */}
+                <div className="relative z-10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-[#A4C6C1]/60 text-[#38746D] group-hover:bg-white/20 group-hover:border-white/40 group-hover:text-white shadow-2xs mb-5 group-hover:scale-105 transition-all duration-300">
+                    <Icon className="h-5 w-5 transition-colors duration-300" />
                   </div>
-                  <h3 className="text-base font-bold text-[#132422]">
+                  <h3 className="text-base font-bold text-[#132422] group-hover:text-white transition-colors duration-300">
                     {c.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-[#4B635F] mt-2 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#4B635F] mt-2 leading-relaxed group-hover:text-[#EEF5F3] transition-colors duration-300">
                     {c.desc}
                   </p>
                 </div>

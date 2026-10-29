@@ -19,7 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${plusJakartaSans.variable} h-full scroll-smooth antialiased`}>
+    <html
+      lang="id"
+      data-scroll-behavior="smooth"
+      className={`${plusJakartaSans.variable} h-full scroll-smooth antialiased`}
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

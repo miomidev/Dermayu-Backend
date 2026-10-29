@@ -9,20 +9,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "encrypted-tbn0.gstatic.com" },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: "/login",
-        destination: "/auth/login",
-        permanent: false,
-      },
-      {
-        source: "/register",
-        destination: "/auth/login",
-        permanent: false,
-      },
-    ];
-  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

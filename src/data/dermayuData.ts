@@ -8,7 +8,7 @@ export const ROUTES: NavRoute[] = [
   { href: "/#beranda", label: "Beranda", sectionId: "beranda" },
   { href: "/#tentang", label: "Tentang", sectionId: "tentang" },
   { href: "/#fitur", label: "Fitur-fitur", sectionId: "fitur" },
-  { href: "/#cara-kerja", label: "Cara Kerja", sectionId: "cara-kerja" },
+  { href: "/#cara-kerja", label: "Keunggulan", sectionId: "cara-kerja" },
   { href: "/#faq", label: "FAQ", sectionId: "faq" },
   { href: "/panduan", label: "Panduan", sectionId: "panduan" },
 ];

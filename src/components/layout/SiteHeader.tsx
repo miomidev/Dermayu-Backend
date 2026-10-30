@@ -188,61 +188,78 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
         </motion.div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* ========================================================= */}
+      {/* DROPDOWN MENU MOBILE (FLOATING OVERLAY - ZERO LAYOUT SHIFT)*/}
+      {/* ========================================================= */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            id="mobile-menu"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="border-t border-[#E8F1EE] bg-white px-6 py-5 md:hidden shadow-lg"
-          >
-            <ul className="flex flex-col gap-3.5">
-              {ROUTES.map((r) => {
-                const isActive =
-                  pathname === "/panduan"
-                    ? r.sectionId === "panduan"
-                    : activeSection === r.sectionId;
+          <>
+            {/* Backdrop Gelap Transparan di Belakang Menu Mobile */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 top-[68px] bg-slate-900/25 backdrop-blur-[2px] md:hidden z-40"
+              aria-hidden="true"
+            />
 
-                return (
-                  <li key={r.href}>
-                    <Link
-                      href={r.href}
-                      onClick={() => {
-                        if (r.sectionId) setActiveSection(r.sectionId);
-                        setOpen(false);
-                      }}
-                      className={`text-sm block py-1 transition-colors ${
-                        isActive
-                          ? "text-[#38746D] font-bold"
-                          : "text-[#4B635F] font-medium hover:text-[#132422]"
-                      }`}
-                    >
-                      {r.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-5 flex flex-col gap-2.5 pt-4 border-t border-[#E8F1EE]">
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="w-full text-center rounded-full border border-[#A4C6C1] bg-white py-2.5 text-sm font-medium text-[#2E6A63] hover:bg-[#EEF5F3] shadow-2xs transition-colors"
-              >
-                Masuk
-              </Link>
-              <Link
-                href="/register"
-                onClick={() => setOpen(false)}
-                className="w-full text-center rounded-full bg-[#38746D] py-2.5 text-sm font-medium text-white hover:bg-[#24544E] shadow-xs transition-colors"
-              >
-                Mulai sekarang
-              </Link>
-            </div>
-          </motion.div>
+            {/* Menu Mobile Floating Melayang Menimpa Layar */}
+            <motion.div
+              id="mobile-menu"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md border-b border-[#D5E4E0] shadow-2xl px-6 py-6 flex flex-col gap-4 md:hidden z-50 max-h-[calc(100vh-72px)] overflow-y-auto"
+            >
+              <ul className="flex flex-col gap-3">
+                {ROUTES.map((r) => {
+                  const isActive =
+                    pathname === "/panduan"
+                      ? r.sectionId === "panduan"
+                      : activeSection === r.sectionId;
+
+                  return (
+                    <li key={r.href}>
+                      <Link
+                        href={r.href}
+                        onClick={() => {
+                          if (r.sectionId) setActiveSection(r.sectionId);
+                          setOpen(false);
+                        }}
+                        className={`text-sm block py-1.5 font-semibold transition-colors ${
+                          isActive
+                            ? "text-[#38746D]"
+                            : "text-[#4B635F] hover:text-[#132422]"
+                        }`}
+                      >
+                        {r.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="pt-3 border-t border-[#E8F1EE] flex flex-col gap-3">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="w-full text-center py-2.5 rounded-full border border-[#D5E4E0] bg-white text-sm font-semibold text-[#132422] hover:bg-gray-50 transition-colors shadow-2xs"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setOpen(false)}
+                  className="w-full text-center py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-sm font-semibold shadow-sm transition-colors"
+                >
+                  Mulai sekarang
+                </Link>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </motion.header>

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -284,14 +283,7 @@ export default function PetugasDashboard() {
   });
 
   return (
-    <DashboardLayout
-      role="petugas"
-      title="Pusat Kendali BPBD"
-      userName={session.name}
-      userRoleLabel="Operator Pusdalops BPBD"
-      userLocation={session.district}
-    >
-      <div className="space-y-7 text-left">
+    <div className="space-y-7 text-left">
         {/* Banner Alert Sukses Tindakan */}
         {actionSuccessMsg && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
@@ -677,7 +669,6 @@ export default function PetugasDashboard() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
   );
 }
 

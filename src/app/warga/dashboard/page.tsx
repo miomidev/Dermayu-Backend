@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   ShieldCheck,
   MapPin,
@@ -392,13 +391,7 @@ export default function WargaDashboard() {
   };
 
   return (
-    <DashboardLayout
-      role="warga"
-      title="Dasbor Kesiapsiagaan"
-      userName={session.name}
-      userRoleLabel="Warga Siaga Terverifikasi"
-      userLocation={session.district}
-    >
+    <>
       <div className="space-y-6">
         {/* ============================================================ */}
         {/* A. ALERT BANNER: DERING EVAKUASI & STATUS SIAGA (PRD ALERT)  */}
@@ -1261,6 +1254,6 @@ export default function WargaDashboard() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }

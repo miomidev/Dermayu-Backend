@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   PhoneCall,
   ShieldAlert,
@@ -170,14 +169,7 @@ export default function KontakDaruratPage() {
   };
 
   return (
-    <DashboardLayout
-      role="warga"
-      title="Kontak Darurat 24 Jam"
-      userName="Pak Kusnan"
-      userRoleLabel="Warga Siaga"
-      userLocation="Kandanghaur - Eretan Wetan"
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* BANNER UTAMA PANGGILAN CEPAT */}
         <div className="p-6 sm:p-7 rounded-3xl bg-linear-to-r from-red-600 via-rose-600 to-[#1D443F] text-white shadow-lg relative overflow-hidden">
           <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
@@ -370,7 +362,6 @@ export default function KontakDaruratPage() {
           })}
         </div>
       </div>
-    </DashboardLayout>
   );
 }
 

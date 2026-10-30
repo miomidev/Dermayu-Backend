@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   ClipboardList,
   Search,
@@ -244,14 +243,7 @@ export default function PetugasTriagePage() {
   };
 
   return (
-    <DashboardLayout
-      role="petugas"
-      title="Triage & Verifikasi Aduan"
-      userName="Komandan Surya BPBD"
-      userRoleLabel="Operator Pusdalops BPBD"
-      userLocation="Pusdalops Indramayu"
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Banner Alert Sukses */}
         {notification && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
@@ -635,7 +627,6 @@ export default function PetugasTriagePage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 }
 

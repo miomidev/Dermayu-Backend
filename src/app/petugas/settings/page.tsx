@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { clearUserSession } from "@/utils/authSession";
 import {
   Settings,
@@ -59,14 +58,7 @@ export default function PetugasSettingsPage() {
   };
 
   return (
-    <DashboardLayout
-      role="petugas"
-      title="Pengaturan & Akses Petugas"
-      userName={operatorName}
-      userRoleLabel="Operator Pusdalops BPBD"
-      userLocation="Pusdalops Indramayu"
-    >
-      <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl">
         {/* Banner Alert Sukses */}
         {notification && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
@@ -309,7 +301,6 @@ export default function PetugasSettingsPage() {
           </div>
         </form>
       </div>
-    </DashboardLayout>
   );
 }
 

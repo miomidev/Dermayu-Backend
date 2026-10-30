@@ -130,7 +130,7 @@ export function saveUserSession(user: {
   const now = Date.now();
 
   const session: UserSession = {
-    name: user.name || (isWarga ? "Pak Kusnan" : "Komandan Surya BPBD"),
+    name: user.name || (isWarga ? "Warga Indramayu" : "Petugas BPBD"),
     email: user.email,
     role: normalizedRole,
     district:
@@ -147,6 +147,7 @@ export function saveUserSession(user: {
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;
+    window.dispatchEvent(new Event("dermayu_session_updated"));
   }
 
   return session;

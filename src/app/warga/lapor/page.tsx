@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   PlusCircle,
   Camera,
@@ -89,8 +88,7 @@ export default function WargaLaporPage() {
   };
 
   return (
-    <DashboardLayout role="warga" title="Lapor Titik Banjir">
-      <div className="max-w-3xl mx-auto space-y-6 text-left">
+    <div className="max-w-3xl mx-auto space-y-6 text-left">
         {submitted ? (
           <div className="p-8 rounded-3xl bg-white border border-[#D5E4E0] text-center shadow-md space-y-4">
             <CheckCircle2 className="w-16 h-16 text-emerald-600 mx-auto animate-bounce" />
@@ -337,7 +335,6 @@ export default function WargaLaporPage() {
           </form>
         )}
       </div>
-    </DashboardLayout>
   );
 }
 

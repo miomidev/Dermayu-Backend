@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Building2,
   MapPin,
@@ -105,8 +104,7 @@ export default function WargaPoskoPage() {
   const totalTerisi = shelters.reduce((acc, cur) => acc + cur.capacityFilled, 0);
 
   return (
-    <DashboardLayout role="warga" title="Pantauan Posko">
-      <div className="space-y-6 text-left">
+    <div className="space-y-6 text-left">
         {/* Banner Metrik Posko */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-1">
@@ -247,7 +245,6 @@ export default function WargaPoskoPage() {
           })}
         </section>
       </div>
-    </DashboardLayout>
   );
 }
 

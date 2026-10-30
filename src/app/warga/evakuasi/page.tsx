@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Navigation,
   Compass,
@@ -82,8 +81,7 @@ export default function WargaEvakuasiPage() {
   const [selectedShelter, setSelectedShelter] = useState<ShelterItem>(shelters[0]);
 
   return (
-    <DashboardLayout role="warga" title="Navigasi Evakuasi Aman">
-      <div className="space-y-6 text-left">
+    <div className="space-y-6 text-left">
         {/* Banner Status Rute */}
         <section className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#1D443F] to-[#24544E] text-white shadow-md relative overflow-hidden">
           <div className="relative z-10 space-y-2">
@@ -213,7 +211,6 @@ export default function WargaEvakuasiPage() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
   );
 }
 

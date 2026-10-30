@@ -53,7 +53,11 @@ export default function PetugasSettingsPage() {
   const handleLogout = () => {
     if (confirm("Apakah Anda yakin ingin keluar dari sesi operator Pusdalops BPBD?")) {
       clearUserSession();
-      router.push("/login");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      } else {
+        router.push("/login");
+      }
     }
   };
 

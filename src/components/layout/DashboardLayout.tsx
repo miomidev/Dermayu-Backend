@@ -9,7 +9,7 @@ export interface DashboardLayoutProps extends Partial<DashboardShellProps> {
   pageTitle?: string;
   userName?: string;
   userRoleLabel?: string;
-  userLocation?: string;
+  // userLocation?: string;
   children: React.ReactNode;
 }
 

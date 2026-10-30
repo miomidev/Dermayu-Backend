@@ -209,7 +209,11 @@ export default function PetugasDashboard() {
 
   const handleLogout = () => {
     clearUserSession();
-    router.push("/login");
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    } else {
+      router.push("/login");
+    }
   };
 
   // Triage Action Handlers

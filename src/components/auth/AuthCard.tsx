@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,7 +21,8 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
-import { saveUserSession } from "@/utils/authSession";
+import { saveUserSession, touchDashboardActivity } from "@/utils/authSession";
+import { AuthBackgroundDecor } from "@/components/auth/AuthBackgroundDecor";
 
 const INDRAMAYU_DISTRICTS = [
   "Anjatan",
@@ -148,13 +149,47 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Sync mode with prop and pathname
-  const isRegister = pathname.includes("register") || initialMode === "register";
+  // Mode state with smooth in-place sliding
+  const [isRegisterMode, setIsRegisterMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname.includes("register") || initialMode === "register";
+    }
+    return initialMode === "register";
+  });
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const prevPathnameRef = useRef(pathname);
+
+  // Sync hanya jika pathname rute Next.js benar-benar berganti dari navigasi luar (bukan toggle internal)
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      setIsRegisterMode(pathname.includes("register"));
+    }
+    // Pastikan status exit auth selalu reset ke false saat berada di halaman auth
+    setIsLoggingIn(false);
+  }, [pathname]);
+
+  // Sync saat tombol navigasi back / forward browser ditekan
+  useEffect(() => {
+    const handlePopState = () => {
+      const isReg = window.location.pathname.includes("register");
+      prevPathnameRef.current = window.location.pathname;
+      setIsRegisterMode(isReg);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const isRegister = isRegisterMode;
 
   const toggleMode = (targetMode?: "login" | "register") => {
-    const nextState = targetMode ? targetMode === "register" : !isRegister;
-    const targetUrl = nextState ? "/register" : "/login";
-    router.push(targetUrl);
+    const nextState = targetMode !== undefined ? targetMode === "register" : !isRegisterMode;
+    const nextPath = nextState ? "/register" : "/login";
+    prevPathnameRef.current = nextPath;
+    setIsRegisterMode(nextState);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", nextPath);
+    }
   };
 
   // Variasi animasi stagger untuk item formulir desktop
@@ -188,20 +223,26 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
     setLoginLoading(true);
     setLoginError(null);
 
-    // Helper untuk menyimpan session & redirect berbasis peran
+    // Helper untuk menyimpan session & trigger exit sliding panel menuju dashboard
     const setSessionAndRedirect = (userObj: {
       name: string;
       email: string;
       role: string;
       district?: string;
     }) => {
+      setIsLoggingIn(true);
       const session = saveUserSession(userObj);
+      touchDashboardActivity();
+      const targetDashboard = session.role === "warga" ? "/warga/dashboard" : "/petugas/dashboard";
 
-      if (session.role === "warga") {
-        router.push("/warga/dashboard");
-      } else {
-        router.push("/petugas/dashboard");
-      }
+      // Berikan jeda 380ms agar animasi slide exit kontainer auth selesai terlihat mulus
+      setTimeout(() => {
+        router.push(targetDashboard);
+        // Reset kembali state exit setelah navigasi terpicu agar halaman login tidak blank saat logout
+        setTimeout(() => {
+          setIsLoggingIn(false);
+        }, 500);
+      }, 380);
     };
 
     try {
@@ -360,10 +401,15 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         district: regDistrict || "Kecamatan Indramayu",
       });
 
-      setRegSuccess("Pendaftaran berhasil! Mengalihkan ke dasbor warga...");
-      setTimeout(() => {
-        router.push("/warga/dashboard");
-      }, 1500);
+      setRegSuccess("Pendaftaran berhasil! Akun Anda siap digunakan.");
+      setLoginIdentifier(regEmail);
+
+      // Ubah state form ke mode Login secara internal dengan animasi geser panel yang sama
+      prevPathnameRef.current = "/login";
+      setIsRegisterMode(false);
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", "/login");
+      }
     } catch (err: unknown) {
       setRegError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -372,17 +418,16 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
   };
 
   return (
-    <main
-      key={pathname}
-      className="relative min-h-screen w-full bg-[#F8FAF9] md:bg-white select-none overflow-x-hidden"
-    >
-      {/* ============================================================ */}
-      {/* A. TAMPILAN KHUSUS MOBILE (< md) - FLOATING CARD SHEET      */}
-      {/* ============================================================ */}
-      <div
-        key={`mobile-auth-${pathname}`}
-        className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col"
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#1D443F]">
+      <motion.div
+        animate={isLoggingIn ? { x: "100%", opacity: 0 } : { x: 0, opacity: 1 }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] as const }}
+        className="w-full h-full min-h-screen select-none"
       >
+        {/* ============================================================ */}
+        {/* A. TAMPILAN KHUSUS MOBILE (< md) - FLOATING CARD SHEET      */}
+        {/* ============================================================ */}
+        <div className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col">
         {/* 1. Header Hijau di Belakang dengan Animasi Slide Down Lembut */}
         <motion.div
           initial={{ opacity: 0, y: -25 }}
@@ -391,9 +436,21 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           className="fixed top-0 left-0 right-0 h-[270px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start pt-9 px-6 text-center z-0"
         >
           {/* Ornamen Geometri Abstrak Samar di Background */}
-          <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/5 border border-white/10 pointer-events-none" />
-          <div className="absolute top-16 -left-12 w-36 h-36 rounded-full bg-white/5 blur-sm pointer-events-none" />
-          <div className="absolute bottom-6 right-12 w-16 h-16 rotate-45 bg-white/10 rounded-2xl pointer-events-none" />
+          <motion.div
+            animate={{ scale: [1, 1.12, 1], opacity: [0.1, 0.22, 0.1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -top-10 -right-10 w-44 h-44 rounded-full border border-white/20 pointer-events-none"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.06, 0.16, 0.06] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-16 -left-12 w-36 h-36 rounded-full bg-white/10 blur-sm pointer-events-none"
+          />
+          <motion.div
+            animate={{ rotate: [45, 405] }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute bottom-6 right-12 w-16 h-16 bg-white/10 rounded-2xl border border-white/10 pointer-events-none"
+          />
 
           {/* Brand Logo & Keterangan (Header Bersih tanpa tombol back / TLS badge) */}
           <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/20 p-2 shadow-inner flex items-center justify-center mb-2.5">
@@ -811,7 +868,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       {/* ============================================================ */}
       {/* B. TAMPILAN DESKTOP (>= md) - DUAL-PANEL SLIDING 100% UTUH   */}
       {/* ============================================================ */}
-      <div className="hidden md:flex relative w-screen h-screen min-h-screen overflow-hidden select-none">
+      <div className="hidden md:flex relative w-screen h-screen min-h-screen overflow-hidden select-none bg-white">
         {/* 1. Tombol Navigasi Kembali ke Beranda (Fixed di Pojok Kiri Atas Viewport Desktop) */}
         <motion.div
           initial={{ opacity: 0, x: -25 }}
@@ -835,12 +892,15 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         {/* ============================================================ */}
         {/* SISI KIRI: Formulir Registrasi (63% Layar Penuh pada Desktop) */}
         {/* ============================================================ */}
-        <div
-          className={`w-full md:w-[63%] md:absolute md:left-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto transition-opacity duration-500 z-10 ${
-            isRegister
-              ? "flex opacity-100 pointer-events-auto"
-              : "hidden md:flex md:opacity-0 md:pointer-events-none"
-          }`}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={
+            isRegisterMode
+              ? { x: 0, opacity: 1, pointerEvents: "auto" }
+              : { x: -60, opacity: 0, pointerEvents: "none" }
+          }
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
+          className="w-full md:w-[63%] md:absolute md:left-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10"
         >
           <div className="w-full max-w-lg my-auto pt-20 sm:pt-20 pb-10 sm:pb-8 text-left">
             {/* Header Register */}
@@ -1051,17 +1111,20 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               <SocialAuthButtons isRegister={true} />
             </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ============================================================ */}
         {/* SISI KANAN: Formulir Login (63% Layar Penuh pada Desktop)    */}
         {/* ============================================================ */}
-        <div
-          className={`w-full md:w-[63%] md:absolute md:right-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto transition-opacity duration-500 z-10 ${
-            !isRegister
-              ? "flex opacity-100 pointer-events-auto"
-              : "hidden md:flex md:opacity-0 md:pointer-events-none"
-          }`}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={
+            !isRegisterMode
+              ? { x: 0, opacity: 1, pointerEvents: "auto" }
+              : { x: 60, opacity: 0, pointerEvents: "none" }
+          }
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
+          className="w-full md:w-[63%] md:absolute md:right-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10"
         >
           <div className="w-full max-w-md my-auto pt-20 sm:pt-20 pb-10 sm:pb-8 text-left">
             {/* Header Login */}
@@ -1247,42 +1310,33 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               </div>
             </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ============================================================ */}
         {/* SLIDING OVERLAY PANEL (Full Height 37% Layar Penuh Desktop)  */}
         {/* ============================================================ */}
         <motion.div
-          key={`overlay-${isRegister ? "register" : "login"}`}
           initial={{
-            x: isRegister ? "-120vw" : "120vw",
-            opacity: 0,
+            x: isRegisterMode ? "0%" : "170.27%",
           }}
           animate={{
-            x: 0,
+            x: isRegisterMode ? "170.27%" : "0%",
             opacity: 1,
           }}
           transition={{
-            duration: 0.85,
-            ease: [0.16, 1, 0.3, 1],
+            duration: 0.65,
+            ease: [0.16, 1, 0.3, 1] as const,
           }}
-          className={`hidden md:flex absolute top-0 w-[37%] h-full bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white p-6 lg:p-10 flex-col items-center justify-between text-center z-20 shadow-2xl overflow-hidden ${
-            isRegister ? "right-0" : "left-0"
-          }`}
+          className="hidden md:flex absolute top-0 left-0 w-[37%] h-full bg-linear-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white p-6 lg:p-10 flex-col items-center justify-between text-center z-20 shadow-2xl overflow-hidden"
         >
-          {/* Ornamen Geometri Abstrak Transparan (Diprella Reference Style) */}
-          <div className="absolute -top-16 -left-16 w-60 h-60 rounded-full border-2 border-white/20 opacity-30 pointer-events-none" />
-          <div className="absolute top-1/4 right-12 w-20 h-20 rotate-45 bg-white/10 rounded-2xl pointer-events-none" />
-          <div className="absolute bottom-16 left-12 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-64 h-64 rounded-full border border-white/20 opacity-40 pointer-events-none" />
-          <div className="absolute top-16 left-1/3 w-8 h-8 rotate-12 bg-white/15 rounded-lg pointer-events-none" />
-          <div className="absolute bottom-1/3 right-1/4 w-14 h-14 rotate-45 border border-white/20 rounded-xl pointer-events-none" />
+          {/* Ornamen Geometri Abstrak Interaktif (Orbit & Rotasi Lembut) */}
+          <AuthBackgroundDecor />
 
           {/* Top Brand Logo - Susunan Vertikal (Ikon di Atas, Teks di Bawah) */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 w-full flex flex-col items-center text-center pt-12 sm:pt-14 mb-2"
           >
             {/* Ikon Logo */}
@@ -1304,30 +1358,36 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           </motion.div>
 
           {/* Center Dynamic Content */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 my-auto -translate-y-4 sm:-translate-y-6 py-4 max-w-xs mx-auto space-y-4"
-          >
-            <h3 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              {isRegister ? "Selamat Datang Kembali!" : "Halo Warga Indramayu!"}
-            </h3>
-            <p className="text-xs sm:text-sm text-[#EEF5F3] leading-relaxed opacity-95">
-              {isRegister
-                ? "Sudah memiliki akun DERMAYU? Masuk untuk mengakses navigasi rute evakuasi aman, pantauan kapasitas posko real-time, dan pelacakan status aduan warga."
-                : "Belum memiliki akun? Daftarkan diri Anda untuk berpartisipasi dalam pemantauan darurat dan pelaporan banjir terpadu."}
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => toggleMode(isRegister ? "login" : "register")}
-                className="border-2 border-white text-white hover:bg-white hover:text-[#38746D] rounded-full px-7 py-2.5 text-xs font-bold tracking-wider transition-all uppercase cursor-pointer active:scale-95 shadow-sm"
+          <div className="relative z-10 my-auto -translate-y-4 sm:-translate-y-6 py-4 max-w-xs mx-auto space-y-4">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isRegisterMode ? "overlay-reg" : "overlay-login"}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-4"
               >
-                {isRegister ? "Masuk Sekarang" : "Daftar Akun"}
-              </button>
-            </div>
-          </motion.div>
+                <h3 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
+                  {isRegisterMode ? "Selamat Datang Kembali!" : "Halo Warga Indramayu!"}
+                </h3>
+                <p className="text-xs sm:text-sm text-[#EEF5F3] leading-relaxed opacity-95">
+                  {isRegisterMode
+                    ? "Sudah memiliki akun DERMAYU? Masuk untuk mengakses navigasi rute evakuasi aman, pantauan kapasitas posko real-time, dan pelacakan status aduan warga."
+                    : "Belum memiliki akun? Daftarkan diri Anda untuk berpartisipasi dalam pemantauan darurat dan pelaporan banjir terpadu."}
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleMode(isRegisterMode ? "login" : "register")}
+                    className="border-2 border-white text-white hover:bg-white hover:text-[#38746D] rounded-full px-7 py-2.5 text-xs font-bold tracking-wider transition-all uppercase cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    {isRegisterMode ? "Masuk Sekarang" : "Daftar Akun"}
+                  </button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
           {/* Bottom Caption */}
           <div className="absolute bottom-5 sm:bottom-6 left-0 right-0 px-6 text-center text-xs text-[#C7DBD7]/80 z-10 pointer-events-none">
@@ -1335,6 +1395,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           </div>
         </motion.div>
       </div>
-    </main>
-  );
+    </motion.div>
+  </div>
+);
 }

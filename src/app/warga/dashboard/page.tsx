@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "motion/react";
 import {
   ShieldCheck,
   MapPin,
@@ -396,8 +397,11 @@ export default function WargaDashboard() {
         {/* ============================================================ */}
         {/* A. ALERT BANNER: DERING EVAKUASI & STATUS SIAGA (PRD ALERT)  */}
         {/* ============================================================ */}
-        <section
+        <motion.section
           aria-label="Status Kesiapsiagaan Wilayah"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] as const }}
           className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#EEF5F3] via-white to-[#E0ECE8] border border-[#A4C6C1]/60 p-5 sm:p-6 shadow-xs text-left"
         >
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -423,15 +427,25 @@ export default function WargaDashboard() {
                   Wilayah <strong>Kandanghaur, Eretan Wetan, dan Cantigi</strong> berpotensi tergenang rob saat pasang petang ini.
                   Warga diimbau mengamankan barang berharga dan memastikan jalur evakuasi menuju posko darurat tetap terbuka.
                 </p>
-                <div className="pt-1.5 flex items-center gap-3">
+                <div className="pt-2 flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setShowDeringModal(true)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38746D] hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38746D] hover:underline cursor-pointer py-1"
                   >
                     <span>Rincian Peringatan Dering Evakuasi</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
+
+                  <span className="text-gray-300 hidden sm:inline">&bull;</span>
+
+                  <Link
+                    href="/warga/kontak"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors"
+                  >
+                    <PhoneCall className="w-3 h-3 text-rose-600" />
+                    <span>Telepon Darurat 112</span>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -449,17 +463,24 @@ export default function WargaDashboard() {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {/* ============================================================ */}
-        {/* B. 2 KARTU AKSI CEPAT DARURAT (QUICK ACTION)                 */}
+        {/* B. 3 KARTU AKSI CEPAT DARURAT (QUICK ACTION)                 */}
         {/* ============================================================ */}
-        <section id="evakuasi" aria-label="Aksi Cepat Warga" className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 scroll-mt-24">
+        <motion.section
+          id="evakuasi"
+          aria-label="Aksi Cepat Warga"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 scroll-mt-24"
+        >
           {/* Tombol Aksi 1: Navigasi Evakuasi Mandiri */}
           <button
             type="button"
             onClick={() => handleOpenNav()}
-            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#38746D] to-[#24544E] text-white p-6 sm:p-7 shadow-md hover:shadow-xl transition-all active:scale-[0.99] text-left cursor-pointer border border-[#1D443F]"
+            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#38746D] to-[#24544E] text-white p-6 sm:p-7 shadow-md hover:shadow-xl transition-all active:scale-[0.99] text-left cursor-pointer border border-[#1D443F] flex flex-col justify-between"
           >
             <div className="relative z-10 flex items-start gap-4">
               <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
@@ -468,16 +489,16 @@ export default function WargaDashboard() {
               <div className="flex-1 min-w-0">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider mb-2">
                   <Compass className="w-3 h-3" />
-                  Rute Terverifikasi Bebas Banjir
+                  Rute Bebas Banjir
                 </div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
-                  Panduan Rute Evakuasi Aman
+                  Panduan Rute Evakuasi
                 </h3>
                 <p className="text-xs sm:text-sm text-[#D1E5E2] mt-1 leading-relaxed">
-                  Buka peta rute darurat tertinggi bebas genangan menuju posko pengungsian terdekat tanpa terjebak jalan banjir.
+                  Buka peta rute darurat bebas genangan menuju posko pengungsian terdekat tanpa terjebak banjir.
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-white group-hover:underline">
-                  <span>Lihat Peta Rute Sekarang</span>
+                  <span>Lihat Peta Rute</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -489,7 +510,7 @@ export default function WargaDashboard() {
             id="lapor"
             type="button"
             onClick={() => setShowReportModal(true)}
-            className="group relative overflow-hidden rounded-3xl bg-white hover:bg-[#F8FAF9] border-2 border-[#D5E4E0] hover:border-[#38746D] p-6 sm:p-7 shadow-xs hover:shadow-lg transition-all active:scale-[0.99] text-left cursor-pointer scroll-mt-24"
+            className="group relative overflow-hidden rounded-3xl bg-white hover:bg-[#F8FAF9] border-2 border-[#D5E4E0] hover:border-[#38746D] p-6 sm:p-7 shadow-xs hover:shadow-lg transition-all active:scale-[0.99] text-left cursor-pointer scroll-mt-24 flex flex-col justify-between"
           >
             <div className="relative z-10 flex items-start gap-4">
               <div className="w-14 h-14 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/50 flex items-center justify-center shrink-0 text-[#38746D] group-hover:scale-105 transition-transform shadow-xs">
@@ -498,27 +519,62 @@ export default function WargaDashboard() {
               <div className="flex-1 min-w-0">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider mb-2">
                   <AlertTriangle className="w-3 h-3" />
-                  Civic Reporting BPBD &bull; Validasi AI
+                  Civic Reporting BPBD
                 </div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-[#132422] leading-snug">
-                  Lapor Titik Banjir &amp; Butuh Bantuan
+                  Lapor Titik Banjir
                 </h3>
                 <p className="text-xs sm:text-sm text-[#4B635F] mt-1 leading-relaxed">
-                  Laporkan ketinggian air, tanggul jebol, atau minta evakuasi darurat dengan foto yang divalidasi model AI CNN.
+                  Laporkan genangan, tanggul kritis, atau minta pertolongan darurat tervalidasi AI CNN.
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[#38746D] group-hover:underline">
-                  <span>Isi Formulir Laporan Cepat</span>
+                  <span>Isi Formulir Laporan</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </div>
           </button>
-        </section>
+
+          {/* Tombol Aksi 3: Kontak Darurat 24 Jam */}
+          <Link
+            id="kontak-card"
+            href="/warga/kontak"
+            className="w-full group relative overflow-hidden rounded-3xl bg-linear-to-br from-[#842A2A] via-[#651A1A] to-[#451212] text-white p-6 sm:p-7 shadow-md hover:shadow-xl transition-all active:scale-[0.99] text-left cursor-pointer border border-[#651A1A] flex flex-col justify-between"
+          >
+            <div className="relative z-10 flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                <PhoneCall className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider mb-2">
+                  <PhoneCall className="w-3 h-3" />
+                  Bebas Pulsa 24 Jam
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
+                  Kontak Darurat 24 Jam
+                </h3>
+                <p className="text-xs sm:text-sm text-rose-100 mt-1 leading-relaxed">
+                  Call Center 112, Pusdalops BPBD, SAR, Damkar, PMI, &amp; RSUD Indramayu.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-white group-hover:underline">
+                  <span>Hubungi Tim Siaga</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        </motion.section>
 
         {/* ============================================================ */}
         {/* C. GRID: POSKO TERDEKAT & PELACAKAN STATUS ADUAN SAYA        */}
         {/* ============================================================ */}
-        <section aria-label="Informasi Evakuasi dan Pelaporan" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <motion.section
+          aria-label="Informasi Evakuasi dan Pelaporan"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+        >
           {/* SISI KIRI (7 Kolom): RINGKASAN POSKO AMAN TERDEKAT */}
           <div id="posko" className="lg:col-span-7 bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-5 text-left scroll-mt-24">
             <div className="flex items-center justify-between">
@@ -753,17 +809,26 @@ export default function WargaDashboard() {
                 </a>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowContactsModal(true)}
-                className="w-full py-2 px-3 rounded-xl bg-white border border-[#D5E4E0] text-[#38746D] hover:bg-[#F8FAF9] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <span>Buka Seluruh Kontak Darurat Lengkap</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/warga/kontak"
+                  className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#D5E4E0] text-[#38746D] hover:bg-[#F8FAF9] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Halaman Kontak</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowContactsModal(true)}
+                  className="flex-1 py-2 px-3 rounded-xl bg-[#38746D] text-white hover:bg-[#24544E] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Direktori Lengkap</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
-        </section>
+        </motion.section>
       </div>
 
       {/* ============================================================ */}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import {
   ExternalLink,
   ChevronDown,
@@ -91,7 +92,11 @@ export function AppHeader({ role, onOpenMobileMenu, session: propSession }: AppH
 
   const handleLogout = () => {
     clearUserSession();
-    router.push("/login");
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    } else {
+      router.push("/login");
+    }
   };
 
   const currentTitle = titleMap[pathname] || (role === "petugas" ? "Pusat Kendali BPBD" : "Dasbor Kesiapsiagaan");
@@ -101,7 +106,12 @@ export function AppHeader({ role, onOpenMobileMenu, session: propSession }: AppH
   const profileHref = `/${role}/profile`;
 
   return (
-    <header className="sticky top-0 h-16 bg-white border-b border-[#D5E4E0] px-4 sm:px-8 flex items-center justify-between z-20 shrink-0">
+    <motion.header
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.45, delay: 0.15, ease: "easeOut" }}
+      className="sticky top-0 h-16 bg-white border-b border-[#D5E4E0] px-4 sm:px-8 flex items-center justify-between z-20 shrink-0"
+    >
       <div className="flex items-center gap-3">
         {/* Hamburger Mobile Trigger */}
         <button
@@ -202,7 +212,7 @@ export function AppHeader({ role, onOpenMobileMenu, session: propSession }: AppH
           )}
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }
 

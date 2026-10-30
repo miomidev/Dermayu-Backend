@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -13,9 +15,7 @@ import {
   ShieldCheck,
   Navigation,
   AlertCircle,
-  Clock,
   BookOpen,
-  PhoneCall,
   Users,
   User,
   X,
@@ -36,6 +36,16 @@ interface NavItem {
 
 export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const updateSize = () => setIsMobile(window.innerWidth < 768);
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
 
   // 1. Menu Utama
   const mainNavItems: NavItem[] =
@@ -52,8 +62,7 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
           { label: "Navigasi Evakuasi Aman", href: "/warga/evakuasi", icon: Navigation },
           { label: "Lapor Titik Banjir", href: "/warga/lapor", icon: AlertCircle },
           { label: "Pantauan Posko", href: "/warga/posko", icon: Home },
-          { label: "Riwayat Aduan Saya", href: "/warga/aduan", icon: Clock, badge: "2" },
-          { label: "Kontak Darurat 24 Jam", href: "/warga/kontak", icon: PhoneCall },
+          { label: "Komunitas Warga", href: "/warga/komunitas", icon: Users },
         ];
 
   // 2. Menu Lainnya
@@ -64,7 +73,6 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
           { label: "Pengaturan Sistem", href: "/petugas/settings", icon: Settings },
         ]
       : [
-          { label: "Komunitas Warga", href: "/warga/komunitas", icon: Users },
           { label: "Profil Saya", href: "/warga/profile", icon: User },
           { label: "Panduan Mitigasi", href: "/panduan", icon: BookOpen },
         ];
@@ -119,9 +127,19 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
       )}
 
       {/* Sidebar Navigation */}
-      <aside
-        className={`w-64 bg-[#1D443F] text-white fixed top-0 bottom-0 left-0 flex flex-col justify-between z-50 shadow-md transition-transform duration-300 ease-in-out ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      <motion.aside
+        initial={!isMobile ? { x: "-100%" } : false}
+        animate={
+          isMobile
+            ? { x: mobileOpen ? 0 : "-100%" }
+            : { x: 0 }
+        }
+        transition={{
+          duration: isMobile ? 0.3 : 0.5,
+          ease: [0.16, 1, 0.3, 1] as const,
+        }}
+        className={`w-64 bg-[#1D443F] text-white fixed top-0 bottom-0 left-0 flex flex-col justify-between z-50 shadow-md ${
+          !mounted ? (mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0") : ""
         }`}
       >
         <div className="flex flex-col flex-1 overflow-y-auto">
@@ -178,7 +196,7 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
             </nav>
           </div>
         </div>
-      </aside>
+      </motion.aside>
     </>
   );
 }

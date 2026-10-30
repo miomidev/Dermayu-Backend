@@ -21,6 +21,7 @@ const titleMap: Record<string, string> = {
   "/warga/posko": "Pantauan Posko",
   "/warga/aduan": "Riwayat Aduan Saya",
   "/warga/kontak": "Kontak Darurat 24 Jam",
+  "/warga/komunitas": "Komunitas Warga Siaga",
   "/warga/profile": "Profil Pengguna",
   "/petugas/dashboard": "Pusat Kendali BPBD",
   "/petugas/triage": "Triage & Verifikasi Aduan",

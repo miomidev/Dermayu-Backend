@@ -16,6 +16,8 @@ import {
   Clock,
   BookOpen,
   PhoneCall,
+  Users,
+  User,
   X,
 } from "lucide-react";
 
@@ -25,10 +27,18 @@ export interface AppSidebarProps {
   onCloseMobile: () => void;
 }
 
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
+
 export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
 
-  const navItems =
+  // 1. Menu Utama
+  const mainNavItems: NavItem[] =
     role === "petugas"
       ? [
           { label: "Ringkasan Dasbor", href: "/petugas/dashboard", icon: LayoutDashboard },
@@ -36,7 +46,6 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
           { label: "Peta Spasial & SAR", href: "/admin/dashboard", icon: Map },
           { label: "Manajemen Posko", href: "/petugas/posko", icon: Home },
           { label: "Telemetri TMA & Rob", href: "/petugas/telemetri", icon: Activity },
-          { label: "Pengaturan Sistem", href: "/petugas/settings", icon: Settings },
         ]
       : [
           { label: "Dasbor Kesiapsiagaan", href: "/warga/dashboard", icon: ShieldCheck },
@@ -45,8 +54,58 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
           { label: "Pantauan Posko", href: "/warga/posko", icon: Home },
           { label: "Riwayat Aduan Saya", href: "/warga/aduan", icon: Clock, badge: "2" },
           { label: "Kontak Darurat 24 Jam", href: "/warga/kontak", icon: PhoneCall },
+        ];
+
+  // 2. Menu Lainnya
+  const secondaryNavItems: NavItem[] =
+    role === "petugas"
+      ? [
+          { label: "Profil Petugas", href: "/petugas/profile", icon: User },
+          { label: "Pengaturan Sistem", href: "/petugas/settings", icon: Settings },
+        ]
+      : [
+          { label: "Komunitas Warga", href: "/warga/komunitas", icon: Users },
+          { label: "Profil Saya", href: "/warga/profile", icon: User },
           { label: "Panduan Mitigasi", href: "/panduan", icon: BookOpen },
         ];
+
+  const renderNavLink = (item: NavItem) => {
+    const isActive = pathname === item.href;
+    const Icon = item.icon;
+
+    return (
+      <Link
+        key={item.label}
+        href={item.href}
+        onClick={onCloseMobile}
+        className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs transition-all duration-200 cursor-pointer ${
+          isActive
+            ? "bg-white text-[#1D443F] font-bold shadow-md"
+            : "text-[#D1E5E2] hover:bg-white/10 hover:text-white font-medium"
+        }`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <Icon
+            className={`w-4 h-4 shrink-0 ${
+              isActive ? "text-[#1D443F]" : "text-[#D1E5E2]"
+            }`}
+          />
+          <span className="truncate tracking-wide">{item.label}</span>
+        </div>
+        {item.badge && (
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+              isActive
+                ? "bg-[#EEF5F3] text-[#1D443F]"
+                : "bg-amber-400 text-amber-950"
+            }`}
+          >
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -100,49 +159,22 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
             </button>
           </div>
 
-          {/* Navigasi Menu Utama */}
-          <div className="px-3.5 py-2 flex-1">
-            <p className="text-[10px] font-semibold text-[#6B9C95] tracking-wider uppercase px-3 mb-2.5">
+          {/* Navigasi Menu Dikelompokkan */}
+          <div className="px-4 py-2 flex-1 overflow-y-auto">
+            {/* Kelompok Menu Utama */}
+            <p className="text-[10px] font-semibold text-[#6B9C95] tracking-wider uppercase px-3 mb-2">
               Menu Utama
             </p>
-            <nav className="space-y-1.5 px-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
+            <nav className="space-y-1 px-1">
+              {mainNavItems.map(renderNavLink)}
+            </nav>
 
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    onClick={onCloseMobile}
-                    className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? "bg-white text-[#1D443F] font-bold shadow-md"
-                        : "text-[#D1E5E2] hover:bg-white/10 hover:text-white font-medium"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          isActive ? "text-[#1D443F]" : "text-[#D1E5E2]"
-                        }`}
-                      />
-                      <span className="truncate tracking-wide">{item.label}</span>
-                    </div>
-                    {item.badge && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          isActive
-                            ? "bg-[#EEF5F3] text-[#1D443F]"
-                            : "bg-amber-400 text-amber-950"
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+            {/* Kelompok Lainnya */}
+            <p className="text-[10px] font-semibold text-[#6B9C95] tracking-wider uppercase px-3 mb-2 mt-5">
+              Lainnya
+            </p>
+            <nav className="space-y-1 px-1">
+              {secondaryNavItems.map(renderNavLink)}
             </nav>
           </div>
         </div>
@@ -150,4 +182,3 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
     </>
   );
 }
-

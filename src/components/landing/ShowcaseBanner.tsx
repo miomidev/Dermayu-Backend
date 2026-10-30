@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, useInView } from "motion/react";
-import { MapPin, Activity, Search } from "lucide-react";
+import { motion, useInView, AnimatePresence } from "motion/react";
+import { MapPin, Activity, Search, ChevronDown, Check } from "lucide-react";
 import { INDRAMAYU_MAP_PATH } from "@/data/indramayuContour";
 
 type PinSize = "lg" | "md" | "sm";
@@ -271,6 +271,22 @@ function ExpandingPinMarker({
   );
 }
 
+const LOCATION_OPTIONS = [
+  { value: "Semua Wilayah", label: "Semua Wilayah", desc: "Seluruh 31 Kecamatan" },
+  { value: "Losarang", label: "Losarang (Jalur Utama)", desc: "Pantura / Jalur Arteri" },
+  { value: "Eretan", label: "Eretan (Pesisir Barat)", desc: "Pesisir Pantai Rob" },
+  { value: "Cantigi", label: "Cantigi (Muara Pesisir)", desc: "Muara & Pesisir Sungai" },
+  { value: "Sindang", label: "Sindang (DAS Cimanuk)", desc: "DAS Cimanuk Hilir" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "Semua Status", label: "Semua Status", desc: "Semua Level Siaga", color: "bg-slate-400" },
+  { value: "Normal", label: "Normal", desc: "TMA Stabil Aman", color: "bg-emerald-500" },
+  { value: "Waspada Rob", label: "Waspada Rob", desc: "Pasang Air Laut", color: "bg-amber-500" },
+  { value: "Siaga 2", label: "Siaga 2 (Kritis)", desc: "Potensi Luapan Sungai", color: "bg-red-500" },
+  { value: "Siaga 3", label: "Siaga 3 (Waspada)", desc: "Debit Hulu Meningkat", color: "bg-orange-500" },
+];
+
 export function ShowcaseBanner() {
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { amount: 0.2 });
@@ -286,13 +302,59 @@ export function ShowcaseBanner() {
   const [selectedLocation, setSelectedLocation] = useState("Semua Wilayah");
   const [selectedStatus, setSelectedStatus] = useState("Semua Status");
   const [activePin, setActivePin] = useState<string>("losarang");
+  const [openDropdown, setOpenDropdown] = useState<"location" | "status" | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  // Tutup dropdown saat klik di luar atau tekan tombol Escape
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenDropdown(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   const handleSelectLocation = (loc: string) => {
     setSelectedLocation(loc);
+    setOpenDropdown(null);
     const matched = PINS.find((p) => p.locationKey === loc);
     if (matched) {
       setActivePin(matched.id);
       setSelectedStatus(matched.statusFilter);
+    }
+  };
+
+  const handleSelectStatus = (status: string) => {
+    setSelectedStatus(status);
+    setOpenDropdown(null);
+    const matched = PINS.find((p) => p.statusFilter === status);
+    if (matched) {
+      setActivePin(matched.id);
+      setSelectedLocation(matched.locationKey);
+    }
+  };
+
+  const handleSearchSubmit = () => {
+    setOpenDropdown(null);
+    const matched = PINS.find(
+      (p) =>
+        (selectedLocation === "Semua Wilayah" || p.locationKey === selectedLocation) &&
+        (selectedStatus === "Semua Status" || p.statusFilter === selectedStatus)
+    );
+    if (matched) {
+      setActivePin(matched.id);
+    } else {
+      setActivePin(PINS[0].id);
     }
   };
 
@@ -301,6 +363,11 @@ export function ShowcaseBanner() {
     setSelectedLocation(pin.locationKey);
     setSelectedStatus(pin.statusFilter);
   };
+
+  const selectedLocationObj =
+    LOCATION_OPTIONS.find((l) => l.value === selectedLocation) || LOCATION_OPTIONS[0];
+  const selectedStatusObj =
+    STATUS_OPTIONS.find((s) => s.value === selectedStatus) || STATUS_OPTIONS[0];
 
   return (
     <section
@@ -570,53 +637,310 @@ export function ShowcaseBanner() {
               }
             >
               {/* Search / Filter Control Card Berbentuk Pill Bersih Sesuai Palet Pale Mint */}
-              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 p-2 rounded-2xl sm:rounded-full bg-[#EEF5F3] border border-[#D5E4E0] shadow-2xs">
-                {/* Location Filter */}
-                <div className="flex-1 min-w-[140px] flex items-center gap-2.5 px-3 sm:px-4 py-1.5">
-                  <MapPin className="h-4 w-4 text-[#38746D] shrink-0" />
-                  <div className="text-left">
-                    <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Lokasi</p>
-                    <select
-                      value={selectedLocation}
-                      onChange={(e) => handleSelectLocation(e.target.value)}
-                      className="bg-transparent text-xs sm:text-sm font-bold text-[#132422] focus:outline-none cursor-pointer"
+              <div
+                ref={filterRef}
+                className="relative z-30 w-full rounded-2xl sm:rounded-full bg-[#EEF5F3] border border-[#D5E4E0] p-2.5 sm:p-2 shadow-2xs"
+              >
+                {/* 1. Tampilan Khusus Mobile (< sm) - Stack Rapi & Terstruktur Tanpa Wrapping Patah */}
+                <div className="flex flex-col gap-2 sm:hidden">
+                  {/* Lokasi Selector Button */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown(openDropdown === "location" ? null : "location")}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/90 border transition-all text-left cursor-pointer active:scale-[0.99] ${
+                        openDropdown === "location"
+                          ? "border-[#38746D] ring-2 ring-[#38746D]/15"
+                          : "border-[#D5E4E0] hover:border-[#38746D]"
+                      }`}
                     >
-                      <option value="Semua Wilayah">Semua Wilayah</option>
-                      <option value="Losarang">Losarang (Jalur Utama)</option>
-                      <option value="Eretan">Eretan (Pesisir Barat)</option>
-                      <option value="Cantigi">Cantigi (Muara Pesisir)</option>
-                      <option value="Sindang">Sindang (DAS Cimanuk)</option>
-                    </select>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <MapPin className="h-4 w-4 text-[#38746D] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Lokasi</p>
+                          <p className="text-xs font-bold text-[#132422] truncate">{selectedLocationObj.label}</p>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`w-4 h-4 text-[#718783] shrink-0 transition-transform duration-200 ${
+                          openDropdown === "location" ? "rotate-180 text-[#38746D]" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Dropdown Mobile Lokasi */}
+                    <AnimatePresence>
+                      {openDropdown === "location" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl border border-[#D5E4E0] shadow-xl p-1.5 z-50 overflow-hidden"
+                        >
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#718783] uppercase tracking-wider border-b border-[#E8F1EE] mb-1">
+                            Pilih Wilayah Terpantau
+                          </div>
+                          <div className="space-y-0.5 max-h-56 overflow-y-auto">
+                            {LOCATION_OPTIONS.map((item) => {
+                              const isSelected = selectedLocation === item.value;
+                              return (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => handleSelectLocation(item.value)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#EEF5F3] text-[#38746D] font-bold"
+                                      : "text-[#132422] hover:bg-[#F8FAF9] hover:text-[#38746D]"
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-semibold leading-tight">{item.label}</p>
+                                    <p className="text-[10px] text-[#718783] font-normal mt-0.5">{item.desc}</p>
+                                  </div>
+                                  {isSelected && <Check className="w-4 h-4 text-[#38746D] shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
+
+                  {/* Status Siaga Selector Button */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown(openDropdown === "status" ? null : "status")}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/90 border transition-all text-left cursor-pointer active:scale-[0.99] ${
+                        openDropdown === "status"
+                          ? "border-[#38746D] ring-2 ring-[#38746D]/15"
+                          : "border-[#D5E4E0] hover:border-[#38746D]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Activity className="h-4 w-4 text-[#38746D] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Status Siaga</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${selectedStatusObj.color} shrink-0`} />
+                            <p className="text-xs font-bold text-[#132422] truncate">{selectedStatusObj.label}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`w-4 h-4 text-[#718783] shrink-0 transition-transform duration-200 ${
+                          openDropdown === "status" ? "rotate-180 text-[#38746D]" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Dropdown Mobile Status */}
+                    <AnimatePresence>
+                      {openDropdown === "status" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl border border-[#D5E4E0] shadow-xl p-1.5 z-50 overflow-hidden"
+                        >
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#718783] uppercase tracking-wider border-b border-[#E8F1EE] mb-1">
+                            Pilih Status Siaga TMA
+                          </div>
+                          <div className="space-y-0.5">
+                            {STATUS_OPTIONS.map((item) => {
+                              const isSelected = selectedStatus === item.value;
+                              return (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => handleSelectStatus(item.value)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#EEF5F3] text-[#38746D] font-bold"
+                                      : "text-[#132422] hover:bg-[#F8FAF9] hover:text-[#38746D]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0`} />
+                                    <div>
+                                      <p className="font-semibold leading-tight">{item.label}</p>
+                                      <p className="text-[10px] text-[#718783] font-normal">{item.desc}</p>
+                                    </div>
+                                  </div>
+                                  {isSelected && <Check className="w-4 h-4 text-[#38746D] shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Tombol Search Mobile */}
+                  <button
+                    type="button"
+                    onClick={handleSearchSubmit}
+                    className="w-full h-10.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer mt-0.5"
+                  >
+                    <Search className="h-4 w-4" />
+                    <span>Tampilkan Wilayah Terpantau</span>
+                  </button>
                 </div>
 
-                {/* Status Filter */}
-                <div className="flex-1 min-w-[140px] flex items-center gap-2.5 px-3 sm:px-4 py-1.5 border-l border-[#D5E4E0]">
-                  <Activity className="h-4 w-4 text-[#38746D] shrink-0" />
-                  <div className="text-left">
-                    <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Status Siaga</p>
-                    <select
-                      value={selectedStatus}
-                      onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="bg-transparent text-xs sm:text-sm font-bold text-[#132422] focus:outline-none cursor-pointer"
+                {/* 2. Tampilan Desktop (>= sm) - Pill Melayang Horisontal Mewah & Elegan */}
+                <div className="hidden sm:flex items-center gap-2">
+                  {/* Location Filter Trigger */}
+                  <div className="relative flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown(openDropdown === "location" ? null : "location")}
+                      className={`w-full flex items-center justify-between gap-2 px-3.5 py-1.5 rounded-full text-left transition-colors cursor-pointer ${
+                        openDropdown === "location" ? "bg-white shadow-2xs" : "hover:bg-white/60"
+                      }`}
                     >
-                      <option value="Semua Status">Semua Status</option>
-                      <option value="Normal">Normal</option>
-                      <option value="Waspada Rob">Waspada Rob</option>
-                      <option value="Siaga 2">Siaga 2 (Kritis)</option>
-                      <option value="Siaga 3">Siaga 3 (Waspada)</option>
-                    </select>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <MapPin className="h-4 w-4 text-[#38746D] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Lokasi</p>
+                          <p className="text-xs sm:text-sm font-bold text-[#132422] truncate">{selectedLocationObj.label}</p>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-[#718783] shrink-0 transition-transform duration-200 ${
+                          openDropdown === "location" ? "rotate-180 text-[#38746D]" : ""
+                        }`}
+                      />
+                    </button>
 
-                {/* Search Button */}
-                <button
-                  type="button"
-                  className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-[#38746D] text-white hover:bg-[#24544E] active:scale-95 transition-all shadow-xs shrink-0 ml-auto cursor-pointer"
-                  aria-label="Filter Wilayah"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
+                    {/* Dropdown Desktop Lokasi */}
+                    <AnimatePresence>
+                      {openDropdown === "location" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          className="absolute top-full left-0 mt-2.5 w-72 bg-white rounded-2xl border border-[#D5E4E0] shadow-xl p-1.5 z-50 overflow-hidden"
+                        >
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#718783] uppercase tracking-wider border-b border-[#E8F1EE] mb-1">
+                            Pilih Wilayah Terpantau
+                          </div>
+                          <div className="space-y-0.5">
+                            {LOCATION_OPTIONS.map((item) => {
+                              const isSelected = selectedLocation === item.value;
+                              return (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => handleSelectLocation(item.value)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#EEF5F3] text-[#38746D] font-bold"
+                                      : "text-[#132422] hover:bg-[#F8FAF9] hover:text-[#38746D]"
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-semibold leading-tight">{item.label}</p>
+                                    <p className="text-[10px] text-[#718783] font-normal mt-0.5">{item.desc}</p>
+                                  </div>
+                                  {isSelected && <Check className="w-4 h-4 text-[#38746D] shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Divider Vertikal Desktop */}
+                  <div className="w-[1px] h-8 bg-[#D5E4E0] shrink-0" />
+
+                  {/* Status Filter Trigger */}
+                  <div className="relative flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown(openDropdown === "status" ? null : "status")}
+                      className={`w-full flex items-center justify-between gap-2 px-3.5 py-1.5 rounded-full text-left transition-colors cursor-pointer ${
+                        openDropdown === "status" ? "bg-white shadow-2xs" : "hover:bg-white/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Activity className="h-4 w-4 text-[#38746D] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold text-[#4B635F] uppercase tracking-wider">Status Siaga</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${selectedStatusObj.color} shrink-0`} />
+                            <p className="text-xs sm:text-sm font-bold text-[#132422] truncate">{selectedStatusObj.label}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-[#718783] shrink-0 transition-transform duration-200 ${
+                          openDropdown === "status" ? "rotate-180 text-[#38746D]" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Dropdown Desktop Status */}
+                    <AnimatePresence>
+                      {openDropdown === "status" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          className="absolute top-full right-0 mt-2.5 w-64 bg-white rounded-2xl border border-[#D5E4E0] shadow-xl p-1.5 z-50 overflow-hidden"
+                        >
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#718783] uppercase tracking-wider border-b border-[#E8F1EE] mb-1">
+                            Pilih Status Siaga TMA
+                          </div>
+                          <div className="space-y-0.5">
+                            {STATUS_OPTIONS.map((item) => {
+                              const isSelected = selectedStatus === item.value;
+                              return (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => handleSelectStatus(item.value)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#EEF5F3] text-[#38746D] font-bold"
+                                      : "text-[#132422] hover:bg-[#F8FAF9] hover:text-[#38746D]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0`} />
+                                    <div>
+                                      <p className="font-semibold leading-tight">{item.label}</p>
+                                      <p className="text-[10px] text-[#718783] font-normal">{item.desc}</p>
+                                    </div>
+                                  </div>
+                                  {isSelected && <Check className="w-4 h-4 text-[#38746D] shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Search Button Desktop */}
+                  <button
+                    type="button"
+                    onClick={handleSearchSubmit}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#38746D] text-white hover:bg-[#24544E] active:scale-95 transition-all shadow-xs shrink-0 cursor-pointer ml-auto"
+                    aria-label="Filter Wilayah"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

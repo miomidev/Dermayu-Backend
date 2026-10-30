@@ -61,6 +61,84 @@ interface DistrictItem {
   name: string;
 }
 
+function SocialAuthButtons({ isRegister }: { isRegister: boolean }) {
+  return (
+    <div className="w-full">
+      {/* Divider Pemisah */}
+      <div className="w-full flex items-center gap-3 my-2.5 sm:my-3">
+        <div className="h-[1px] flex-1 bg-gray-200" />
+        <span className="text-[11px] sm:text-xs text-gray-400 font-normal">
+          {isRegister ? "atau daftar dengan" : "atau masuk dengan"}
+        </span>
+        <div className="h-[1px] flex-1 bg-gray-200" />
+      </div>
+
+      {/* Deretan 3 Tombol Sosial Bulat */}
+      <div className="flex items-center justify-center gap-3.5 mb-2">
+        {/* Apple */}
+        <button
+          type="button"
+          onClick={() =>
+            alert("Fitur Single Sign-On (SSO) Apple ID sedang dalam tahap integrasi.")
+          }
+          className="w-11 h-11 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center shadow-xs transition-all cursor-pointer active:scale-95"
+          aria-label={isRegister ? "Daftar dengan Apple" : "Masuk dengan Apple"}
+          title={isRegister ? "Daftar dengan Apple" : "Masuk dengan Apple"}
+        >
+          <svg className="w-4 h-4 fill-current text-black" viewBox="0 0 24 24">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.63 1.35-.56.64-1.05 1.71-.92 2.74 1 .08 2.02-.49 2.63-1.24z" />
+          </svg>
+        </button>
+
+        {/* Google */}
+        <button
+          type="button"
+          onClick={() =>
+            alert("Fitur Single Sign-On (SSO) Google sedang dalam tahap integrasi.")
+          }
+          className="w-11 h-11 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center shadow-xs transition-all cursor-pointer active:scale-95"
+          aria-label={isRegister ? "Daftar dengan Google" : "Masuk dengan Google"}
+          title={isRegister ? "Daftar dengan Google" : "Masuk dengan Google"}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.4 7.34 24 12 24z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.6 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+            />
+          </svg>
+        </button>
+
+        {/* Facebook */}
+        <button
+          type="button"
+          onClick={() =>
+            alert("Fitur Single Sign-On (SSO) Facebook sedang dalam tahap integrasi.")
+          }
+          className="w-11 h-11 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center shadow-xs transition-all cursor-pointer active:scale-95"
+          aria-label={isRegister ? "Daftar dengan Facebook" : "Masuk dengan Facebook"}
+          title={isRegister ? "Daftar dengan Facebook" : "Masuk dengan Facebook"}
+        >
+          <svg className="w-4 h-4 fill-[#1877F2]" viewBox="0 0 24 24">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface AuthCardProps {
   initialMode?: "login" | "register";
 }
@@ -248,73 +326,53 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       className="relative min-h-screen w-full bg-[#F8FAF9] md:bg-white select-none overflow-x-hidden"
     >
       {/* ============================================================ */}
-      {/* A. TAMPILAN KHUSUS MOBILE (< md) - CURVED HEADER CARD SHEET  */}
+      {/* A. TAMPILAN KHUSUS MOBILE (< md) - FLOATING CARD SHEET      */}
       {/* ============================================================ */}
-      <div className="flex flex-col min-h-screen md:hidden bg-[#F8FAF9]">
-        {/* 1. Curved Hero Header Hijau Deep Teal */}
-        <div className="relative bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white pt-7 pb-14 px-6 overflow-hidden">
+      <div
+        key={`mobile-auth-${pathname}`}
+        className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col"
+      >
+        {/* 1. Header Hijau di Belakang dengan Animasi Slide Down Lembut */}
+        <motion.div
+          initial={{ opacity: 0, y: -25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] as const }}
+          className="fixed top-0 left-0 right-0 h-[270px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start pt-9 px-6 text-center z-0"
+        >
           {/* Ornamen Geometri Abstrak Samar di Background */}
           <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/5 border border-white/10 pointer-events-none" />
-          <div className="absolute top-16 -left-12 w-32 h-32 rounded-full bg-white/5 blur-sm pointer-events-none" />
-          <div className="absolute bottom-4 right-10 w-16 h-16 rotate-45 bg-white/10 rounded-2xl pointer-events-none" />
+          <div className="absolute top-16 -left-12 w-36 h-36 rounded-full bg-white/5 blur-sm pointer-events-none" />
+          <div className="absolute bottom-6 right-12 w-16 h-16 rotate-45 bg-white/10 rounded-2xl pointer-events-none" />
 
-          {/* Top Bar: Tombol Back & TLS Badge */}
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-white/95 bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 transition-all shadow-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Beranda</span>
-            </Link>
-
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider uppercase text-[#C7DBD7] bg-black/20 px-2.5 py-1 rounded-full border border-white/10 backdrop-blur-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-              <span>TLS Enkripsi</span>
-            </div>
+          {/* Brand Logo & Keterangan (Header Bersih tanpa tombol back / TLS badge) */}
+          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/20 p-2 shadow-inner flex items-center justify-center mb-2.5">
+            <Image
+              src="/dermayu-logo.webp"
+              alt="Logo DERMAYU"
+              width={38}
+              height={38}
+              priority
+              className="w-full h-full object-contain"
+            />
           </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-white">
+            {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
+          </h1>
+          <p className="text-xs text-[#D1E5E2] max-w-xs mt-1 leading-relaxed opacity-95">
+            {isRegister
+              ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
+              : "Masuk untuk akses pantauan rute evakuasi dan pelaporan terpadu."}
+          </p>
+        </motion.div>
 
-          {/* Brand Logo & Greetings */}
-          <div className="flex flex-col items-center text-center relative z-10 space-y-1.5 mt-2">
-            <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 p-2.5 backdrop-blur-md shadow-md flex items-center justify-center mb-1">
-              <Image
-                src="/dermayu-logo.webp"
-                alt="Logo DERMAYU"
-                width={36}
-                height={36}
-                priority
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              {isRegister ? "Buat Akun DERMAYU" : "Halo Warga Indramayu!"}
-            </h1>
-            <p className="text-xs text-[#D1E5E2] max-w-xs leading-relaxed opacity-95">
-              {isRegister
-                ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
-                : "Masuk untuk akses pantauan TMA dan pelaporan genangan terpadu."}
-            </p>
-          </div>
-        </div>
-
-        {/* 2. White Card Sheet (Overlapping Curved Body Menindih Header) */}
-        <div className="relative z-10 -mt-6 bg-white rounded-t-[32px] px-6 pt-5 pb-10 shadow-2xl flex-1 flex flex-col justify-between border-t border-[#E8F1EE]">
-          <div>
-            {/* Grab Handle Pill */}
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-5 opacity-70" />
-
-            {/* Header Form Sheet */}
-            <div className="mb-4 text-left">
-              <h2 className="text-lg font-bold text-[#132422]">
-                {isRegister ? "Informasi Pengguna" : "Masuk ke Akun"}
-              </h2>
-              <p className="text-xs text-[#4B635F] mt-0.5">
-                {isRegister
-                  ? "Lengkapi data domisili warga atau relawan Indramayu"
-                  : "Warga, Relawan, & Administrator"}
-              </p>
-            </div>
-
+        {/* 2. Scrollable Container untuk Form Melayang (Floating Card Tanpa Strip & Header Ganda) */}
+        <div className="relative z-10 w-full min-h-screen flex flex-col justify-start pt-[195px] pb-10 px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 65, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.65, delay: 0.15, ease: [0.16, 1, 0.3, 1] as const }}
+            className="w-full max-w-md mx-auto bg-white rounded-[26px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 flex flex-col"
+          >
             {/* Error & Success Messages */}
             {!isRegister && loginError && (
               <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
@@ -339,74 +397,118 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
             {/* FORM LOGIN MOBILE */}
             {!isRegister ? (
-              <form onSubmit={handleLogin} className="space-y-3.5 text-left">
-                <div>
-                  <label className="block text-xs font-semibold text-[#132422] mb-1">
-                    Email atau Nomor HP
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
-                      <Mail className="w-4 h-4" />
+              <>
+                <motion.form
+                  onSubmit={handleLogin}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="space-y-4 text-left"
+                >
+                  <div>
+                    <label className="block text-xs font-semibold text-[#132422] mb-1.5">
+                      Email atau Nomor HP
+                    </label>
+                    <div className="relative flex items-center">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        value={loginIdentifier}
+                        onChange={(e) => setLoginIdentifier(e.target.value)}
+                        placeholder="admin@dermayu.id atau 0812..."
+                        required
+                        className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      value={loginIdentifier}
-                      onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="admin@dermayu.id atau 0812..."
-                      required
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] placeholder-gray-400 focus:outline-none focus:border-[#38746D] transition-colors"
-                    />
                   </div>
-                </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-[#132422]">Kata Sandi</label>
-                    <span
-                      onClick={() =>
-                        alert(
-                          "Silakan hubungi administrator BPBD atau manfaatkan akun demo untuk akses masuk."
-                        )
-                      }
-                      className="text-xs text-[#38746D] hover:underline font-medium cursor-pointer"
-                    >
-                      Lupa sandi?
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
-                      <Lock className="w-4 h-4" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-[#132422]">Kata Sandi</label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          alert(
+                            "Silakan hubungi administrator BPBD atau manfaatkan akun demo untuk akses masuk."
+                          )
+                        }
+                        className="text-xs text-[#38746D] hover:underline font-medium cursor-pointer"
+                      >
+                        Lupa sandi?
+                      </button>
                     </div>
-                    <input
-                      type={showLoginPassword ? "text" : "password"}
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      className="w-full pl-10 pr-10 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] placeholder-gray-400 focus:outline-none focus:border-[#38746D] transition-colors"
-                    />
+                    <div className="relative flex items-center">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <input
+                        type={showLoginPassword ? "text" : "password"}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#718783] hover:text-[#132422] cursor-pointer"
+                      >
+                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loginLoading}
+                    className="w-full h-12 mt-1 bg-[#38746D] hover:bg-[#24544E] text-white rounded-full font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <span>{loginLoading ? "Memverifikasi..." : "Masuk ke Sistem"}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </motion.form>
+
+                {/* Switcher Teks (Belum punya akun? Daftar sekarang) */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="text-center pt-2.5 text-xs text-[#4B635F]"
+                >
+                  <p>
+                    Belum punya akun?{" "}
                     <button
                       type="button"
-                      onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#718783] hover:text-[#132422]"
+                      onClick={() => toggleMode("register")}
+                      className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
                     >
-                      {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      Daftar sekarang
                     </button>
-                  </div>
-                </div>
+                  </p>
+                </motion.div>
 
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="w-full mt-2 bg-[#38746D] hover:bg-[#24544E] text-white py-3 rounded-full font-medium text-xs sm:text-sm transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                {/* Divider & Tombol Sosial Bulat */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.42, ease: [0.16, 1, 0.3, 1] as const }}
                 >
-                  <span>{loginLoading ? "Memverifikasi..." : "Masuk ke Sistem"}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
+                  <SocialAuthButtons isRegister={false} />
+                </motion.div>
+              </>
             ) : (
               /* FORM REGISTER MOBILE */
-              <form onSubmit={handleRegister} className="space-y-3 text-left">
+              <>
+                <motion.form
+                  onSubmit={handleRegister}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="space-y-3 text-left"
+                >
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1">
                     Nama Lengkap
@@ -556,12 +658,46 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                   <span>{regLoading ? "Mendaftarkan Akun..." : "Daftar Akun Baru"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-              </form>
+                </motion.form>
+
+                {/* Switcher Teks Register */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="text-center pt-2.5 text-xs text-[#4B635F]"
+                >
+                  <p>
+                    Sudah memiliki akun?{" "}
+                    <button
+                      type="button"
+                      onClick={() => toggleMode("login")}
+                      className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
+                    >
+                      Masuk di sini
+                    </button>
+                  </p>
+                </motion.div>
+
+                {/* Divider & Tombol Sosial Bulat */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.42, ease: [0.16, 1, 0.3, 1] as const }}
+                >
+                  <SocialAuthButtons isRegister={true} />
+                </motion.div>
+              </>
             )}
 
             {/* Akun Demo Cepat (Khusus Mode Login di Mobile) */}
             {!isRegister && (
-              <div className="mt-4 pt-3.5 border-t border-[#E8F1EE] text-left">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.52, ease: [0.16, 1, 0.3, 1] as const }}
+                className="pt-2 border-t border-[#E8F1EE] text-left"
+              >
                 <div className="flex items-center space-x-1.5 text-xs text-[#4B635F] mb-2 font-medium">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   <span>Akun Demo Cepat (Klik untuk Isi):</span>
@@ -615,36 +751,9 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     <div className="text-[10px] text-[#4B635F] truncate">warga@dermayu.id</div>
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
-          </div>
-
-          {/* Footer Switcher Link Mobile */}
-          <div className="text-center pt-5 text-xs text-[#4B635F] border-t border-[#E8F1EE] mt-6">
-            {isRegister ? (
-              <p>
-                Sudah memiliki akun?{" "}
-                <button
-                  type="button"
-                  onClick={() => toggleMode("login")}
-                  className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
-                >
-                  Masuk di sini
-                </button>
-              </p>
-            ) : (
-              <p>
-                Belum punya akun?{" "}
-                <button
-                  type="button"
-                  onClick={() => toggleMode("register")}
-                  className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
-                >
-                  Daftar sekarang
-                </button>
-              </p>
-            )}
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -871,6 +980,25 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 </button>
               </motion.div>
             </form>
+
+            {/* Switch Mode Link Register */}
+            <motion.div custom={0.92} initial="hidden" animate="visible" variants={formItemVariant} className="text-center pt-2.5 text-xs text-[#4B635F]">
+              <p>
+                Sudah memiliki akun?{" "}
+                <button
+                  type="button"
+                  onClick={() => toggleMode("login")}
+                  className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
+                >
+                  Masuk di sini
+                </button>
+              </p>
+            </motion.div>
+
+            {/* Divider & Tombol Sosial Bulat */}
+            <motion.div custom={0.98} initial="hidden" animate="visible" variants={formItemVariant}>
+              <SocialAuthButtons isRegister={true} />
+            </motion.div>
           </div>
         </div>
 
@@ -891,7 +1019,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               initial="hidden"
               animate="visible"
               variants={formItemVariant}
-              className="flex items-center justify-between pb-3.5 mb-5 border-b border-[#E8F1EE]"
+              className="flex items-center justify-between mb-5"
             >
               <div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-[#132422] tracking-tight">
@@ -917,10 +1045,10 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             <form onSubmit={handleLogin} className="space-y-4">
               {/* Input Email / No HP */}
               <motion.div custom={0.47} initial="hidden" animate="visible" variants={formItemVariant}>
-                <label className="block text-xs font-semibold text-[#132422] mb-1">
+                <label className="block text-xs font-semibold text-[#132422] mb-1.5">
                   Email atau Nomor HP
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
                     <Mail className="w-4 h-4" />
                   </div>
@@ -930,16 +1058,17 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     onChange={(e) => setLoginIdentifier(e.target.value)}
                     placeholder="admin@dermayu.id atau 0812..."
                     required
-                    className="w-full pl-10 pr-4 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs sm:text-sm text-[#132422] placeholder-gray-400 focus:outline-none focus:border-[#38746D] transition-colors"
+                    className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />
                 </div>
               </motion.div>
 
               {/* Input Kata Sandi */}
               <motion.div custom={0.58} initial="hidden" animate="visible" variants={formItemVariant}>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-[#132422]">Kata Sandi</label>
-                  <span
+                  <button
+                    type="button"
                     onClick={() =>
                       alert(
                         "Silakan hubungi administrator BPBD atau manfaatkan akun demo untuk akses masuk."
@@ -948,9 +1077,9 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     className="text-xs text-[#38746D] hover:underline font-medium cursor-pointer"
                   >
                     Lupa sandi?
-                  </span>
+                  </button>
                 </div>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#718783]">
                     <Lock className="w-4 h-4" />
                   </div>
@@ -960,12 +1089,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs sm:text-sm text-[#132422] placeholder-gray-400 focus:outline-none focus:border-[#38746D] transition-colors"
+                    className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#718783] hover:text-[#132422]"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#718783] hover:text-[#132422] cursor-pointer"
                   >
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -977,7 +1106,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full mt-2 bg-[#38746D] hover:bg-[#24544E] text-white py-3 rounded-full font-medium text-xs sm:text-sm transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-12 mt-1 bg-[#38746D] hover:bg-[#24544E] text-white rounded-full font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <span>{loginLoading ? "Memverifikasi..." : "Masuk ke Sistem"}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -985,13 +1114,32 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               </motion.div>
             </form>
 
+            {/* Switch Mode Link Login */}
+            <motion.div custom={0.76} initial="hidden" animate="visible" variants={formItemVariant} className="text-center pt-2.5 text-xs text-[#4B635F]">
+              <p>
+                Belum punya akun?{" "}
+                <button
+                  type="button"
+                  onClick={() => toggleMode("register")}
+                  className="font-bold text-[#38746D] hover:underline cursor-pointer ml-1"
+                >
+                  Daftar sekarang
+                </button>
+              </p>
+            </motion.div>
+
+            {/* Divider & Tombol Sosial Bulat */}
+            <motion.div custom={0.82} initial="hidden" animate="visible" variants={formItemVariant}>
+              <SocialAuthButtons isRegister={false} />
+            </motion.div>
+
             {/* Akun Demo Cepat */}
             <motion.div
-              custom={0.82}
+              custom={0.90}
               initial="hidden"
               animate="visible"
               variants={formItemVariant}
-              className="mt-5 pt-4 border-t border-[#E8F1EE]"
+              className="pt-2 border-t border-[#E8F1EE]"
             >
               <div className="flex items-center space-x-1.5 text-xs text-[#4B635F] mb-2.5 font-medium">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -1084,7 +1232,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full flex flex-col items-center text-center pt-20 sm:pt-24 mb-4 sm:mb-6"
+            className="relative z-10 w-full flex flex-col items-center text-center pt-12 sm:pt-14 mb-2"
           >
             {/* Ikon Logo */}
             <div className="w-16 h-16 rounded-2xl bg-white/10 p-2.5 backdrop-blur-sm border border-white/20 shadow-md flex items-center justify-center mb-2.5">
@@ -1102,9 +1250,6 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             <h2 className="text-2xl font-extrabold tracking-wide text-white">
               DERMAYU
             </h2>
-            <p className="text-[11px] text-[#A4C6C1] font-medium tracking-normal mt-0.5">
-              Sistem Mitigasi &amp; Respons Banjir Terpadu
-            </p>
           </motion.div>
 
           {/* Center Dynamic Content */}
@@ -1112,7 +1257,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 my-auto py-4 max-w-xs mx-auto space-y-4"
+            className="relative z-10 my-auto -translate-y-4 sm:-translate-y-6 py-4 max-w-xs mx-auto space-y-4"
           >
             <h3 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
               {isRegister ? "Selamat Datang Kembali!" : "Halo Warga Indramayu!"}
@@ -1134,8 +1279,8 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           </motion.div>
 
           {/* Bottom Caption */}
-          <div className="relative z-10 pb-4 text-xs text-[#C7DBD7]/80">
-            Sistem Informasi Mitigasi &amp; Kesiapsiagaan Indramayu 2026
+          <div className="absolute bottom-5 sm:bottom-6 left-0 right-0 px-6 text-center text-xs text-[#C7DBD7]/80 z-10 pointer-events-none">
+            Sistem Informasi Mitigasi &amp; Kesiapsiagaan Banjir Indramayu 2026
           </div>
         </motion.div>
       </div>

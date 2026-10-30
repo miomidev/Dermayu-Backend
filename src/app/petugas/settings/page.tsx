@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { clearUserSession } from "@/utils/authSession";
 import {
   Settings,
   User,
@@ -52,11 +53,7 @@ export default function PetugasSettingsPage() {
 
   const handleLogout = () => {
     if (confirm("Apakah Anda yakin ingin keluar dari sesi operator Pusdalops BPBD?")) {
-      localStorage.removeItem("user_session");
-      localStorage.removeItem("dermayu_user");
-      localStorage.removeItem("dermayu_token");
-      localStorage.removeItem("dermayu_refresh_token");
-      document.cookie = "user_session=; path=/; max-age=0";
+      clearUserSession();
       router.push("/login");
     }
   };
@@ -315,3 +312,4 @@ export default function PetugasSettingsPage() {
     </DashboardLayout>
   );
 }
+

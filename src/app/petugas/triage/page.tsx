@@ -638,3 +638,4 @@ export default function PetugasTriagePage() {
     </DashboardLayout>
   );
 }
+

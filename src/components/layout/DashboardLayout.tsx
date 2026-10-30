@@ -23,6 +23,10 @@ import {
   X,
   PhoneCall,
 } from "lucide-react";
+import {
+  touchDashboardActivity,
+  clearUserSession,
+} from "@/utils/authSession";
 
 export interface DashboardLayoutProps {
   role?: "petugas" | "warga";
@@ -60,17 +64,44 @@ export function DashboardLayout({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close mobile sidebar on route change
+  // Close mobile sidebar on route change & touch session activity
   useEffect(() => {
     setMobileMenuOpen(false);
+    touchDashboardActivity();
   }, [pathname]);
 
+  // Session Heartbeat: Saat user berada di dalam dashboard, session tidak boleh expired
+  useEffect(() => {
+    touchDashboardActivity();
+    // Update timestamp setiap 1 menit saat aktif di dashboard
+    const heartbeatInterval = setInterval(() => {
+      touchDashboardActivity();
+    }, 60 * 1000);
+
+    // Event listener interaksi pengguna (throttled)
+    let lastTouch = Date.now();
+    const handleUserActivity = () => {
+      const now = Date.now();
+      if (now - lastTouch > 30 * 1000) {
+        lastTouch = now;
+        touchDashboardActivity();
+      }
+    };
+
+    window.addEventListener("click", handleUserActivity, { passive: true });
+    window.addEventListener("keydown", handleUserActivity, { passive: true });
+    window.addEventListener("scroll", handleUserActivity, { passive: true });
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      window.removeEventListener("click", handleUserActivity);
+      window.removeEventListener("keydown", handleUserActivity);
+      window.removeEventListener("scroll", handleUserActivity);
+    };
+  }, []);
+
   const handleLogout = () => {
-    localStorage.removeItem("user_session");
-    localStorage.removeItem("dermayu_user");
-    localStorage.removeItem("dermayu_token");
-    localStorage.removeItem("dermayu_refresh_token");
-    document.cookie = "user_session=; path=/; max-age=0";
+    clearUserSession();
     router.push("/login");
   };
 

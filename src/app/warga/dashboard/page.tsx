@@ -33,6 +33,7 @@ import {
   Ban,
   Droplets,
 } from "lucide-react";
+import { getActiveSession } from "@/utils/authSession";
 
 interface UserSession {
   name: string;
@@ -260,10 +261,14 @@ export default function WargaDashboard() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("user_session");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSession(parsed);
+      const active = getActiveSession();
+      if (active) {
+        setSession({
+          name: active.name,
+          email: active.email,
+          role: active.role,
+          district: active.district || "Kandanghaur - Eretan Wetan",
+        });
       }
     } catch {
       // Keep default session

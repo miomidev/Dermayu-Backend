@@ -21,6 +21,7 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
+import { saveUserSession } from "@/utils/authSession";
 
 const INDRAMAYU_DISTRICTS = [
   "Anjatan",
@@ -194,26 +195,9 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       role: string;
       district?: string;
     }) => {
-      const roleNorm = (userObj.role || "").toLowerCase();
-      const isWarga =
-        roleNorm === "warga" ||
-        roleNorm === "citizen" ||
-        userObj.email.toLowerCase().includes("warga");
+      const session = saveUserSession(userObj);
 
-      const sessionData = {
-        name: userObj.name || (isWarga ? "Pak Kusnan" : "Komandan Surya BPBD"),
-        email: userObj.email,
-        role: isWarga ? "warga" : "petugas",
-        district: userObj.district || (isWarga ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu"),
-      };
-
-      localStorage.setItem("user_session", JSON.stringify(sessionData));
-      localStorage.setItem("dermayu_user", JSON.stringify(sessionData));
-      document.cookie = `user_session=${encodeURIComponent(
-        JSON.stringify(sessionData)
-      )}; path=/; max-age=604800; SameSite=Lax`;
-
-      if (isWarga) {
+      if (session.role === "warga") {
         router.push("/warga/dashboard");
       } else {
         router.push("/petugas/dashboard");
@@ -369,16 +353,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         localStorage.setItem("dermayu_user", JSON.stringify(json.data.user));
       }
 
-      const sessionData = {
+      saveUserSession({
         name: regFullName,
         email: regEmail,
         role: "warga",
         district: regDistrict || "Kecamatan Indramayu",
-      };
-      localStorage.setItem("user_session", JSON.stringify(sessionData));
-      document.cookie = `user_session=${encodeURIComponent(
-        JSON.stringify(sessionData)
-      )}; path=/; max-age=604800; SameSite=Lax`;
+      });
 
       setRegSuccess("Pendaftaran berhasil! Mengalihkan ke dasbor warga...");
       setTimeout(() => {

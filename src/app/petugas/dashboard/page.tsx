@@ -30,6 +30,7 @@ import {
   Sparkles,
   ExternalLink,
 } from "lucide-react";
+import { getActiveSession, clearUserSession } from "@/utils/authSession";
 
 interface UserSession {
   name: string;
@@ -179,10 +180,14 @@ export default function PetugasDashboard() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("user_session");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSession(parsed);
+      const active = getActiveSession();
+      if (active) {
+        setSession({
+          name: active.name,
+          email: active.email,
+          role: active.role,
+          district: active.district || "Pusdalops BPBD Indramayu",
+        });
       }
     } catch {
       // Keep default session
@@ -204,11 +209,7 @@ export default function PetugasDashboard() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("user_session");
-    localStorage.removeItem("dermayu_user");
-    localStorage.removeItem("dermayu_token");
-    localStorage.removeItem("dermayu_refresh_token");
-    document.cookie = "user_session=; path=/; max-age=0";
+    clearUserSession();
     router.push("/login");
   };
 

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ROUTES } from "@/data/dermayuData";
+import { getActiveSession, getDashboardUrl, type UserSession } from "@/utils/authSession";
 
 interface SiteHeaderProps {
   path?: string;
@@ -36,6 +37,32 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("beranda");
+  const [session, setSession] = useState<UserSession | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Periksa active session dengan grace period 15 menit
+  useEffect(() => {
+    setIsMounted(true);
+
+    const checkSession = () => {
+      const active = getActiveSession();
+      setSession(active);
+    };
+
+    checkSession();
+
+    // Re-check saat window aktif kembali atau polling periodik setiap 15 detik
+    window.addEventListener("focus", checkSession);
+    const interval = setInterval(checkSession, 15 * 1000);
+
+    return () => {
+      window.removeEventListener("focus", checkSession);
+      clearInterval(interval);
+    };
+  }, [pathname]);
+
+  const hasActiveSession = isMounted && session !== null;
+  const dashboardHref = session ? getDashboardUrl(session.role) : "/login";
 
   useEffect(() => {
     // Jika berada di halaman /panduan, set active ke panduan
@@ -148,18 +175,29 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
           transition={{ duration: 1.5, delay: 0.85, ease: [0.16, 1, 0.3, 1] as const }}
           className="hidden md:flex items-center gap-3 shrink-0"
         >
-          <Link
-            href="/login"
-            className="rounded-full border border-[#A4C6C1] bg-white px-6 py-2.5 text-sm font-medium text-[#2E6A63] shadow-2xs transition-all duration-150 hover:bg-[#EEF5F3] hover:border-[#38746D] active:scale-95 whitespace-nowrap"
-          >
-            Masuk
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-full bg-[#38746D] px-6 py-2.5 text-sm font-medium text-white shadow-xs transition-all duration-150 hover:bg-[#24544E] active:scale-95 whitespace-nowrap"
-          >
-            Mulai sekarang
-          </Link>
+          {hasActiveSession ? (
+            <Link
+              href={dashboardHref}
+              className="rounded-full bg-[#1D443F] hover:bg-[#38746D] px-6 py-2.5 text-sm font-bold text-white shadow-xs transition-all duration-150 hover:shadow-md active:scale-95 whitespace-nowrap inline-flex items-center"
+            >
+              Kembali ke Dasbor
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-full border border-[#A4C6C1] bg-white px-6 py-2.5 text-sm font-medium text-[#2E6A63] shadow-2xs transition-all duration-150 hover:bg-[#EEF5F3] hover:border-[#38746D] active:scale-95 whitespace-nowrap"
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-full bg-[#38746D] px-6 py-2.5 text-sm font-medium text-white shadow-xs transition-all duration-150 hover:bg-[#24544E] active:scale-95 whitespace-nowrap"
+              >
+                Mulai sekarang
+              </Link>
+            </>
+          )}
         </motion.div>
 
         {/* Mobile Header Menu Trigger */}
@@ -169,12 +207,21 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
           transition={{ duration: 1.2, delay: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
           className="flex items-center gap-2 md:hidden"
         >
-          <Link
-            href="/login"
-            className="inline-flex items-center rounded-full border border-[#A4C6C1] bg-white px-3.5 py-1.5 text-xs font-medium text-[#2E6A63] shadow-2xs hover:bg-[#EEF5F3] active:scale-95 transition-all"
-          >
-            Masuk
-          </Link>
+          {hasActiveSession ? (
+            <Link
+              href={dashboardHref}
+              className="inline-flex items-center rounded-full bg-[#1D443F] text-white px-3.5 py-1.5 text-xs font-bold shadow-2xs hover:bg-[#38746D] active:scale-95 transition-all whitespace-nowrap"
+            >
+              Dasbor
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center rounded-full border border-[#A4C6C1] bg-white px-3.5 py-1.5 text-xs font-medium text-[#2E6A63] shadow-2xs hover:bg-[#EEF5F3] active:scale-95 transition-all"
+            >
+              Masuk
+            </Link>
+          )}
           <button
             type="button"
             className="rounded-full p-2 text-[#132422] hover:bg-[#EEF5F3] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38746D] cursor-pointer"
@@ -243,20 +290,32 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
               </ul>
 
               <div className="pt-3 border-t border-[#E8F1EE] flex flex-col gap-3">
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="w-full text-center py-2.5 rounded-full border border-[#D5E4E0] bg-white text-sm font-semibold text-[#132422] hover:bg-gray-50 transition-colors shadow-2xs"
-                >
-                  Masuk
-                </Link>
-                <Link
-                  href="/register"
-                  onClick={() => setOpen(false)}
-                  className="w-full text-center py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-sm font-semibold shadow-sm transition-colors"
-                >
-                  Mulai sekarang
-                </Link>
+                {hasActiveSession ? (
+                  <Link
+                    href={dashboardHref}
+                    onClick={() => setOpen(false)}
+                    className="w-full text-center py-3 rounded-full bg-[#1D443F] hover:bg-[#38746D] text-white text-sm font-bold shadow-sm transition-colors block"
+                  >
+                    Kembali ke Dasbor
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setOpen(false)}
+                      className="w-full text-center py-2.5 rounded-full border border-[#D5E4E0] bg-white text-sm font-semibold text-[#132422] hover:bg-gray-50 transition-colors shadow-2xs"
+                    >
+                      Masuk
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setOpen(false)}
+                      className="w-full text-center py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-sm font-semibold shadow-sm transition-colors"
+                    >
+                      Mulai sekarang
+                    </Link>
+                  </>
+                )}
               </div>
             </motion.div>
           </>

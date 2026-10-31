@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, connection } from "next/server";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { extractBearerToken, verifyAccessToken } from "@/lib/auth";
@@ -7,6 +7,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await connection();
   try {
     const token = extractBearerToken(req.headers.get("authorization"));
     if (!token) {

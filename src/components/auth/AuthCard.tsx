@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -453,16 +453,13 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           />
 
           {/* Brand Logo & Keterangan (Header Bersih tanpa tombol back / TLS badge) */}
-          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/20 p-2 shadow-inner flex items-center justify-center mb-2.5">
-            <Image
-              src="/dermayu-logo.webp"
-              alt="Logo DERMAYU"
-              width={38}
-              height={38}
-              priority
-              className="w-full h-full object-contain"
-            />
-          </div>
+          <LogoDermayu
+            variant="light"
+            width={48}
+            height={48}
+            priority
+            className="w-12 h-12 object-contain mb-2 drop-shadow-sm"
+          />
           <h1 className="text-2xl font-extrabold tracking-tight text-white">
             {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
           </h1>
@@ -1340,16 +1337,13 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             className="relative z-10 w-full flex flex-col items-center text-center pt-12 sm:pt-14 mb-2"
           >
             {/* Ikon Logo */}
-            <div className="w-16 h-16 rounded-2xl bg-white/10 p-2.5 backdrop-blur-sm border border-white/20 shadow-md flex items-center justify-center mb-2.5">
-              <Image
-                src="/dermayu-logo.webp"
-                alt="Logo DERMAYU"
-                width={48}
-                height={48}
-                priority
-                className="w-full h-full object-contain"
-              />
-            </div>
+            <LogoDermayu
+              variant="light"
+              width={56}
+              height={56}
+              priority
+              className="w-14 h-14 object-contain mb-2 drop-shadow-md"
+            />
 
             {/* Keterangan Nama di Bawah Logo */}
             <h2 className="text-2xl font-extrabold tracking-wide text-white">

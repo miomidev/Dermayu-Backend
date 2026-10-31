@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 import db from "@/lib/db";
 import { authorize, Roles } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
+  await connection();
   const auth = authorize(req, Roles.ADMINS);
   if (!auth.ok) return auth.response;
 

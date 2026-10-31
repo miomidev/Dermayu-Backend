@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import {
@@ -145,17 +145,14 @@ export function AppSidebar({ role, mobileOpen, onCloseMobile }: AppSidebarProps)
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* Logo Header (Tanpa garis pemisah border-b) */}
           <div className="h-20 px-6 flex items-center justify-between shrink-0">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-xl bg-[#38746D] flex items-center justify-center p-1.5 text-white shadow-xs group-hover:scale-105 transition-transform">
-                <Image
-                  src="/dermayu-logo.webp"
-                  alt="Logo DERMAYU"
-                  width={24}
-                  height={24}
-                  className="object-contain"
-                  priority
-                />
-              </div>
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <LogoDermayu
+                variant="light"
+                width={36}
+                height={36}
+                className="w-9 h-9 object-contain group-hover:scale-105 transition-transform shrink-0"
+                priority
+              />
               <div className="text-left">
                 <span className="font-extrabold text-base tracking-tight text-white block leading-tight">
                   DERMAYU

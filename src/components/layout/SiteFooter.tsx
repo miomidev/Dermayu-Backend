@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { motion } from "motion/react";
 
 interface FooterLink {
@@ -87,15 +87,12 @@ export function SiteFooter() {
                 href="/"
                 className="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight text-white group"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2E6A63] text-white shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
-                  <Image
-                    src="/dermayu-logo.webp"
-                    alt="Logo DERMAYU"
-                    width={20}
-                    height={20}
-                    className="object-contain w-4 h-4"
-                  />
-                </div>
+                <LogoDermayu
+                  variant="light"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 object-contain shrink-0 group-hover:scale-105 transition-transform"
+                />
                 <span className="font-extrabold tracking-tight text-xl text-white">DERMAYU</span>
               </Link>
             </motion.div>

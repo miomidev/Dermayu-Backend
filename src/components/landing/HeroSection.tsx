@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { X, ShieldAlert, Zap, Activity, Download } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -198,16 +199,13 @@ export function HeroSection() {
 
               {/* App Identity Banner */}
               <div className="flex items-center gap-3.5 pr-8">
-                <div className="relative h-14 w-14 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/60 p-2 shrink-0 shadow-xs flex items-center justify-center">
-                  <Image
-                    src="/dermayu-logo.webp"
-                    alt="Logo DERMAYU"
-                    width={44}
-                    height={44}
-                    className="object-contain"
-                    priority
-                  />
-                </div>
+                <LogoDermayu
+                  variant="dark"
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 object-contain shrink-0"
+                  priority
+                />
                 <div>
                   <h3 className="text-base font-bold text-[#132422] leading-snug">
                     Pasang Aplikasi DERMAYU

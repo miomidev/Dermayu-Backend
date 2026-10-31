@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ROUTES } from "@/data/dermayuData";
 import { getActiveSession, getDashboardUrl, type UserSession } from "@/utils/authSession";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 
 interface SiteHeaderProps {
   path?: string;
@@ -118,17 +118,14 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
           className="flex items-center gap-3 shrink-0"
         >
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#38746D] text-white shrink-0 group-hover:scale-105 transition-transform duration-200 shadow-2xs">
-              <Image
-                src="/dermayu-logo.webp"
-                alt="Logo DERMAYU"
-                width={22}
-                height={22}
-                className="object-contain w-5 h-5"
-                priority
-              />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-[#132422]">
+            <LogoDermayu
+              variant="dark"
+              width={36}
+              height={36}
+              className="w-9 h-9 object-contain group-hover:scale-105 transition-transform duration-200 shrink-0"
+              priority
+            />
+            <span className="text-xl font-extrabold tracking-tight text-[#1D443F] group-hover:text-[#38746D] transition-colors">
               DERMAYU
             </span>
           </Link>

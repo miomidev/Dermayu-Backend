@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, connection } from "next/server";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const url = new URL(req.url);
     const category = url.searchParams.get("category");

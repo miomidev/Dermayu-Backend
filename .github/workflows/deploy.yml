@@ -1,0 +1,32 @@
+name: Dermayu Auto Deploy CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script_stop: true
+          script: |
+            git config --global --add safe.directory /home/miomideveloper/web-dermayu
+            cd /home/miomideveloper/web-dermayu
+            git fetch --all
+            git reset --hard origin/main
+            chmod +x deploy.sh
+            ./deploy.sh

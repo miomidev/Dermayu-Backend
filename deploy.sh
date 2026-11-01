@@ -1,24 +1,26 @@
 #!/bin/bash
 set -e
 
-echo "Deploying Dermayu Web & Backend..."
+echo "🚀 Deploying Dermayu Web & Backend..."
 
 # Pull latest changes
 git fetch origin main
 git reset --hard origin/main
 git pull origin main
 
-# Rebuild and restart docker containers
-docker compose down
+# Build Docker images
+echo "📦 Building Docker images..."
 docker compose build
 
-# Run Prisma schema push using migrator service
+# Run Prisma schema migration
+echo "🔄 Running database schema migration..."
 docker compose run --rm migrator
 
-# Run initial seed if needed
-# docker compose run --rm seeder
+# Start / restart application container
+echo "▶️ Starting application..."
+docker compose up -d --remove-orphans app
 
-# Start the application
-docker compose up -d
+# Clean up dangling images to save disk space
+docker image prune -f
 
-echo "Deployment finished successfully!"
+echo "✅ Deployment finished successfully!"

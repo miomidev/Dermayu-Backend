@@ -1,5 +1,5 @@
 "use client";
-
+import { getActiveSession, clearUserSession } from "@/utils/authSession";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -72,8 +72,11 @@ interface AuditLogItem {
 interface UserProfile {
   id: string;
   fullName: string;
+  name?: string;
   email: string;
   role: "CITIZEN" | "OFFICER" | "ADMIN" | "SUPERADMIN";
+  district?: string;
+  phone?: string;
 }
 
 interface AiPrediction {
@@ -260,22 +263,47 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const storedToken = localStorage.getItem("dermayu_token");
     const storedUserStr = localStorage.getItem("dermayu_user");
+    const activeSession = getActiveSession();
 
-    if (!storedToken || !storedUserStr) {
-      router.push("/auth/login");
+    if (!storedToken && !activeSession) {
+      router.push("/login");
       return;
     }
 
     try {
-      const user = JSON.parse(storedUserStr);
-      if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
-        router.push("/auth/login");
+      let user: any = null;
+      if (storedUserStr) {
+        user = JSON.parse(storedUserStr);
+      } else if (activeSession) {
+        user = {
+          name: activeSession.name,
+          fullName: activeSession.name,
+          email: activeSession.email,
+          role: activeSession.role,
+          district: activeSession.district,
+        };
+      }
+
+      const roleUpper = (user?.role || activeSession?.role || "").toUpperCase();
+      if (roleUpper !== "ADMIN" && roleUpper !== "SUPERADMIN") {
+        router.push("/login");
         return;
       }
-      setCurrentUser(user);
-      setToken(storedToken);
+
+      const resolvedUser: UserProfile = {
+        id: String(user.id || "1"),
+        fullName: user.fullName || user.name || activeSession?.name || "Super Admin DERMAYU",
+        name: user.name || user.fullName || activeSession?.name || "Super Admin DERMAYU",
+        email: user.email || activeSession?.email || "superadmin@dermayu.id",
+        role: "SUPERADMIN",
+        district: user.district || activeSession?.district,
+        phone: user.phone,
+      };
+
+      setCurrentUser(resolvedUser);
+      setToken(storedToken || "demo_token");
     } catch {
-      router.push("/auth/login");
+      router.push("/login");
     }
   }, [router]);
 
@@ -557,10 +585,11 @@ export default function AdminDashboardPage() {
   };
 
   const handleLogout = () => {
+    clearUserSession();
     localStorage.removeItem("dermayu_token");
     localStorage.removeItem("dermayu_refresh_token");
     localStorage.removeItem("dermayu_user");
-    router.push("/auth/login");
+    router.push("/login");
   };
 
   const handleExportCsv = async () => {
@@ -915,10 +944,10 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-cyan-950 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 border border-cyan-800/50">
-                {currentUser?.fullName.charAt(0) || "A"}
+                {(currentUser?.fullName || currentUser?.name || "A").charAt(0)}
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{currentUser?.fullName}</div>
+                <div className="text-xs font-bold text-white truncate">{currentUser?.fullName || currentUser?.name || "Super Admin"}</div>
                 <div className="text-[10px] text-cyan-400 font-mono font-medium truncate">
                   {currentUser?.role}
                 </div>

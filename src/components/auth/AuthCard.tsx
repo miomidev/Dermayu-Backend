@@ -256,12 +256,25 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       if (!res.ok) {
         // Cek jika akun demo, lakukan bypass simulasi agar tetap redirect mulus
         const idLower = loginIdentifier.toLowerCase();
-        if (idLower.includes("warga") || idLower.includes("petugas") || idLower.includes("admin")) {
+        if (idLower.includes("warga") || idLower.includes("petugas") || idLower.includes("admin") || idLower.includes("superadmin")) {
           const isW = idLower.includes("warga");
-          setSessionAndRedirect({
-            name: isW ? "Warga Indramayu" : idLower.includes("petugas") ? "Petugas TRC BPBD" : "Super Admin DERMAYU",
+          const isA = idLower.includes("admin") || idLower.includes("superadmin");
+          const role = isW ? "warga" : isA ? "superadmin" : "petugas";
+          const roleUpper = isW ? "CITIZEN" : isA ? "SUPERADMIN" : "OFFICER";
+          const mockToken = "mock_jwt_token_" + Date.now();
+          localStorage.setItem("dermayu_token", mockToken);
+          localStorage.setItem("dermayu_user", JSON.stringify({
+            id: isA ? "1" : isW ? "3" : "2",
+            name: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
+            fullName: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
             email: loginIdentifier,
-            role: isW ? "warga" : "petugas",
+            role: roleUpper,
+            district: isW ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu",
+          }));
+          setSessionAndRedirect({
+            name: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
+            email: loginIdentifier,
+            role: role,
             district: isW ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu",
           });
           return;
@@ -276,6 +289,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       }
 
       const u = json.data.user;
+      localStorage.setItem("dermayu_user", JSON.stringify({
+        ...u,
+        name: u.fullName || u.full_name || u.name,
+        fullName: u.fullName || u.full_name || u.name,
+        role: u.role,
+      }));
       setSessionAndRedirect({
         name: u.fullName || u.full_name || u.name,
         email: u.email,
@@ -285,12 +304,25 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
     } catch (err: unknown) {
       // Jika terjadi error koneksi/DB dan user menggunakan akun demo
       const idLower = loginIdentifier.toLowerCase();
-      if (idLower.includes("warga") || idLower.includes("petugas") || idLower.includes("admin")) {
+      if (idLower.includes("warga") || idLower.includes("petugas") || idLower.includes("admin") || idLower.includes("superadmin")) {
         const isW = idLower.includes("warga");
-        setSessionAndRedirect({
-          name: isW ? "Warga Indramayu" : idLower.includes("petugas") ? "Petugas TRC BPBD" : "Super Admin DERMAYU",
+        const isA = idLower.includes("admin") || idLower.includes("superadmin");
+        const role = isW ? "warga" : isA ? "superadmin" : "petugas";
+        const roleUpper = isW ? "CITIZEN" : isA ? "SUPERADMIN" : "OFFICER";
+        const mockToken = "mock_jwt_token_" + Date.now();
+        localStorage.setItem("dermayu_token", mockToken);
+        localStorage.setItem("dermayu_user", JSON.stringify({
+          id: isA ? "1" : isW ? "3" : "2",
+          name: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
+          fullName: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
           email: loginIdentifier,
-          role: isW ? "warga" : "petugas",
+          role: roleUpper,
+          district: isW ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu",
+        }));
+        setSessionAndRedirect({
+          name: isW ? "Warga Indramayu" : isA ? "Super Admin DERMAYU" : "Petugas TRC BPBD",
+          email: loginIdentifier,
+          role: role,
           district: isW ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu",
         });
         return;

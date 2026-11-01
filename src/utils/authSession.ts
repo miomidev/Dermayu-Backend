@@ -6,8 +6,9 @@
 
 export interface UserSession {
   name: string;
+  fullName?: string;
   email: string;
-  role: "warga" | "petugas" | "superadmin";
+  role: "warga" | "petugas" | "superadmin" | "CITIZEN" | "OFFICER" | "SUPERADMIN";
   district?: string;
   lastDashboardActive: number;
   loginTime?: number;
@@ -116,7 +117,8 @@ export function touchDashboardActivity(): void {
  * Menyimpan data session saat login berhasil (3 Role: warga, petugas, superadmin).
  */
 export function saveUserSession(user: {
-  name: string;
+  name?: string;
+  fullName?: string;
   email: string;
   role: string;
   district?: string;
@@ -135,16 +137,20 @@ export function saveUserSession(user: {
   if (isSuperadmin) normalizedRole = "superadmin";
   else if (isOfficer) normalizedRole = "petugas";
 
+  const displayName =
+    user.fullName ||
+    user.name ||
+    (isSuperadmin
+      ? "Super Admin DERMAYU"
+      : isOfficer
+      ? "Petugas BPBD"
+      : "Warga Indramayu");
+
   const now = Date.now();
 
   const session: UserSession = {
-    name:
-      user.name ||
-      (isSuperadmin
-        ? "Super Admin DERMAYU"
-        : isOfficer
-        ? "Petugas BPBD"
-        : "Warga Indramayu"),
+    name: displayName,
+    fullName: displayName,
     email: user.email,
     role: normalizedRole,
     district:
@@ -161,7 +167,11 @@ export function saveUserSession(user: {
   if (typeof window !== "undefined") {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(session));
-    localStorage.setItem("dermayu_user", JSON.stringify(session));
+    localStorage.setItem("dermayu_user", JSON.stringify({
+      ...session,
+      id: isSuperadmin ? "1" : isOfficer ? "2" : "3",
+      role: isSuperadmin ? "SUPERADMIN" : isOfficer ? "OFFICER" : "CITIZEN",
+    }));
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;

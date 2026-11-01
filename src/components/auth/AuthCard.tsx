@@ -522,7 +522,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                         type="text"
                         value={loginIdentifier}
                         onChange={(e) => setLoginIdentifier(e.target.value)}
-                        placeholder="admin@dermayu.id atau 0812..."
+                        placeholder="superadmin@dermayu.id atau 0812..."
                         required
                         className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                       />
@@ -1155,7 +1155,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     type="text"
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
-                    placeholder="admin@dermayu.id atau 0812..."
+                    placeholder="superadmin@dermayu.id atau 0812..."
                     required
                     className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />

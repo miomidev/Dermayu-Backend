@@ -23,7 +23,7 @@ Ikuti langkah-langkah berikut secara berurutan: **Clone ➔ Install ➔ Run**.
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/your-username/dermayu-backend.git
+git clone https://github.com/miomidev/dermayu-backend.git
 cd dermayu-backend
 ```
 

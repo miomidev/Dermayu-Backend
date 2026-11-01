@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Role } from "@prisma/client";
@@ -20,6 +21,13 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
+}
+
+/**
+ * Hash refresh tokens and reset tokens using SHA-256 before saving to database (PRD SEC-03)
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 export function generateAccessToken(payload: TokenPayload): string {

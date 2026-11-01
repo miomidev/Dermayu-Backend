@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { generateAccessToken, generateRefreshToken, hashPassword } from "@/lib/auth";
+import { generateAccessToken, generateRefreshToken, hashPassword, hashToken } from "@/lib/auth";
 
 const registerSchema = z.object({
   fullName: z.string().min(3, "Nama lengkap minimal 3 karakter"),
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     await db.refreshToken.create({
       data: {
         user_id: user.id,
-        token_hash: refreshToken,
+        token_hash: hashToken(refreshToken),
         expires_at: expiresAt,
         device_info: req.headers.get("user-agent") || "unknown",
       },

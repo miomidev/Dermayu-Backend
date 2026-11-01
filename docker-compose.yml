@@ -17,6 +17,26 @@ services:
     volumes:
       - dermayu_uploads:/app/public/uploads
 
+  migrator:
+    build:
+      context: .
+      target: builder
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    command: npx prisma db push --accept-data-loss
+    networks:
+      - dermayu_network
+
+  seeder:
+    build:
+      context: .
+      target: builder
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    command: npm run db:seed
+    networks:
+      - dermayu_network
+
 networks:
   dermayu_network:
     driver: bridge

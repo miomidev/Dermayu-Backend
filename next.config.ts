@@ -1,12 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "standalone",
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "asset.kompas.com" },
-      { protocol: "https", hostname: "min.co.id" },
-      { protocol: "https", hostname: "encrypted-tbn0.gstatic.com" },
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
     ],
   },
   cacheComponents: true,

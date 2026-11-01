@@ -1,0 +1,25 @@
+services:
+  app:
+    build: .
+    container_name: dermayu-next-app
+    restart: always
+    ports:
+      - "8082:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - PORT=3000
+      - NODE_ENV=production
+    networks:
+      - dermayu_network
+    volumes:
+      - dermayu_uploads:/app/public/uploads
+
+networks:
+  dermayu_network:
+    driver: bridge
+
+volumes:
+  dermayu_uploads:

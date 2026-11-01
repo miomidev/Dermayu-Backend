@@ -25,14 +25,16 @@ async function main() {
   }
   console.log("✅ Kategori aduan berhasil di-seed");
 
-  // 2. Seed Default Accounts
+  // 2. Seed Default Accounts (3 Peran: SUPERADMIN, OFFICER, CITIZEN)
   const hashedPassword = await bcrypt.hash("AdminDermayu2026!", 12);
   const citizenPassword = await bcrypt.hash("WargaDermayu2026!", 12);
 
-  // Super Admin
+  // Super Admin (Akses Web Admin & Komando Penuh)
   await prisma.user.upsert({
     where: { email: "superadmin@dermayu.id" },
-    update: {},
+    update: {
+      role: "SUPERADMIN",
+    },
     create: {
       full_name: "Super Admin DERMAYU",
       email: "superadmin@dermayu.id",
@@ -42,23 +44,12 @@ async function main() {
     },
   });
 
-  // Admin Petugas
-  await prisma.user.upsert({
-    where: { email: "admin@dermayu.id" },
-    update: {},
-    create: {
-      full_name: "Admin Operator Indramayu",
-      email: "admin@dermayu.id",
-      phone: "+6281234560002",
-      password_hash: hashedPassword,
-      role: "ADMIN",
-    },
-  });
-
-  // Petugas Lapangan
+  // Petugas Lapangan (Akses Portal Tugas Lapangan, Bukti & Telemetri)
   await prisma.user.upsert({
     where: { email: "petugas@dermayu.id" },
-    update: {},
+    update: {
+      role: "OFFICER",
+    },
     create: {
       full_name: "Petugas TRC BPBD",
       email: "petugas@dermayu.id",
@@ -68,10 +59,12 @@ async function main() {
     },
   });
 
-  // Contoh Warga
+  // Contoh Warga (Akses Pelaporan, Status Aduan & Titik Evakuasi)
   await prisma.user.upsert({
     where: { email: "warga@dermayu.id" },
-    update: {},
+    update: {
+      role: "CITIZEN",
+    },
     create: {
       full_name: "Warga Indramayu",
       email: "warga@dermayu.id",
@@ -80,7 +73,7 @@ async function main() {
       role: "CITIZEN",
     },
   });
-  console.log("✅ Akun default berhasil di-seed (superadmin, admin, petugas, warga)");
+  console.log("✅ Akun default berhasil di-seed (3 Role: superadmin, petugas, warga)");
 
   // 3. Seed Districts (Kecamatan Utama Indramayu)
   const districts = [
@@ -99,81 +92,72 @@ async function main() {
   for (const dist of districts) {
     await prisma.district.upsert({
       where: { code: dist.code },
-      update: { name: dist.name },
-      create: { code: dist.code, name: dist.name },
+      update: dist,
+      create: dist,
     });
   }
   console.log("✅ Data kecamatan Indramayu berhasil di-seed");
 
   // 4. Seed Emergency Contacts
-  const emergencyContacts = [
-    {
-      name: "Pusdalops BPBD Kab. Indramayu",
-      phone: "0234-274644",
-      description: "Penanggulangan Bencana & Evakuasi",
-      sort_order: 1,
-    },
-    {
-      name: "Pemadam Kebakaran (Damkar) Indramayu",
-      phone: "0234-272113",
-      description: "Penyelamatan & Kebakaran",
-      sort_order: 2,
-    },
-    {
-      name: "PMI Kabupaten Indramayu",
-      phone: "0234-271018",
-      description: "Bantuan Medis, Ambulans & Darah",
-      sort_order: 3,
-    },
-    {
-      name: "Polres Indramayu (Call Center 110)",
-      phone: "110",
-      description: "Keamanan, Ketertiban & Laporan Darurat",
-      sort_order: 4,
-    },
-    {
-      name: "PSC 119 Indramayu Sehat",
-      phone: "119",
-      description: "Layanan Gawat Darurat Medis & Ambulans",
-      sort_order: 5,
-    },
+  const contacts = [
+    { name: "Pusdalops BPBD Indramayu", phone: "0234-272444", description: "Layanan Darurat Bencana 24 Jam", sort_order: 1 },
+    { name: "Damkar Indramayu", phone: "0234-274113", description: "Pemadam Kebakaran & Penyelamatan", sort_order: 2 },
+    { name: "PMI Kabupaten Indramayu", phone: "0234-272211", description: "Layanan Ambulans & Donor Darah", sort_order: 3 },
+    { name: "Polres Indramayu", phone: "110", description: "Kepolisian Resor Indramayu", sort_order: 4 },
   ];
 
-  for (const ec of emergencyContacts) {
+  for (const c of contacts) {
     const existing = await prisma.emergencyContact.findFirst({
-      where: { name: ec.name },
+      where: { name: c.name },
     });
     if (!existing) {
-      await prisma.emergencyContact.create({ data: ec });
+      await prisma.emergencyContact.create({ data: c });
     }
   }
   console.log("✅ Kontak darurat berhasil di-seed");
 
-  // 5. Seed Titik Evakuasi Contoh
-  const evacuationPoints = [
+  // 5. Seed Evacuation Points
+  const sindang = await prisma.district.findFirst({ where: { name: "Sindang" } });
+  const indramayu = await prisma.district.findFirst({ where: { name: "Indramayu" } });
+  const kandanghaur = await prisma.district.findFirst({ where: { name: "Kandanghaur" } });
+
+  const evacPoints = [
     {
-      name: "GOR Singalodra Indramayu",
-      address: "Jl. MT Haryono No. 1, Sindang, Kec. Indramayu",
-      latitude: -6.3312000,
-      longitude: 108.3245000,
-      capacity: 1000,
-      facilities: JSON.stringify(["Tenda Pengungsi", "Dapur Umum", "Toilet Portabel", "Posko Medis"]),
-      contact_name: "Koordinator BPBD",
+      name: "GOR Singalodra Sindang",
+      address: "Jl. Mayor Dasuki No. 12, Sindang",
+      latitude: -6.3354000,
+      longitude: 108.3182000,
+      district_id: sindang?.id,
+      capacity: 500,
+      facilities: JSON.stringify(["Tenda Pengungsi", "Dapur Umum", "Toilet Portabel", "Posko Medis", "Genset Darurat"]),
+      contact_name: "Bripka Hartono",
       contact_phone: "081234567890",
     },
     {
-      name: "Pendopo Raden Bagus Aria Wiralodra",
-      address: "Jl. Mayjen Sutoyo No. 1, Margadadi, Kec. Indramayu",
-      latitude: -6.3268000,
-      longitude: 108.3221000,
-      capacity: 800,
-      facilities: JSON.stringify(["Aula Utama", "Gudang Logistik", "Ambulans Siaga"]),
-      contact_name: "Sekretariat Posko",
-      contact_phone: "081234567891",
+      name: "Gedung Juang Indramayu",
+      address: "Jl. Veteran No. 5, Indramayu",
+      latitude: -6.3278000,
+      longitude: 108.3241000,
+      district_id: indramayu?.id,
+      capacity: 350,
+      facilities: JSON.stringify(["Aula Tertutup", "Dapur Umum", "Ambulans Siaga", "Air Bersih PDAM"]),
+      contact_name: "Sertu Bambang",
+      contact_phone: "081298765432",
+    },
+    {
+      name: "Balai Desa Eretan Wetan Kandanghaur",
+      address: "Jl. Raya Pantura Eretan Wetan, Kandanghaur",
+      latitude: -6.3120000,
+      longitude: 108.1560000,
+      district_id: kandanghaur?.id,
+      capacity: 250,
+      facilities: JSON.stringify(["Dapur Umum BPBD", "Perahu Karet Evakuasi", "Posko Kesehatan"]),
+      contact_name: "Pak Kuwu Eretan",
+      contact_phone: "081345678901",
     },
   ];
 
-  for (const ep of evacuationPoints) {
+  for (const ep of evacPoints) {
     const existing = await prisma.evacuationPoint.findFirst({
       where: { name: ep.name },
     });
@@ -188,7 +172,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error("Seeding error:", e);
+    console.error("❌ Seeding error:", e);
     process.exit(1);
   })
   .finally(async () => {

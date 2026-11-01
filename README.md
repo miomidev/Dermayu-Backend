@@ -55,7 +55,6 @@ npm run db:seed
 
 > **🔑 Kredensial Akun Default (Hasil Seeder):**
 > - **Super Admin**: `superadmin@dermayu.id` | Password: `AdminDermayu2026!`
-> - **Admin Operator**: `admin@dermayu.id` | Password: `AdminDermayu2026!`
 > - **Petugas Lapangan**: `petugas@dermayu.id` | Password: `AdminDermayu2026!`
 > - **Warga**: `warga@dermayu.id` | Password: `WargaDermayu2026!`
 
@@ -84,7 +83,7 @@ Berikut adalah status perkembangan fitur pada repositori ini:
   - Halaman beranda interaktif dengan visual hero modern, statistik wilayah, fitur utama, dan FAQ.
   - Halaman panduan penggunaan platform bagi warga dan relawan.
 - [x] **Autentikasi & RBAC (Role-Based Access Control)**:
-  - Sistem registrasi dan login multi-peran (Warga, Petugas, Admin, Super Admin).
+  - Sistem registrasi dan login 3 peran (Warga, Petugas, Super Admin).
   - Keamanan berbasis JWT Access Token (15m) dan Refresh Token (7d) serta password hashing Bcrypt.
 - [x] **Portal Pengguna Warga (PWA)**:
   - Form pelaporan aduan bencana/banjir lengkap dengan foto, tingkat keparahan, ketinggian air, dan titik koordinat GPS.

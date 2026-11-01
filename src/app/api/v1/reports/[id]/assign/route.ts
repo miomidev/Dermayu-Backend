@@ -20,7 +20,7 @@ export async function POST(
     }
 
     const payload = verifyAccessToken(token);
-    if (!payload || (payload.role !== "ADMIN" && payload.role !== "SUPERADMIN")) {
+    if (!payload || (payload.role !== "SUPERADMIN")) {
       return apiError("FORBIDDEN", "Akses hanya untuk Admin", 403);
     }
 

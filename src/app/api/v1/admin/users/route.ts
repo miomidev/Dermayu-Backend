@@ -37,7 +37,7 @@ const createUserSchema = z.object({
   email: z.string().email("Format email tidak valid"),
   phone: z.string().optional(),
   password: z.string().min(8, "Kata sandi minimal 8 karakter"),
-  role: z.enum(["OFFICER", "ADMIN", "SUPERADMIN"]),
+  role: z.enum(["OFFICER", "SUPERADMIN"]),
 });
 
 export async function POST(req: NextRequest) {

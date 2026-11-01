@@ -1,12 +1,13 @@
 /**
  * Dermayu Role-Based Authentication & Dashboard Session Manager
  * Mengatur grace period 15 menit ketika user meninggalkan dashboard.
+ * 3 Role: warga, petugas, superadmin
  */
 
 export interface UserSession {
   name: string;
   email: string;
-  role: "warga" | "petugas" | "admin" | "superadmin";
+  role: "warga" | "petugas" | "superadmin";
   district?: string;
   lastDashboardActive: number;
   loginTime?: number;
@@ -112,7 +113,7 @@ export function touchDashboardActivity(): void {
 }
 
 /**
- * Menyimpan data session saat login berhasil.
+ * Menyimpan data session saat login berhasil (3 Role: warga, petugas, superadmin).
  */
 export function saveUserSession(user: {
   name: string;
@@ -121,21 +122,38 @@ export function saveUserSession(user: {
   district?: string;
 }): UserSession {
   const roleNorm = (user.role || "").toLowerCase();
-  const isWarga =
-    roleNorm === "warga" ||
-    roleNorm === "citizen" ||
-    user.email.toLowerCase().includes("warga");
+  const isSuperadmin =
+    roleNorm === "superadmin" ||
+    roleNorm === "admin" ||
+    user.email.toLowerCase().includes("superadmin");
+  const isOfficer =
+    roleNorm === "petugas" ||
+    roleNorm === "officer" ||
+    user.email.toLowerCase().includes("petugas");
 
-  const normalizedRole: UserSession["role"] = isWarga ? "warga" : "petugas";
+  let normalizedRole: UserSession["role"] = "warga";
+  if (isSuperadmin) normalizedRole = "superadmin";
+  else if (isOfficer) normalizedRole = "petugas";
+
   const now = Date.now();
 
   const session: UserSession = {
-    name: user.name || (isWarga ? "Warga Indramayu" : "Petugas BPBD"),
+    name:
+      user.name ||
+      (isSuperadmin
+        ? "Super Admin DERMAYU"
+        : isOfficer
+        ? "Petugas BPBD"
+        : "Warga Indramayu"),
     email: user.email,
     role: normalizedRole,
     district:
       user.district ||
-      (isWarga ? "Kandanghaur - Eretan Wetan" : "Pusdalops BPBD Indramayu"),
+      (isSuperadmin
+        ? "Pusat Komando Indramayu"
+        : isOfficer
+        ? "Pusdalops BPBD Indramayu"
+        : "Kandanghaur - Eretan Wetan"),
     loginTime: now,
     lastDashboardActive: now,
   };
@@ -173,13 +191,12 @@ export function clearUserSession(): void {
 }
 
 /**
- * Mendapatkan URL redirect tujuan dashboard sesuai role.
+ * Mendapatkan URL redirect tujuan dashboard sesuai role (3 Role).
  */
 export function getDashboardUrl(role?: string): string {
   if (!role) return "/login";
   const r = role.toLowerCase();
-  if (r === "warga" || r === "citizen") return "/warga/dashboard";
-  if (r === "petugas" || r === "admin" || r === "superadmin") return "/petugas/dashboard";
+  if (r === "superadmin" || r === "admin") return "/admin/dashboard";
+  if (r === "petugas" || r === "officer") return "/petugas/dashboard";
   return "/warga/dashboard";
 }
-

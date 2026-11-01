@@ -52,12 +52,12 @@ export function authorize(
 }
 
 /**
- * RBAC Helper Matrix check
+ * RBAC Helper Matrix check (3 Peran: CITIZEN, OFFICER, SUPERADMIN)
  */
 export const Roles = {
-  ALL: ["CITIZEN", "OFFICER", "ADMIN", "SUPERADMIN"] as Role[],
-  STAFF: ["OFFICER", "ADMIN", "SUPERADMIN"] as Role[],
-  ADMINS: ["ADMIN", "SUPERADMIN"] as Role[],
+  ALL: ["CITIZEN", "OFFICER", "SUPERADMIN"] as Role[],
+  STAFF: ["OFFICER", "SUPERADMIN"] as Role[],
+  ADMINS: ["SUPERADMIN"] as Role[],
   SUPERADMIN_ONLY: ["SUPERADMIN"] as Role[],
   OFFICER_ONLY: ["OFFICER"] as Role[],
   CITIZEN_ONLY: ["CITIZEN"] as Role[],

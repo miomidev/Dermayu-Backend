@@ -9,10 +9,10 @@ interface StatItem {
 }
 
 const STATS: StatItem[] = [
-  { value: "31", line1: "Kecamatan", line2: "Terpetakan" },
-  { value: "24/7", line1: "Sensor Radar", line2: "Telemetri TMA" },
-  { value: "150K+", line1: "Warga Siaga", line2: "Terlindungi" },
-  { value: "< 5 mnt", line1: "Respons Cepat", line2: "Peringatan Dini" },
+  { value: "31", line1: "Kecamatan", line2: "Wilayah Terpadu" },
+  { value: "< 1 mnt", line1: "Lapor Cepat", line2: "GPS & Foto Bukti" },
+  { value: "90%+", line1: "Validasi AI", line2: "Model Akurasi CNN" },
+  { value: "4 Level", line1: "Dering Evakuasi", line2: "Siaga Tanggap BPBD" },
 ];
 
 const containerVariants = {
@@ -44,7 +44,7 @@ const itemVariants = {
 export function StatsBar() {
   return (
     <section
-      aria-label="Statistik Wilayah & Telemetri"
+      aria-label="Metrik & Indikator Kunci DERMAYU"
       className="relative z-20 w-full bg-[#38746D] text-white py-7 sm:py-8 lg:py-9 shadow-inner border-y border-[#2E6A63] select-none"
     >
       <div className="max-w-6xl mx-auto px-6 sm:px-8">
@@ -65,7 +65,7 @@ export function StatsBar() {
                   idx > 0 && idx % 2 === 0 ? "pt-5 lg:pt-0" : ""
                 } ${idx === 1 || idx === 3 ? "pt-5 sm:pt-0" : ""}`}
               >
-                <span className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white shrink-0">
+                <span className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-white shrink-0">
                   {stat.value}
                 </span>
                 <div className="flex flex-col text-xs sm:text-sm text-[#EEF5F3] font-medium leading-tight">

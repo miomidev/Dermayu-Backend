@@ -12,7 +12,7 @@ export function AuthBackgroundDecor({ className = "" }: { className?: string }) 
       {/* Ring Lingkaran Orbit Statis */}
       <div className="absolute -top-16 -left-16 w-60 h-60 rounded-full border-2 border-white/20 opacity-35 pointer-events-none" />
 
-      {/* Orbit Track yang Berputar Membawa Kotak Mengelilingi Lingkaran */}
+      {/* Orbit Track yang Berputar Membawa Kotak Mengelilingi Lingkaran (2 Kotak Saling Berseberangan) */}
       <motion.div
         animate={{ rotate: 360 }}
         transition={{
@@ -22,7 +22,7 @@ export function AuthBackgroundDecor({ className = "" }: { className?: string }) 
         }}
         className="absolute -top-16 -left-16 w-60 h-60 rounded-full pointer-events-none"
       >
-        {/* Kotak Satelit di Pinggir Keliling Orbit */}
+        {/* Kotak Satelit 1 (Posisi Atas / Jam 12) */}
         <motion.div
           animate={{ rotate: -360 }}
           transition={{
@@ -31,6 +31,17 @@ export function AuthBackgroundDecor({ className = "" }: { className?: string }) 
             ease: "linear",
           }}
           className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-white/20 border border-white/35 backdrop-blur-2xs shadow-xs"
+        />
+
+        {/* Kotak Satelit 2 (Posisi Bawah / Jam 6 - Berseberangan 180°) */}
+        <motion.div
+          animate={{ rotate: -360 }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-8 h-8 rounded-lg bg-white/20 border border-white/35 backdrop-blur-2xs shadow-xs"
         />
       </motion.div>
 

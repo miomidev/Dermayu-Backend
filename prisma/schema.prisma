@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -141,7 +141,7 @@ model District {
   id         BigInt   @id @default(autoincrement())
   code       String   @unique @db.VarChar(20)
   name       String   @db.VarChar(100)
-  geojson    String?  @db.LongText
+  geojson    String?  @db.Text
   created_at DateTime @default(now())
 
   villages          Village[]

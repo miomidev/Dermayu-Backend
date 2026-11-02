@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import {
   ShieldCheck,
@@ -27,13 +27,35 @@ import {
   Camera,
   Image as ImageIcon,
   Trash2,
-  AlertOctagon,
   Radio,
   FileText,
   Ban,
   Droplets,
+  RefreshCw,
+  Eye,
+  Activity,
+  Layers,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
+import type {
+  MapReportPoint,
+  MapShelterPoint,
+  MapTelemetryPoint,
+} from "@/components/dashboard/WargaSpatialMap";
+
+// Dynamic import for Leaflet Spatial Map (SSR Disabled)
+const WargaSpatialMap = dynamic(
+  () => import("@/components/dashboard/WargaSpatialMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[450px] rounded-3xl bg-[#EEF5F3] border border-[#D5E4E0] flex flex-col items-center justify-center text-[#4B635F] space-y-2">
+        <RefreshCw className="w-7 h-7 animate-spin text-[#38746D]" />
+        <span className="text-xs font-semibold">Memuat Peta Spasial Indramayu...</span>
+      </div>
+    ),
+  }
+);
 
 interface UserSession {
   name: string;
@@ -42,7 +64,6 @@ interface UserSession {
   district: string;
 }
 
-// PRD 7.3: Kategori Laporan & Tingkat Keparahan
 type ReportCategoryCode = "FLOOD" | "LEVEE" | "DRAINAGE" | "ROAD" | "TREE" | "OTHER";
 type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type WaterLevelCode = "ANKLE" | "KNEE" | "THIGH" | "WAIST" | "ABOVE_CHEST";
@@ -74,6 +95,8 @@ interface ComplaintTicket {
     label: string;
     confidence: number;
   };
+  lat?: number;
+  lng?: number;
 }
 
 interface ShelterItem {
@@ -87,6 +110,8 @@ interface ShelterItem {
   contactPerson: string;
   contactPhone: string;
   status: "TERSEDIA" | "HAMPIR_PENUH" | "PENUH";
+  lat: number;
+  lng: number;
 }
 
 interface EmergencyContactItem {
@@ -103,7 +128,7 @@ export default function WargaDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [session, setSession] = useState<UserSession>({
-    name: "Pak Kusnan",
+    name: "Warga Indramayu",
     email: "warga@dermayu.id",
     role: "warga",
     district: "Kandanghaur - Eretan Wetan",
@@ -115,8 +140,9 @@ export default function WargaDashboard() {
   const [showDeringModal, setShowDeringModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
   const [selectedShelterForNav, setSelectedShelterForNav] = useState<ShelterItem | null>(null);
+  const [reportTab, setReportTab] = useState<"MY_REPORTS" | "COMMUNITY">("MY_REPORTS");
 
-  // New report form state (PRD FR-RPT-01 s/d FR-RPT-06)
+  // Report form state
   const [reportCategory, setReportCategory] = useState<ReportCategoryCode>("FLOOD");
   const [reportTitle, setReportTitle] = useState("");
   const [reportLocation, setReportLocation] = useState("");
@@ -127,13 +153,13 @@ export default function WargaDashboard() {
   const [reportPhotos, setReportPhotos] = useState<string[]>([]);
   const [reportSubmittedSuccess, setReportSubmittedSuccess] = useState(false);
 
-  // Mock initial complaints aligned with PRD Status & Categories
+  // Complaints / Reports
   const [complaints, setComplaints] = useState<ComplaintTicket[]>([
     {
       id: "1",
       ticketCode: "DMY-20261030-0089",
       category: "FLOOD",
-      categoryLabel: "Banjir / Genangan Rob",
+      categoryLabel: "Banjir / Rob",
       title: "Luapan Rob Pantai Rendam Jalan Pemukiman RT 04",
       location: "Blok Karanganyar, Eretan Wetan",
       severity: "CRITICAL",
@@ -141,13 +167,15 @@ export default function WargaDashboard() {
       waterLevelText: "Setinggi Lutut (60 cm)",
       status: "ASSIGNED",
       createdAt: "15 Menit yang lalu",
-      note: "Regu SAR Pos Eretan bersama 1 perahu karet LCR sedang bergerak evakuasi 3 lansia.",
+      note: "Regu SAR Pos Eretan bersama perahu LCR sedang evakuasi warga kelompok rentan.",
       photos: ["/login-art.png"],
       urgentNeeds: ["Perahu Evakuasi", "Bantuan Medis Lansia"],
       aiScore: {
         label: "flood",
         confidence: 0.94,
       },
+      lat: -6.3475,
+      lng: 108.1189,
     },
     {
       id: "2",
@@ -161,13 +189,55 @@ export default function WargaDashboard() {
       waterLevelText: "Semata Kaki (35 cm)",
       status: "VERIFIED",
       createdAt: "3 Jam yang lalu",
-      note: "Laporan tervalidasi via telemetri BMKG. Masuk antrean suplai karung pasir pengaman.",
+      note: "Laporan terverifikasi. Masuk antrean penanganan karung pasir pengaman.",
       photos: [],
       urgentNeeds: ["Karung Pasir"],
+      lat: -6.355,
+      lng: 108.135,
     },
   ]);
 
-  // Mock Active Shelters (PRD FR-EVAC-01 / FR-EVAC-02)
+  // Community Reports (Laporan warga sekitar)
+  const communityReports: ComplaintTicket[] = [
+    {
+      id: "c-1",
+      ticketCode: "DMY-20261030-0094",
+      category: "FLOOD",
+      categoryLabel: "Genangan Pasang",
+      title: "Air Pasang Merendam Akses Jalan Muara Cantigi",
+      location: "Desa Cemara Kulon, Cantigi",
+      severity: "HIGH",
+      waterLevel: "THIGH",
+      waterLevelText: "Setinggi Paha (75 cm)",
+      status: "IN_PROGRESS",
+      createdAt: "45 Menit lalu",
+      note: "Petugas BPBD Pos Cantigi telah memasang rambu peringatan dan penutupan jalur.",
+      photos: [],
+      urgentNeeds: ["Penutupan Jalur"],
+      lat: -6.2842,
+      lng: 108.2635,
+    },
+    {
+      id: "c-2",
+      ticketCode: "DMY-20261030-0081",
+      category: "DRAINAGE",
+      categoryLabel: "Drainase Mampet",
+      title: "Sumbatan Eceng Gondok di Saluran Pembuang Losarang",
+      location: "Blok Jembatan Putih, Losarang",
+      severity: "MEDIUM",
+      waterLevel: "ANKLE",
+      waterLevelText: "Semata Kaki (30 cm)",
+      status: "VERIFIED",
+      createdAt: "2 Jam lalu",
+      note: "Dikoordinasikan dengan Dinas PUPR & Satlak Kecamatan.",
+      photos: [],
+      urgentNeeds: ["Alat Berat Mini"],
+      lat: -6.4021,
+      lng: 108.1634,
+    },
+  ];
+
+  // Shelters Data (Posko)
   const shelters: ShelterItem[] = [
     {
       id: "sh-1",
@@ -176,10 +246,12 @@ export default function WargaDashboard() {
       distance: "850 m (±4 menit jalan darat)",
       capacityTotal: 250,
       capacityFilled: 185,
-      facilities: ["Dapur Umum", "Posko Medis", "Ruang Balita & Lansia", "Genset Cadangan"],
+      facilities: ["Dapur Umum", "Posko Medis", "Ruang Lansia", "Genset Cadangan"],
       contactPerson: "Bpk. Mulyadi (Kuwu)",
       contactPhone: "0813-8822-1920",
       status: "TERSEDIA",
+      lat: -6.346,
+      lng: 108.1195,
     },
     {
       id: "sh-2",
@@ -188,10 +260,12 @@ export default function WargaDashboard() {
       distance: "1.8 km (±8 menit kendaraan)",
       capacityTotal: 500,
       capacityFilled: 310,
-      facilities: ["Aula Luas", "Sanitasi MCK (8 Unit)", "Stok Logistik Makanan", "Tenda Pengungsi"],
-      contactPerson: "Ibu Ratna (Relawan Tagana)",
+      facilities: ["Aula Luas", "Sanitasi MCK (8 Unit)", "Logistik Pangan", "Tenda"],
+      contactPerson: "Ibu Ratna (Tagana)",
       contactPhone: "0821-4433-2100",
       status: "TERSEDIA",
+      lat: -6.353,
+      lng: 108.132,
     },
     {
       id: "sh-3",
@@ -200,14 +274,50 @@ export default function WargaDashboard() {
       distance: "3.2 km (Jalur Tanggul Barat)",
       capacityTotal: 200,
       capacityFilled: 190,
-      facilities: ["Ruang Kelas Tidur", "Tenaga Nakes Puskesmas", "Air Bersih PDAM"],
-      contactPerson: "Pak Hendra (Satlak Cantigi)",
+      facilities: ["Ruang Tidur", "Nakes Puskesmas", "Air Bersih PDAM"],
+      contactPerson: "Pak Hendra (Satlak)",
       contactPhone: "0852-7711-9022",
       status: "HAMPIR_PENUH",
+      lat: -6.289,
+      lng: 108.261,
     },
   ];
 
-  // Mock Emergency Contacts (PRD FR-EVAC-03)
+  // Telemetry Stations Data
+  const telemetryPoints: MapTelemetryPoint[] = [
+    {
+      id: "tel-1",
+      name: "Sensor Pasang Laut Pesisir Eretan",
+      waterLevel: "+65 cm (Waspada)",
+      status: "WASPADA",
+      trend: "NAIK",
+      lastUpdate: "13:00 WIB",
+      lat: -6.344,
+      lng: 108.117,
+    },
+    {
+      id: "tel-2",
+      name: "Stasiun Debit Bendung Rentang Cimanuk",
+      waterLevel: "310 m³/s (Normal)",
+      status: "NORMAL",
+      trend: "STABIL",
+      lastUpdate: "12:45 WIB",
+      lat: -6.471,
+      lng: 108.275,
+    },
+    {
+      id: "tel-3",
+      name: "Sensor TMA Kali Cimanuk Sindang",
+      waterLevel: "+140 cm (Normal)",
+      status: "NORMAL",
+      trend: "STABIL",
+      lastUpdate: "12:30 WIB",
+      lat: -6.338,
+      lng: 108.309,
+    },
+  ];
+
+  // Emergency Contacts
   const emergencyContacts: EmergencyContactItem[] = [
     {
       id: "ec-1",
@@ -223,7 +333,7 @@ export default function WargaDashboard() {
       agency: "Badan SAR Nasional",
       phone: "(0231) 200115",
       description: "Armada perahu karet LCR & evakuasi penyelamatan korban air deras.",
-      badge: "Tim Penyelamat",
+      badge: "Tim SAR",
     },
     {
       id: "ec-3",
@@ -236,9 +346,9 @@ export default function WargaDashboard() {
     {
       id: "ec-4",
       name: "Damkar & Penyelamatan Indramayu",
-      agency: "Satpol PP & Pemadam Kebakaran",
+      agency: "Satpol PP & Damkar",
       phone: "(0234) 274113",
-      description: "Penyedotan genangan pemukiman & evakuasi pohon tumbang darurat.",
+      description: "Penyedotan genangan pemukiman & evakuasi darurat.",
       badge: "Damkar",
     },
     {
@@ -249,16 +359,9 @@ export default function WargaDashboard() {
       description: "Instalasi Gawat Darurat rujukan utama medis 24 jam.",
       badge: "Rumah Sakit",
     },
-    {
-      id: "ec-6",
-      name: "Polres Indramayu",
-      agency: "Kepolisian Resor Indramayu",
-      phone: "110",
-      description: "Sentra pengamanan jalur darat, buka tutup jalan evakuasi & kamtibmas.",
-      badge: "Keamanan",
-    },
   ];
 
+  // Session sync
   useEffect(() => {
     try {
       const active = getActiveSession();
@@ -270,9 +373,7 @@ export default function WargaDashboard() {
           district: active.district || "Kandanghaur - Eretan Wetan",
         });
       }
-    } catch {
-      // Keep default session
-    }
+    } catch {}
   }, []);
 
   const handleOpenNav = (shelter?: ShelterItem) => {
@@ -286,13 +387,12 @@ export default function WargaDashboard() {
     );
   };
 
-  // Image Upload handler (PRD FR-RPT-03: Foto 1-5, kompresi klien)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
     if (reportPhotos.length + files.length > 5) {
-      alert("Maksimal 5 foto per laporan sesuai spesifikasi PRD.");
+      alert("Maksimal 5 foto per laporan.");
       return;
     }
 
@@ -311,7 +411,6 @@ export default function WargaDashboard() {
     setReportPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // PRD FR-RPT-08: Pelapor dapat membatalkan laporan selama status masih SUBMITTED (Diterima)
   const handleCancelReport = (ticketId: string) => {
     if (confirm("Apakah Anda yakin ingin membatalkan laporan ini? Tindakan ini tidak dapat diurungkan.")) {
       setComplaints((prev) =>
@@ -331,18 +430,17 @@ export default function WargaDashboard() {
       return;
     }
 
-    // PRD FR-RPT-06: Format kode tiket unik DMY-YYYYMMDD-NNNN
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const randNum = String(Math.floor(1000 + Math.random() * 9000));
     const ticketCode = `DMY-${dateStr}-${randNum}`;
 
     const categoryLabels: Record<ReportCategoryCode, string> = {
-      FLOOD: "Banjir / Genangan Air",
-      LEVEE: "Tanggul / Irigasi Kritis",
+      FLOOD: "Banjir / Genangan",
+      LEVEE: "Tanggul Kritis",
       DRAINAGE: "Drainase Tersumbat",
-      ROAD: "Jalan Rusak / Tergenang",
+      ROAD: "Jalan Rusak Tergenang",
       TREE: "Pohon Tumbang",
-      OTHER: "Aduan Wilayah Lainnya",
+      OTHER: "Aduan Wilayah",
     };
 
     const waterLevelLabels: Record<WaterLevelCode, string> = {
@@ -350,7 +448,7 @@ export default function WargaDashboard() {
       KNEE: "Setinggi Lutut (40-60 cm)",
       THIGH: "Setinggi Paha (70-90 cm)",
       WAIST: "Setinggi Pinggang (100-120 cm)",
-      ABOVE_CHEST: "Di Atas Dada / Merendam Rumah (> 120 cm)",
+      ABOVE_CHEST: "Di Atas Dada (> 120 cm)",
     };
 
     const newTicket: ComplaintTicket = {
@@ -365,16 +463,11 @@ export default function WargaDashboard() {
       waterLevelText: reportCategory === "FLOOD" ? waterLevelLabels[reportWaterLevel] : undefined,
       status: "SUBMITTED",
       createdAt: "Baru saja",
-      note: "Laporan masuk antrean Pusdalops PB. Foto otomatis diproses model AI CNN untuk validasi verifikasi.",
+      note: "Laporan telah masuk ke antrean verifikasi Pusdalops BPBD.",
       photos: reportPhotos,
       urgentNeeds: reportUrgentNeeds,
-      aiScore:
-        reportCategory === "FLOOD"
-          ? {
-              label: "flood",
-              confidence: 0.92,
-            }
-          : undefined,
+      lat: -6.3475 + (Math.random() - 0.5) * 0.02,
+      lng: 108.1189 + (Math.random() - 0.5) * 0.02,
     };
 
     setComplaints([newTicket, ...complaints]);
@@ -388,454 +481,76 @@ export default function WargaDashboard() {
       setReportNotes("");
       setReportPhotos([]);
       setReportUrgentNeeds([]);
-    }, 2000);
+    }, 1500);
   };
+
+  // Convert complaints to map points
+  const mapReportPoints: MapReportPoint[] = [
+    ...complaints.map((c) => ({
+      id: c.id,
+      ticketCode: c.ticketCode,
+      title: c.title,
+      category: c.categoryLabel,
+      severity: c.severity,
+      waterLevelText: c.waterLevelText,
+      status: c.status === "ASSIGNED" ? "Petugas Ditugaskan" : "Terverifikasi",
+      location: c.location,
+      lat: c.lat || -6.3475,
+      lng: c.lng || 108.1189,
+      timeAgo: c.createdAt,
+    })),
+    ...communityReports.map((c) => ({
+      id: c.id,
+      ticketCode: c.ticketCode,
+      title: c.title,
+      category: c.categoryLabel,
+      severity: c.severity,
+      waterLevelText: c.waterLevelText,
+      status: "Dalam Penanganan",
+      location: c.location,
+      lat: c.lat || -6.2842,
+      lng: c.lng || 108.2635,
+      timeAgo: c.createdAt,
+    })),
+  ];
+
+  const mapShelterPoints: MapShelterPoint[] = shelters.map((s) => ({
+    id: s.id,
+    name: s.name,
+    location: s.location,
+    distance: s.distance,
+    capacityTotal: s.capacityTotal,
+    capacityFilled: s.capacityFilled,
+    status: s.status,
+    contactPerson: s.contactPerson,
+    contactPhone: s.contactPhone,
+    lat: s.lat,
+    lng: s.lng,
+    facilities: s.facilities,
+  }));
 
   return (
     <>
-      <div className="space-y-6">
-        {/* ============================================================ */}
-        {/* A. ALERT BANNER: DERING EVAKUASI & STATUS SIAGA (PRD ALERT)  */}
-        {/* ============================================================ */}
-        <motion.section
-          aria-label="Status Kesiapsiagaan Wilayah"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] as const }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#EEF5F3] via-white to-[#E0ECE8] border border-[#A4C6C1]/60 p-5 sm:p-6 shadow-xs text-left"
-        >
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#38746D] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5">
-                    <Radio className="w-3 h-3 text-amber-600 animate-pulse" />
-                    <span>DERING AKTIF: SIAGA II (WASPADA ROB &amp; PASANG LAUT)</span>
-                  </span>
-                  <span className="text-xs text-[#718783] flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    Pembaruan: Hari ini, Pk. 13:00 WIB
-                  </span>
-                </div>
-                <h2 className="text-base sm:text-lg font-bold text-[#132422]">
-                  Pesisir Indramayu Barat Terpantau Pasang Air Laut 40–80 cm
-                </h2>
-                <p className="text-xs sm:text-sm text-[#4B635F] leading-relaxed max-w-3xl">
-                  Wilayah <strong>Kandanghaur, Eretan Wetan, dan Cantigi</strong> berpotensi tergenang rob saat pasang petang ini.
-                  Warga diimbau mengamankan barang berharga dan memastikan jalur evakuasi menuju posko darurat tetap terbuka.
-                </p>
-                <div className="pt-2 flex flex-wrap items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowDeringModal(true)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38746D] hover:underline cursor-pointer py-1"
-                  >
-                    <span>Rincian Peringatan Dering Evakuasi</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-
-                  <span className="text-gray-300 hidden sm:inline">&bull;</span>
-
-                  <Link
-                    href="/warga/kontak"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors"
-                  >
-                    <PhoneCall className="w-3 h-3 text-rose-600" />
-                    <span>Telepon Darurat 112</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Metrics Badge */}
-            <div className="flex items-center gap-2 sm:gap-3 bg-white/90 border border-[#D5E4E0] rounded-2xl p-2.5 sm:p-3 shrink-0 self-stretch md:self-auto justify-around">
-              <div className="text-center px-2">
-                <p className="text-[10px] text-[#718783] font-semibold uppercase">TMA Pesisir</p>
-                <p className="text-sm font-extrabold text-amber-600">+65 cm</p>
-              </div>
-              <div className="w-[1px] h-8 bg-gray-200" />
-              <div className="text-center px-2">
-                <p className="text-[10px] text-[#718783] font-semibold uppercase">Debit Cimanuk</p>
-                <p className="text-sm font-extrabold text-[#38746D]">Normal (310 m³/s)</p>
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* ============================================================ */}
-        {/* B. 3 KARTU AKSI CEPAT DARURAT (QUICK ACTION)                 */}
-        {/* ============================================================ */}
-        <motion.section
-          id="evakuasi"
-          aria-label="Aksi Cepat Warga"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 scroll-mt-24"
-        >
-          {/* Tombol Aksi 1: Navigasi Evakuasi Mandiri */}
-          <button
-            type="button"
-            onClick={() => handleOpenNav()}
-            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#38746D] to-[#24544E] text-white p-6 sm:p-7 shadow-md hover:shadow-xl transition-all active:scale-[0.99] text-left cursor-pointer border border-[#1D443F] flex flex-col justify-between"
-          >
-            <div className="relative z-10 flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                <Navigation className="w-7 h-7 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider mb-2">
-                  <Compass className="w-3 h-3" />
-                  Rute Bebas Banjir
-                </div>
-                <h3 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
-                  Panduan Rute Evakuasi
-                </h3>
-                <p className="text-xs sm:text-sm text-[#D1E5E2] mt-1 leading-relaxed">
-                  Buka peta rute darurat bebas genangan menuju posko pengungsian terdekat tanpa terjebak banjir.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-white group-hover:underline">
-                  <span>Lihat Peta Rute</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </button>
-
-          {/* Tombol Aksi 2: Lapor Titik Genangan / Butuh Pertolongan */}
-          <button
-            id="lapor"
-            type="button"
-            onClick={() => setShowReportModal(true)}
-            className="group relative overflow-hidden rounded-3xl bg-white hover:bg-[#F8FAF9] border-2 border-[#D5E4E0] hover:border-[#38746D] p-6 sm:p-7 shadow-xs hover:shadow-lg transition-all active:scale-[0.99] text-left cursor-pointer scroll-mt-24 flex flex-col justify-between"
-          >
-            <div className="relative z-10 flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/50 flex items-center justify-center shrink-0 text-[#38746D] group-hover:scale-105 transition-transform shadow-xs">
-                <PlusCircle className="w-7 h-7" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider mb-2">
-                  <AlertTriangle className="w-3 h-3" />
-                  Civic Reporting BPBD
-                </div>
-                <h3 className="text-lg sm:text-xl font-extrabold text-[#132422] leading-snug">
-                  Lapor Titik Banjir
-                </h3>
-                <p className="text-xs sm:text-sm text-[#4B635F] mt-1 leading-relaxed">
-                  Laporkan genangan, tanggul kritis, atau minta pertolongan darurat tervalidasi AI CNN.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[#38746D] group-hover:underline">
-                  <span>Isi Formulir Laporan</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </button>
-
-          {/* Tombol Aksi 3: Kontak Darurat 24 Jam */}
-          <Link
-            id="kontak-card"
-            href="/warga/kontak"
-            className="w-full group relative overflow-hidden rounded-3xl bg-linear-to-br from-[#842A2A] via-[#651A1A] to-[#451212] text-white p-6 sm:p-7 shadow-md hover:shadow-xl transition-all active:scale-[0.99] text-left cursor-pointer border border-[#651A1A] flex flex-col justify-between"
-          >
-            <div className="relative z-10 flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                <PhoneCall className="w-7 h-7 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider mb-2">
-                  <PhoneCall className="w-3 h-3" />
-                  Bebas Pulsa 24 Jam
-                </div>
-                <h3 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
-                  Kontak Darurat 24 Jam
-                </h3>
-                <p className="text-xs sm:text-sm text-rose-100 mt-1 leading-relaxed">
-                  Call Center 112, Pusdalops BPBD, SAR, Damkar, PMI, &amp; RSUD Indramayu.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-white group-hover:underline">
-                  <span>Hubungi Tim Siaga</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </Link>
-        </motion.section>
-
-        {/* ============================================================ */}
-        {/* C. GRID: POSKO TERDEKAT & PELACAKAN STATUS ADUAN SAYA        */}
-        {/* ============================================================ */}
-        <motion.section
-          aria-label="Informasi Evakuasi dan Pelaporan"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-6"
-        >
-          {/* SISI KIRI (7 Kolom): RINGKASAN POSKO AMAN TERDEKAT */}
-          <div id="posko" className="lg:col-span-7 bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-5 text-left scroll-mt-24">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base sm:text-lg font-extrabold text-[#132422] flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-[#38746D]" />
-                  Posko Pengungsian Aktif Terdekat
-                </h3>
-                <p className="text-xs text-[#4B635F] mt-0.5">
-                  Posko terverifikasi BPBD dengan sisa kapasitas dan dukungan logistik terpadu.
-                </p>
-              </div>
-            </div>
-
-            {/* List Posko */}
-            <div className="space-y-3.5">
-              {shelters.map((sh) => {
-                const sisa = sh.capacityTotal - sh.capacityFilled;
-                const percent = Math.round((sh.capacityFilled / sh.capacityTotal) * 100);
-
-                return (
-                  <div
-                    key={sh.id}
-                    className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] hover:border-[#38746D] transition-all space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm sm:text-base text-[#132422]">{sh.name}</h4>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              sh.status === "TERSEDIA"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {sh.status === "TERSEDIA" ? "Tersedia" : "Hampir Penuh"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#718783] mt-0.5 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-                          <span>{sh.location} &bull; <strong>{sh.distance}</strong></span>
-                        </p>
-                      </div>
-
-                      <div className="text-left sm:text-right shrink-0">
-                        <span className="text-xs font-bold text-[#132422]">
-                          {sh.capacityFilled} / {sh.capacityTotal} Jiwa
-                        </span>
-                        <p className="text-[11px] text-[#4B635F]">Sisa {sisa} kuota tempat</p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar Okupansi Posko */}
-                    <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          percent >= 90 ? "bg-rose-500" : percent >= 70 ? "bg-amber-500" : "bg-[#38746D]"
-                        }`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-
-                    {/* Fasilitas Posko */}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {sh.facilities.map((fac) => (
-                        <span
-                          key={fac}
-                          className="px-2 py-0.5 rounded-md bg-white border border-[#D5E4E0] text-[10px] text-[#4B635F] font-medium"
-                        >
-                          {fac}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Action Bar Posko */}
-                    <div className="pt-2 border-t border-[#D5E4E0]/60 flex flex-wrap items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenNav(sh)}
-                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer w-full sm:w-auto"
-                      >
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Arahkan Rute</span>
-                      </button>
-
-                      <a
-                        href={`tel:${sh.contactPhone.replace(/[^0-9]/g, "")}`}
-                        className="inline-flex items-center gap-1 text-[11px] text-[#38746D] hover:underline font-medium"
-                      >
-                        <PhoneCall className="w-3 h-3" />
-                        <span>{sh.contactPhone}</span>
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* SISI KANAN (5 Kolom): PELACAKAN TIKET ADUAN SAYA (PRD FR-RPT-07 & FR-RPT-08) */}
-          <div id="aduan" className="lg:col-span-5 bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-5 text-left flex flex-col justify-between scroll-mt-24">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#132422] flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-[#38746D]" />
-                    Pelacakan Aduan Saya
-                  </h3>
-                  <p className="text-xs text-[#4B635F] mt-0.5">
-                    Pantau status respons darurat laporan banjir Anda (Siklus PRD).
-                  </p>
-                </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#EEF5F3] text-[#38746D]">
-                  {complaints.length} Tiket
-                </span>
-              </div>
-
-              {/* List Tiket Aduan */}
-              <div className="space-y-3.5">
-                {complaints.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-2.5 hover:border-[#38746D] transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono font-bold text-[#132422] bg-white px-2 py-0.5 rounded border border-[#D5E4E0]">
-                        #{item.ticketCode}
-                      </span>
-                      
-                      {/* Badge Status Laporan Sesuai PRD Section 14.5 */}
-                      <span
-                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                          item.status === "SUBMITTED"
-                            ? "bg-slate-100 text-slate-800 border-slate-300"
-                            : item.status === "VERIFIED"
-                            ? "bg-blue-100 text-blue-900 border-blue-300"
-                            : item.status === "ASSIGNED"
-                            ? "bg-purple-100 text-purple-900 border-purple-300"
-                            : item.status === "IN_PROGRESS"
-                            ? "bg-amber-100 text-amber-900 border-amber-300 animate-pulse"
-                            : item.status === "RESOLVED"
-                            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                            : item.status === "REJECTED"
-                            ? "bg-rose-100 text-rose-900 border-rose-300"
-                            : "bg-gray-100 text-gray-500 border-gray-300"
-                        }`}
-                      >
-                        {item.status === "SUBMITTED" && "Diterima"}
-                        {item.status === "VERIFIED" && "Terverifikasi BPBD"}
-                        {item.status === "ASSIGNED" && "Petugas Ditugaskan"}
-                        {item.status === "IN_PROGRESS" && "Sedang Ditangani"}
-                        {item.status === "RESOLVED" && "Selesai"}
-                        {item.status === "REJECTED" && "Ditolak"}
-                        {item.status === "CANCELLED" && "Dibatalkan"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#EEF5F3] text-[#38746D]">
-                          {item.categoryLabel}
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          item.severity === "CRITICAL"
-                            ? "bg-rose-100 text-rose-800"
-                            : item.severity === "HIGH"
-                            ? "bg-orange-100 text-orange-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}>
-                          Prioritas: {item.severity}
-                        </span>
-                      </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#132422]">{item.title}</h4>
-                      <p className="text-xs text-[#718783] mt-0.5 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-[#38746D]" />
-                        <span>{item.location} {item.waterLevelText && <>&bull; <strong>Air: {item.waterLevelText}</strong></>}</span>
-                      </p>
-                    </div>
-
-                    {/* AI Validation Indicator (PRD Section 9) */}
-                    {item.aiScore && (
-                      <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Validasi AI: <strong>Terindikasi Banjir ({Math.round(item.aiScore.confidence * 100)}%)</strong></span>
-                      </div>
-                    )}
-
-                    <div className="p-2.5 rounded-xl bg-white border border-[#D5E4E0]/80 text-[11px] text-[#4B635F] leading-relaxed">
-                      <p className="font-semibold text-[#132422] mb-0.5">Tindak Lanjut Pusdalops:</p>
-                      <p>{item.note}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[10px] text-[#718783] pt-1">
-                      <span>Waktu Lapor: {item.createdAt}</span>
-
-                      {/* PRD FR-RPT-08: Batalkan laporan jika status masih SUBMITTED */}
-                      {item.status === "SUBMITTED" && (
-                        <button
-                          type="button"
-                          onClick={() => handleCancelReport(item.id)}
-                          className="inline-flex items-center gap-1 text-rose-600 hover:text-rose-800 hover:underline font-semibold cursor-pointer"
-                        >
-                          <Ban className="w-3 h-3" />
-                          <span>Batalkan Laporan</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Helper Hotline (PRD FR-EVAC-03) */}
-            <div id="kontak" className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/50 space-y-3 scroll-mt-24">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0">
-                    <PhoneCall className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#132422]">Kontak Darurat Terpadu 24 Jam</p>
-                    <p className="text-[11px] text-[#4B635F]">BPBD, SAR, PMI, Damkar, &amp; Kepolisian</p>
-                  </div>
-                </div>
-
-                <a
-                  href="tel:112"
-                  className="px-3 py-1.5 rounded-full bg-[#38746D] text-white text-xs font-bold shadow-xs hover:bg-[#24544E] transition-colors"
-                >
-                  112 (Bebas Pulsa)
-                </a>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/warga/kontak"
-                  className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#D5E4E0] text-[#38746D] hover:bg-[#F8FAF9] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <span>Halaman Kontak</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setShowContactsModal(true)}
-                  className="flex-1 py-2 px-3 rounded-xl bg-[#38746D] text-white hover:bg-[#24544E] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <span>Direktori Lengkap</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </motion.section>
+      <div className="w-full h-full flex flex-col">
+        {/* PETA SPASIAL KESIAPSIAGAAN (FULL VIEWPORT GIS) */}
+        <WargaSpatialMap
+          reports={mapReportPoints}
+          shelters={mapShelterPoints}
+          telemetry={telemetryPoints}
+          onOpenReport={() => setShowReportModal(true)}
+          onOpenContacts={() => setShowContactsModal(true)}
+          onSelectShelter={(s) => {
+            const matched = shelters.find((item) => item.id === s.id);
+            if (matched) handleOpenNav(matched);
+          }}
+        />
       </div>
 
       {/* ============================================================ */}
-      {/* 3. MODAL: FORMULIR PELAPORAN DARURAT WARGA (PRD FR-RPT-01)   */}
+      {/* 4. MODAL: FORMULIR LAPOR TITIK BANJIR                        */}
       {/* ============================================================ */}
       {showReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[92vh] overflow-y-auto">
             <button
               type="button"
@@ -850,34 +565,34 @@ export default function WargaDashboard() {
                 <PlusCircle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#132422]">Kirim Laporan Kejadian Wilayah</h3>
-                <p className="text-xs text-[#4B635F]">Formulir standar PRD DERMAYU &bull; Terhubung Pusdalops BPBD</p>
+                <h3 className="text-lg font-bold text-[#132422]">Lapor Titik Genangan / Kejadian</h3>
+                <p className="text-xs text-[#4B635F]">Laporan langsung diteruskan ke regu posko lapangan BPBD</p>
               </div>
             </div>
 
             {reportSubmittedSuccess ? (
               <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
                 <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                <h4 className="text-base font-bold text-emerald-900">Laporan Berhasil Diterima!</h4>
+                <h4 className="text-base font-bold text-emerald-900">Laporan Berhasil Terkirim!</h4>
                 <p className="text-xs text-emerald-700">
-                  Nomor tiket darurat diterbitkan. Model AI CNN sedang memvalidasi foto laporan untuk penentuan prioritas tugas.
+                  Nomor tiket darurat diterbitkan. Petugas BPBD terdekat sedang memverifikasi lokasi Anda.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleSubmitReport} className="space-y-4">
-                {/* 1. Kategori Laporan (PRD Section 7.3) */}
+                {/* 1. Kategori Laporan */}
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1.5">
-                    Kategori Laporan (PRD)
+                    Kategori Kejadian
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      { code: "FLOOD", label: "Banjir / Rob", icon: Droplets, ai: true },
-                      { code: "LEVEE", label: "Tanggul Jebol", icon: ShieldCheck, ai: false },
-                      { code: "DRAINAGE", label: "Drainase Mampet", icon: Waves, ai: false },
-                      { code: "ROAD", label: "Jalan Rusak", icon: Navigation, ai: false },
-                      { code: "TREE", label: "Pohon Tumbang", icon: AlertTriangle, ai: false },
-                      { code: "OTHER", label: "Aduan Lainnya", icon: FileText, ai: false },
+                      { code: "FLOOD", label: "Banjir / Rob", icon: Droplets },
+                      { code: "LEVEE", label: "Tanggul Kritis", icon: ShieldCheck },
+                      { code: "DRAINAGE", label: "Drainase Mampet", icon: Waves },
+                      { code: "ROAD", label: "Jalan Tergenang", icon: Navigation },
+                      { code: "TREE", label: "Pohon Tumbang", icon: AlertTriangle },
+                      { code: "OTHER", label: "Aduan Lainnya", icon: FileText },
                     ].map((cat) => {
                       const Icon = cat.icon;
                       const isSelected = reportCategory === cat.code;
@@ -903,154 +618,134 @@ export default function WargaDashboard() {
                 {/* 2. Judul Laporan */}
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1">
-                    Judul Kejadian / Kondisi
+                    Judul Kejadian <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    placeholder="Contoh: Tanggul meluap rendam 15 rumah warga"
-                    required
-                    className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3.5 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D]"
+                    placeholder="Contoh: Genangan rob naik merendam jalan desa RT 02"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5E4E0] text-xs focus:outline-none focus:border-[#38746D] focus:ring-1 focus:ring-[#38746D] transition"
                   />
                 </div>
 
-                {/* 3. Lokasi Detail */}
+                {/* 3. Titik Lokasi */}
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1">
-                    Lokasi Detail (Kecamatan / Desa / RT / RW / Patokan)
+                    Titik Lokasi / Alamat <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={reportLocation}
                     onChange={(e) => setReportLocation(e.target.value)}
-                    placeholder="Contoh: Desa Eretan Wetan RT 03/02 Dekat Masjid Jami"
-                    required
-                    className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3.5 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D]"
+                    placeholder="Contoh: Blok Karanganyar RT 04 RW 02, Desa Eretan Wetan"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5E4E0] text-xs focus:outline-none focus:border-[#38746D] focus:ring-1 focus:ring-[#38746D] transition"
                   />
                 </div>
 
-                {/* 4. Unggah Foto Laporan (PRD FR-RPT-01 / FR-RPT-03) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-[#132422]">
-                      Foto Bukti Kejadian (1–5 Foto)
+                {/* 4. Ketinggian Air (Khusus FLOOD) */}
+                {reportCategory === "FLOOD" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#132422] mb-1.5">
+                      Ketinggian Air Genangan
                     </label>
-                    <span className="text-[11px] text-[#718783]">{reportPhotos.length} / 5 Foto</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2.5 items-center">
-                      {reportPhotos.map((photo, idx) => (
-                        <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#D5E4E0] group">
-                          <img src={photo} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        { code: "ANKLE", label: "Semata Kaki", val: "10-30 cm" },
+                        { code: "KNEE", label: "Setinggi Lutut", val: "40-60 cm" },
+                        { code: "THIGH", label: "Setinggi Paha", val: "70-90 cm" },
+                        { code: "WAIST", label: "Setinggi Pinggang", val: "100-120 cm" },
+                        { code: "ABOVE_CHEST", label: "Di Atas Dada", val: "> 120 cm" },
+                      ].map((item) => {
+                        const isSelected = reportWaterLevel === item.code;
+                        return (
                           <button
                             type="button"
-                            onClick={() => handleRemovePhoto(idx)}
-                            className="absolute top-1 right-1 p-1 rounded-full bg-rose-600 text-white shadow-xs hover:bg-rose-700 cursor-pointer"
+                            key={item.code}
+                            onClick={() => setReportWaterLevel(item.code as WaterLevelCode)}
+                            className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F]"
+                                : "bg-[#F8FAF9] border-[#D5E4E0] text-[#4B635F] hover:bg-gray-100"
+                            }`}
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <span className="block text-xs font-bold leading-tight">{item.label}</span>
+                            <span className="block text-[10px] text-[#718783]">{item.val}</span>
                           </button>
-                        </div>
-                      ))}
-
-                      {reportPhotos.length < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-16 h-16 rounded-xl border-2 border-dashed border-[#A4C6C1] hover:border-[#38746D] bg-[#F8FAF9] flex flex-col items-center justify-center text-[#38746D] hover:bg-[#EEF5F3] transition-colors cursor-pointer"
-                        >
-                          <Camera className="w-5 h-5 mb-0.5" />
-                          <span className="text-[9px] font-bold">+ Foto</span>
-                        </button>
-                      )}
+                        );
+                      })}
                     </div>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                    />
-
-                    <p className="text-[10px] text-[#718783] flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-[#38746D]" />
-                      <span>Foto banjir divalidasi otomatis oleh model CNN untuk prioritas evakuasi.</span>
-                    </p>
                   </div>
-                </div>
+                )}
 
-                {/* 5. Estimasi Ketinggian Air & Tingkat Keparahan (PRD FR-RPT-04) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {reportCategory === "FLOOD" ? (
-                    <div>
-                      <label className="block text-xs font-semibold text-[#132422] mb-1">
-                        Estimasi Ketinggian Air (PRD)
-                      </label>
-                      <select
-                        value={reportWaterLevel}
-                        onChange={(e) => setReportWaterLevel(e.target.value as WaterLevelCode)}
-                        className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                      >
-                        <option value="ANKLE">Semata Kaki (10-30 cm)</option>
-                        <option value="KNEE">Setinggi Lutut (40-60 cm)</option>
-                        <option value="THIGH">Setinggi Paha (70-90 cm)</option>
-                        <option value="WAIST">Setinggi Pinggang (100-120 cm)</option>
-                        <option value="ABOVE_CHEST">Di Atas Dada / Atap (&gt; 120 cm)</option>
-                      </select>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-semibold text-[#132422] mb-1">
-                        Status Kategori
-                      </label>
-                      <input
-                        type="text"
-                        disabled
-                        value={reportCategory}
-                        className="w-full h-11 bg-gray-100 border border-gray-200 rounded-xl px-3 text-xs text-gray-500 font-semibold"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-semibold text-[#132422] mb-1">
-                      Tingkat Keparahan (Severity)
-                    </label>
-                    <select
-                      value={reportSeverity}
-                      onChange={(e) => setReportSeverity(e.target.value as SeverityLevel)}
-                      className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                    >
-                      <option value="LOW">Rendah (Genangan ringan)</option>
-                      <option value="MEDIUM">Sedang (Mulai masuk pekarangan)</option>
-                      <option value="HIGH">Tinggi (Air masuk dalam rumah)</option>
-                      <option value="CRITICAL">Kritis (Darurat keselamatan jiwa)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* 6. Kebutuhan Darurat Lapangan */}
+                {/* 5. Kebutuhan Mendesak */}
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1.5">
-                    Kebutuhan Mendesak Lapangan:
+                    Kebutuhan Mendesak (Bisa pilih lebih dari satu)
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {["Perahu Evakuasi", "Bantuan Medis Lansia", "Susu / Makanan Bayi", "Dapur Umum", "Tenda Pengungsi"].map((item) => (
-                      <button
-                        type="button"
-                        key={item}
-                        onClick={() => toggleUrgentNeed(item)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-                          reportUrgentNeeds.includes(item)
-                            ? "bg-[#38746D] text-white border-[#38746D]"
-                            : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
-                        }`}
-                      >
-                        {item}
-                      </button>
+                    {[
+                      "Perahu Karet Evakuasi",
+                      "Bantuan Medis / Lansia",
+                      "Karung Pasir Penahan",
+                      "Logistik Makanan Siap Saji",
+                      "Penerangan / Genset",
+                    ].map((item) => {
+                      const isSelected = reportUrgentNeeds.includes(item);
+                      return (
+                        <button
+                          type="button"
+                          key={item}
+                          onClick={() => toggleUrgentNeed(item)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
+                            isSelected
+                              ? "bg-[#38746D] text-white border-[#38746D]"
+                              : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
+                          }`}
+                        >
+                          {isSelected ? "✓ " : "+ "}
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 6. Unggah Foto Bukti */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#132422] mb-1">
+                    Foto Bukti Lapangan (Maks. 5 Foto)
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    multiple
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-2.5 rounded-xl border border-dashed border-[#38746D] bg-[#EEF5F3] text-[#38746D] hover:bg-[#D1E5E2] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Ambil / Pilih Foto</span>
+                    </button>
+                    {reportPhotos.map((p, idx) => (
+                      <div key={idx} className="relative w-12 h-12 rounded-xl overflow-hidden border border-gray-300">
+                        <img src={p} alt="Bukti" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="absolute top-0 right-0 p-0.5 bg-rose-600 text-white rounded-bl-md cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -1058,30 +753,31 @@ export default function WargaDashboard() {
                 {/* 7. Catatan Tambahan */}
                 <div>
                   <label className="block text-xs font-semibold text-[#132422] mb-1">
-                    Catatan Tambahan (Opsional)
+                    Catatan Tambahan
                   </label>
                   <textarea
                     rows={2}
                     value={reportNotes}
                     onChange={(e) => setReportNotes(e.target.value)}
-                    placeholder="Contoh: Ada 2 lansia stroke butuh tandu darurat segera."
-                    className="w-full bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl p-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D]"
+                    placeholder="Contoh: Ada 2 lansia di rumah panggung ujung gang butuh dipapah."
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#D5E4E0] text-xs focus:outline-none focus:border-[#38746D] transition"
                   />
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                {/* Submit Button */}
+                <div className="pt-2 flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setShowReportModal(false)}
-                    className="flex-1 py-3 rounded-full border border-[#D5E4E0] text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl border border-[#D5E4E0] text-[#4B635F] text-xs font-bold hover:bg-gray-100 transition cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl bg-[#1D443F] hover:bg-[#24544E] text-white text-xs font-bold shadow-md transition cursor-pointer"
                   >
-                    Kirim Laporan Darurat
+                    Kirim Laporan Sekarang
                   </button>
                 </div>
               </form>
@@ -1091,153 +787,11 @@ export default function WargaDashboard() {
       )}
 
       {/* ============================================================ */}
-      {/* 4. MODAL: RINCIAN DERING EVAKUASI AKTIF (PRD FR-ALERT-08)     */}
+      {/* 5. MODAL: PANDUAN RUTE EVAKUASI KE POSKO                     */}
       {/* ============================================================ */}
-      {showDeringModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[90vh] overflow-y-auto space-y-4">
-            <button
-              type="button"
-              onClick={() => setShowDeringModal(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                <AlertOctagon className="w-6 h-6 animate-bounce" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  LEVEL: SIAGA (ALERT-2)
-                </span>
-                <h3 className="text-base sm:text-lg font-extrabold text-[#132422] mt-0.5">
-                  Peringatan Dini Rob Pesisir &amp; Luapan DAS Cimanuk
-                </h3>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/60 text-xs text-[#132422] space-y-2">
-              <p className="font-semibold text-[#38746D]">Target Wilayah Terdampak:</p>
-              <p className="text-[#4B635F]">
-                Kecamatan Kandanghaur (Eretan Wetan, Eretan Kulon), Cantigi, dan Losarang.
-              </p>
-              <div className="pt-2 border-t border-[#A4C6C1]/40 flex justify-between text-[11px] text-[#718783]">
-                <span>Diterbitkan: <strong>Pusdalops PB BPBD</strong></span>
-                <span>Masa Berlaku: <strong>12 Jam ke Depan</strong></span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-[#132422] uppercase tracking-wider">
-                Instruksi Tindakan Warga:
-              </h4>
-              <ul className="text-xs text-[#4B635F] space-y-1.5 list-disc pl-4">
-                <li>Amankan dokumen berharga dan letakkan barang elektronik di tempat yang lebih tinggi.</li>
-                <li>Matikan sekring listrik utama rumah jika genangan air mulai masuk ke teras.</li>
-                <li>Bantu evakuasi kelompok rentan (lansia, ibu hamil, balita) ke Posko Pengungsian Balai Desa.</li>
-                <li>Ikuti panduan rute aman bebas banjir yang tersedia di aplikasi DERMAYU.</li>
-              </ul>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeringModal(false);
-                  handleOpenNav();
-                }}
-                className="flex-1 py-3 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs text-center cursor-pointer"
-              >
-                Arahkan ke Posko Pengungsian
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeringModal(false)}
-                className="px-5 py-3 rounded-full border border-[#D5E4E0] text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* 5. MODAL: DAFTAR KONTAK DARURAT 24 JAM (PRD FR-EVAC-03)       */}
-      {/* ============================================================ */}
-      {showContactsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[90vh] overflow-y-auto space-y-4">
-            <button
-              type="button"
-              onClick={() => setShowContactsModal(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#EEF5F3] text-[#38746D] flex items-center justify-center shrink-0">
-                <PhoneCall className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-[#132422]">
-                  Daftar Kontak Darurat Kabupaten Indramayu
-                </h3>
-                <p className="text-xs text-[#4B635F]">
-                  Layanan terpadu 24 jam bebas pulsa &amp; respons cepat bencana
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              {emergencyContacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] flex items-center justify-between gap-3 hover:border-[#38746D] transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs sm:text-sm font-bold text-[#132422] truncate">{contact.name}</h4>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border border-[#D5E4E0] text-[#38746D] shrink-0">
-                        {contact.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#4B635F] mt-0.5">{contact.description}</p>
-                  </div>
-
-                  <a
-                    href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
-                    className="px-3.5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-2xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95"
-                  >
-                    <PhoneCall className="w-3.5 h-3.5" />
-                    <span>{contact.phone}</span>
-                  </a>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => setShowContactsModal(false)}
-                className="w-full py-2.5 rounded-full border border-[#D5E4E0] text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* 6. MODAL: PANDUAN PETA NAVIGASI EVAKUASI AMAN                */}
-      {/* ============================================================ */}
-      {showNavModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[90vh] overflow-y-auto space-y-4">
+      {showNavModal && selectedShelterForNav && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[92vh] overflow-y-auto space-y-4">
             <button
               type="button"
               onClick={() => setShowNavModal(false)}
@@ -1247,73 +801,121 @@ export default function WargaDashboard() {
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-[#38746D] text-white flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
                 <Navigation className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#132422]">
-                  Panduan Navigasi: Rute Bebas Banjir Menuju Posko
-                </h3>
-                <p className="text-xs text-[#4B635F]">
-                  Tujuan: <strong>{selectedShelterForNav?.name || "Posko Pengungsian"}</strong>
-                </p>
+                <h3 className="text-lg font-bold text-[#132422]">Panduan Jalur Evakuasi Aman</h3>
+                <p className="text-xs text-[#4B635F]">Menuju {selectedShelterForNav.name}</p>
               </div>
             </div>
 
-            {/* Peta Mini Simulasi Rute Bebas Genangan */}
-            <div className="w-full h-52 sm:h-64 rounded-2xl bg-[#EEF5F3] border-2 border-dashed border-[#A4C6C1] relative overflow-hidden flex flex-col items-center justify-center p-4 text-center">
-              <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#38746D_1px,transparent_1px)] [background-size:16px_16px]" />
-              
-              <div className="relative z-10 space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#38746D] text-white text-xs font-bold shadow-xs">
-                  <Compass className="w-4 h-4 animate-spin text-amber-300" />
-                  <span>RUTE TERVERIFIKASI AMAN DILALUI</span>
-                </div>
-                <h4 className="text-sm sm:text-base font-extrabold text-[#132422]">
-                  Gunakan Jalur Tanggul Barat &rarr; Jembatan Beton &rarr; Posko Balai Desa
-                </h4>
-                <p className="text-xs text-[#4B635F] max-w-md">
-                  Hindari Jl. Muara Lama KM 2 karena genangan rob mencapai 70 cm dan arus air deras.
-                </p>
+            <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/50 space-y-2 text-xs">
+              <div className="flex justify-between font-bold text-[#132422]">
+                <span>Status Posko:</span>
+                <span className="text-emerald-700">{selectedShelterForNav.status}</span>
               </div>
-
-              {/* Status Rute Bar */}
-              <div className="absolute bottom-3 left-4 right-4 bg-white/90 backdrop-blur-xs rounded-xl p-2.5 border border-[#D5E4E0] flex items-center justify-between text-xs text-[#132422]">
-                <span className="font-semibold text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Elevasi Jalan: +1.8m dpl
+              <div className="flex justify-between text-[#4B635F]">
+                <span>Jarak dari Pesisir:</span>
+                <span className="font-semibold text-[#132422]">{selectedShelterForNav.distance}</span>
+              </div>
+              <div className="flex justify-between text-[#4B635F]">
+                <span>Sisa Kuota:</span>
+                <span className="font-semibold text-[#132422]">
+                  {selectedShelterForNav.capacityTotal - selectedShelterForNav.capacityFilled} Jiwa
                 </span>
-                <span className="font-bold text-[#38746D]">Estimasi: 4-6 Menit</span>
               </div>
             </div>
 
-            {/* Detail Posko Terpilih */}
-            {selectedShelterForNav && (
-              <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-2 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-sm text-[#132422]">{selectedShelterForNav.name}</span>
-                  <span className="font-semibold text-[#38746D]">{selectedShelterForNav.distance}</span>
-                </div>
-                <p className="text-gray-500">{selectedShelterForNav.location}</p>
-                <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                  <span>Kontak Petugas Lapangan: <strong>{selectedShelterForNav.contactPerson}</strong></span>
-                  <a
-                    href={`tel:${selectedShelterForNav.contactPhone}`}
-                    className="font-bold text-[#38746D] hover:underline"
-                  >
-                    {selectedShelterForNav.contactPhone}
-                  </a>
-                </div>
-              </div>
-            )}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-[#132422] uppercase tracking-wider">
+                Langkah Jalur Darat Bebas Genangan:
+              </h4>
+              <ol className="space-y-2 text-xs text-[#4B635F] list-decimal list-inside bg-[#F8FAF9] p-3.5 rounded-2xl border border-[#D5E4E0]">
+                <li>Keluar dari gang pemukiman ke arah timur menuju Tanggul Nelayan.</li>
+                <li>Lintasi jembatan beton sekunder (permukaan kering dan di atas elevasi pasang).</li>
+                <li>Susuri jalan aspal Desa Eretan Wetan hingga pintu gerbang {selectedShelterForNav.name}.</li>
+                <li>Laporkan kedatangan ke Posko Medis / Meja Registrasi Kuwu.</li>
+              </ol>
+            </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center gap-2 pt-2">
+              <a
+                href={`tel:${selectedShelterForNav.contactPhone.replace(/[^0-9]/g, "")}`}
+                className="flex-1 py-2.5 px-3 rounded-xl border border-[#D5E4E0] text-[#132422] hover:bg-gray-100 text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Telepon Pengelola Posko</span>
+              </a>
               <button
                 type="button"
                 onClick={() => setShowNavModal(false)}
-                className="px-5 py-2.5 rounded-full bg-[#38746D] text-white text-xs font-semibold hover:bg-[#24544E] transition-colors cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#1D443F] text-white hover:bg-[#24544E] text-xs font-bold transition"
               >
-                Saya Mengerti, Mulai Berjalan
+                Tutup Panduan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 6. MODAL: DIREKTORI KONTAK DARURAT 24 JAM                    */}
+      {/* ============================================================ */}
+      {showContactsModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[92vh] overflow-y-auto space-y-4">
+            <button
+              type="button"
+              onClick={() => setShowContactsModal(false)}
+              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <PhoneCall className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[#132422]">Kontak Darurat Terpadu Indramayu</h3>
+                <p className="text-xs text-[#4B635F]">Layanan respons darurat bencana 24 jam</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {emergencyContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                        {contact.badge}
+                      </span>
+                      <h4 className="text-xs font-bold text-[#132422] truncate">{contact.name}</h4>
+                    </div>
+                    <p className="text-[11px] text-[#718783] truncate">{contact.description}</p>
+                  </div>
+
+                  <a
+                    href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
+                    className="px-3 py-1.5 rounded-xl bg-[#1D443F] hover:bg-[#24544E] text-white text-xs font-bold shrink-0 transition"
+                  >
+                    {contact.phone}
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setShowContactsModal(false)}
+                className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#132422] text-xs font-bold transition"
+              >
+                Tutup
               </button>
             </div>
           </div>

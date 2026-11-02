@@ -7,11 +7,11 @@ import { motion } from "motion/react";
 import {
   ExternalLink,
   ChevronDown,
-  Menu,
   User,
   BookOpen,
   LogOut,
 } from "lucide-react";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { getActiveSession, clearUserSession, type UserSession } from "@/utils/authSession";
 
 // Pemetaan judul dinamis berdasarkan pathname aktif
@@ -36,9 +36,17 @@ export interface AppHeaderProps {
   role: "warga" | "petugas";
   onOpenMobileMenu?: () => void;
   session?: UserSession | null;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export function AppHeader({ role, onOpenMobileMenu, session: propSession }: AppHeaderProps) {
+export function AppHeader({
+  role,
+  onOpenMobileMenu,
+  session: propSession,
+  sidebarCollapsed,
+  onToggleSidebar,
+}: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -112,18 +120,22 @@ export function AppHeader({ role, onOpenMobileMenu, session: propSession }: AppH
       transition={{ duration: 0.45, delay: 0.15, ease: "easeOut" }}
       className="sticky top-0 h-16 bg-white border-b border-[#D5E4E0] px-4 sm:px-8 flex items-center justify-between z-20 shrink-0"
     >
-      <div className="flex items-center gap-3">
-        {/* Hamburger Mobile Trigger */}
-        <button
-          type="button"
-          onClick={onOpenMobileMenu}
-          className="p-2 rounded-xl text-gray-700 hover:bg-gray-100 md:hidden cursor-pointer shrink-0"
-          aria-label="Buka navigasi sidebar"
+      <div className="flex items-center gap-2.5 min-w-0">
+        {/* Logo DERMAYU di Mobile */}
+        <Link
+          href="/"
+          className="md:hidden shrink-0 flex items-center hover:opacity-85 transition-opacity"
+          title="Beranda DERMAYU"
         >
-          <Menu className="w-5 h-5" />
-        </button>
+          <LogoDermayu
+            variant="dark"
+            width={30}
+            height={30}
+            className="w-7.5 h-7.5 object-contain"
+          />
+        </Link>
 
-        <h1 className="text-base sm:text-lg font-bold text-[#132422] truncate">
+        <h1 className="text-sm sm:text-base md:text-lg font-bold text-[#132422] truncate">
           {currentTitle}
         </h1>
       </div>

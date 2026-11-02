@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { AppHeader } from "@/components/dashboard/AppHeader";
+import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
 import {
   getActiveSession,
   touchDashboardActivity,
@@ -18,6 +19,7 @@ export interface DashboardShellProps {
 export function DashboardShell({ role, children }: DashboardShellProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [session, setSession] = useState<UserSession | null>(null);
 
   // Close mobile sidebar on route change & touch activity
@@ -25,6 +27,49 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
     setMobileMenuOpen(false);
     touchDashboardActivity();
   }, [pathname]);
+
+  // Load saved sidebar preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("dermayu_sidebar_collapsed");
+      if (saved !== null) {
+        setDesktopCollapsed(saved === "true");
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  const toggleDesktopSidebar = () => {
+    setDesktopCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("dermayu_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Keyboard shortcut Ctrl+B / Cmd+B to toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        const active = document.activeElement;
+        const isInput =
+          active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          active?.getAttribute("contenteditable") === "true";
+
+        if (!isInput) {
+          e.preventDefault();
+          toggleDesktopSidebar();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Session Synchronization (Single Source of Truth)
   useEffect(() => {
@@ -85,16 +130,22 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] flex flex-col md:flex-row antialiased select-none">
+    <div className="min-h-screen bg-[#F8FAF9] flex flex-col md:flex-row antialiased">
       {/* 1. SIDEBAR HIJAU DEEP TEAL */}
       <AppSidebar
         role={role}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        collapsed={desktopCollapsed}
+        onToggleCollapse={toggleDesktopSidebar}
       />
 
       {/* 2. AREA KONTEN UTAMA DENGAN PERSISTENT TOP HEADER */}
-      <div className="md:ml-64 flex-1 flex flex-col min-w-0 min-h-screen">
+      <div
+        className={`flex-1 flex flex-col min-w-0 min-h-screen transition-[margin] duration-300 ease-in-out ${
+          desktopCollapsed ? "md:ml-20" : "md:ml-64"
+        }`}
+      >
         <AppHeader
           role={role}
           session={session}
@@ -102,10 +153,13 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
         />
 
         {/* Content Canvas (Hanya bagian ini yang berganti saat navigasi) */}
-        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 min-w-0">
+        <main className="p-2.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 flex-1 min-w-0 pb-20 md:pb-8">
           {children}
         </main>
       </div>
+
+      {/* 3. NAVBAR MOBILE DI BAWAH (MD:HIDDEN) */}
+      <MobileBottomNav role={role} />
     </div>
   );
 }

@@ -178,7 +178,7 @@ export default function KontakDaruratPage() {
             <div className="space-y-2 max-w-xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                Siaga Siaga Darurat 24/7 Pantura
+                Siaga Darurat 24/7 Pantura
               </div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
                 Panggilan Darurat Bebas Pulsa: Hubungi 112

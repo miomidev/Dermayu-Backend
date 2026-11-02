@@ -13,6 +13,7 @@ import {
   Send,
   AlertTriangle,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   Waves,
   Building2,
@@ -25,6 +26,7 @@ import {
   Trash2,
   Paperclip,
   Check,
+  PhoneCall,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
 
@@ -50,6 +52,7 @@ interface CommunityPost {
   id: string;
   authorName: string;
   authorDistrict: string;
+  authorRole?: "WARGA" | "APARAT" | "RELAWAN";
   timeAgo: string;
   category: "ROB" | "LOGISTIK" | "GOTONG_ROYONG" | "RUTE";
   categoryLabel: string;
@@ -88,6 +91,7 @@ const initialMockPosts: CommunityPost[] = [
     id: "post-1",
     authorName: "Kang Dedi Suryadi",
     authorDistrict: "Eretan Wetan, Kandanghaur",
+    authorRole: "WARGA",
     timeAgo: "15 menit yang lalu",
     category: "ROB",
     categoryLabel: "Info Genangan Rob",
@@ -110,6 +114,7 @@ const initialMockPosts: CommunityPost[] = [
     id: "post-2",
     authorName: "Kuwu Waryono",
     authorDistrict: "Desa Cantigi Kulon",
+    authorRole: "APARAT",
     timeAgo: "45 menit yang lalu",
     category: "GOTONG_ROYONG",
     categoryLabel: "Gotong Royong & Kerja Bakti",
@@ -131,6 +136,7 @@ const initialMockPosts: CommunityPost[] = [
     id: "post-3",
     authorName: "Relawan Posko Tagana",
     authorDistrict: "GOR Mini Kandanghaur",
+    authorRole: "RELAWAN",
     timeAgo: "1 jam yang lalu",
     category: "LOGISTIK",
     categoryLabel: "Kebutuhan Bantuan & Logistik",
@@ -155,11 +161,43 @@ const initialMockPosts: CommunityPost[] = [
       },
     ],
   },
+  {
+    id: "post-4",
+    authorName: "Pak Casmita",
+    authorDistrict: "Desa Pasekan",
+    authorRole: "WARGA",
+    timeAgo: "2 jam yang lalu",
+    category: "RUTE",
+    categoryLabel: "Rute Aman Terupdate",
+    content:
+      "Jalur penghubung tanggul irigasi Pasekan ke arah Simpang Krangkeng terpantau kering dan bebas banjir rob. Pengendara motor roda dua dan mobil pickup pengangkut logistik bisa lewat sini dengan aman.",
+    waterLevel: "Kering Bebas Genangan",
+    likesCount: 19,
+    userLiked: false,
+    comments: [
+      {
+        id: "c-105",
+        author: "Kang Rohman",
+        authorDistrict: "Pasekan",
+        text: "Matur kesuwun infonya Pak Casmita, sangat membantu pedagang pasar yang mau melintas.",
+        time: "1 jam lalu",
+      },
+    ],
+  },
+];
+
+const DISTRICT_FILTERS = [
+  { id: "ALL", label: "Semua Wilayah" },
+  { id: "Kandanghaur", label: "Kandanghaur" },
+  { id: "Cantigi", label: "Cantigi" },
+  { id: "Losarang", label: "Losarang" },
+  { id: "Pasekan", label: "Pasekan" },
 ];
 
 export default function WargaKomunitasPage() {
   const [posts, setPosts] = useState<CommunityPost[]>(initialMockPosts);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("ALL");
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -362,10 +400,41 @@ export default function WargaKomunitasPage() {
     setCommentMedia([]);
   };
 
+  // Role Badge Helper
+  const renderAuthorBadge = (role?: "WARGA" | "APARAT" | "RELAWAN") => {
+    if (role === "APARAT") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+          <ShieldAlert className="w-3 h-3 text-amber-700" />
+          Pemerintah Desa / Pamong
+        </span>
+      );
+    }
+    if (role === "RELAWAN") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-900 border border-sky-300">
+          <ShieldCheck className="w-3 h-3 text-sky-700" />
+          Relawan Tagana / BPBD
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+        Warga Terverifikasi
+      </span>
+    );
+  };
+
   // Filter Posts
   const filteredPosts = posts.filter((p) => {
-    if (selectedCategory === "ALL") return true;
-    return p.category === selectedCategory;
+    const matchesCategory =
+      selectedCategory === "ALL" || p.category === selectedCategory;
+    const matchesDistrict =
+      selectedDistrict === "ALL" ||
+      (p.authorDistrict &&
+        p.authorDistrict.toLowerCase().includes(selectedDistrict.toLowerCase()));
+    return matchesCategory && matchesDistrict;
   });
 
   // Current active post in detail view
@@ -397,40 +466,30 @@ export default function WargaKomunitasPage() {
         )}
       </AnimatePresence>
 
-      {/* HEADER BANNER KOMUNITAS DENGAN TOMBOL BUAT KABAR */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="p-6 sm:p-7 rounded-3xl bg-linear-to-r from-[#1D443F] via-[#24544E] to-[#132422] text-white shadow-md relative overflow-hidden"
-      >
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#88BDB6] text-xs font-semibold backdrop-blur-xs">
-              <Users className="w-3.5 h-3.5" />
-              Forum Gotong Royong Warga Pantura
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-              Komunitas Warga Siaga & Tanggap Bencana
-            </h2>
-            <p className="text-xs sm:text-sm text-[#D1E5E2] leading-relaxed">
-              Ruang komunikasi antarwarga Indramayu untuk berbagi kondisi genangan terkini, rute aman terupdate, serta saling bantu kebutuhan logistik darurat.
-            </p>
+      {/* HEADER KOMUNITAS WARGA SIAGA */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] text-[11px] font-bold border border-[#D5E4E0]">
+            <Users className="w-3.5 h-3.5 text-[#38746D]" />
+            <span>Kanal Informasi Warga Pantura</span>
           </div>
-
-          {/* Trigger Tombol Modal "Buat Kabar Warga" */}
-          <div className="shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#38746D] hover:bg-[#2d5d57] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-lg border border-white/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Buat Kabar Warga</span>
-            </button>
-          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
+            Kabar Lapangan & Gotong Royong Warga
+          </h2>
+          <p className="text-xs text-gray-600 max-w-xl">
+            Informasi situasi air rob, ketersediaan jalur tembus, serta koordinasi bantuan antarwarga se-Kabupaten Indramayu.
+          </p>
         </div>
-      </motion.div>
+
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#1D443F] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Buat Kabar Baru</span>
+        </button>
+      </div>
 
       {/* GRID UTAMA: KOLOM KIRI (FEED / DETAIL) + KOLOM KANAN (WIDGETS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -469,10 +528,7 @@ export default function WargaKomunitasPage() {
                         <h3 className="text-sm sm:text-base font-bold text-[#132422]">
                           {activePost.authorName}
                         </h3>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <ShieldCheck className="w-3 h-3" />
-                          Terverifikasi
-                        </span>
+                        {renderAuthorBadge(activePost.authorRole)}
                       </div>
                       <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
@@ -729,28 +785,55 @@ export default function WargaKomunitasPage() {
             /* 2. TAMPILAN FEED POSTINGAN UTAMA (TANPA FORM INLINE)    */
             /* ========================================================= */
             <div className="space-y-5">
-              {/* Filter Tabs Kategori */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                {[
-                  { id: "ALL", label: "Semua Kabar" },
-                  { id: "ROB", label: "Genangan & Rob" },
-                  { id: "LOGISTIK", label: "Kebutuhan Bantuan" },
-                  { id: "GOTONG_ROYONG", label: "Gotong Royong" },
-                  { id: "RUTE", label: "Rute Terupdate" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(tab.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === tab.id
-                        ? "bg-[#1D443F] text-white shadow-xs"
-                        : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              {/* Filter Bar (2 Baris: Kategori Topik & Wilayah Kecamatan) */}
+              <div className="space-y-2.5 bg-[#F8FAF9] p-3 rounded-2xl border border-[#D5E4E0]">
+                {/* Baris 1: Kategori Topik */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none touch-pan-x">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1">
+                    Topik:
+                  </span>
+                  {[
+                    { id: "ALL", label: "Semua Kabar" },
+                    { id: "ROB", label: "Genangan & Rob" },
+                    { id: "LOGISTIK", label: "Kebutuhan Logistik" },
+                    { id: "GOTONG_ROYONG", label: "Gotong Royong" },
+                    { id: "RUTE", label: "Rute Terupdate" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(tab.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        selectedCategory === tab.id
+                          ? "bg-[#1D443F] text-white shadow-2xs"
+                          : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Baris 2: Filter Wilayah Kecamatan */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none touch-pan-x border-t border-gray-200/60 pt-2">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1">
+                    Wilayah:
+                  </span>
+                  {DISTRICT_FILTERS.map((df) => (
+                    <button
+                      key={df.id}
+                      type="button"
+                      onClick={() => setSelectedDistrict(df.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                        selectedDistrict === df.id
+                          ? "bg-[#38746D] text-white font-bold shadow-2xs"
+                          : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
+                      }`}
+                    >
+                      {df.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Feed List */}
@@ -798,10 +881,7 @@ export default function WargaKomunitasPage() {
                               <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors">
                                 {post.authorName}
                               </h4>
-                              <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <ShieldCheck className="w-3 h-3" />
-                                Warga Terverifikasi
-                              </span>
+                              {renderAuthorBadge(post.authorRole)}
                             </div>
                             <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
                               <MapPin className="w-3 h-3 text-[#38746D]" />
@@ -995,12 +1075,13 @@ export default function WargaKomunitasPage() {
                 Buat Laporan Resmi BPBD
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-              <Link
-                href="/warga/kontak"
-                className="w-full py-2 rounded-full bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold border border-gray-200 transition-colors text-center"
+              <a
+                href="tel:112"
+                className="w-full py-2.5 rounded-full bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 text-xs font-bold border border-rose-200 transition-colors flex items-center justify-center gap-1.5"
               >
-                Hubungi Call Center 112
-              </Link>
+                <PhoneCall className="w-3.5 h-3.5 text-rose-600" />
+                <span>Panggil Call Center 112</span>
+              </a>
             </div>
           </div>
         </div>

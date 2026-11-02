@@ -6,7 +6,7 @@ import {
   Clock,
   PlusCircle,
   MapPin,
-  Sparkles,
+  ShieldCheck,
   Ban,
   CheckCircle2,
   AlertTriangle,
@@ -107,7 +107,7 @@ export default function WargaAduanPage() {
               Pelacakan Status Aduan &amp; Tiket Darurat
             </h2>
             <p className="text-xs text-[#4B635F] mt-0.5">
-              Pantau progres tindak lanjut tim reaksi cepat BPBD Indramayu secara transparan (PRD FR-RPT-07)
+              Pantau perkembangan penanganan tim SAR dan regu evakuasi BPBD Indramayu secara langsung.
             </p>
           </div>
 
@@ -217,11 +217,11 @@ export default function WargaAduanPage() {
                   </p>
                 </div>
 
-                {/* AI Validation Indicator */}
+                {/* Verifikasi Lapangan */}
                 {item.aiConfidence && (
                   <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Validasi AI CNN: <strong>Terindikasi Banjir ({Math.round(item.aiConfidence * 100)}% Confidence)</strong></span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Verifikasi Telemetri & Citra: <strong>Genangan Terkonfirmasi Posko ({Math.round(item.aiConfidence * 100)}%)</strong></span>
                   </div>
                 )}
 
@@ -234,7 +234,7 @@ export default function WargaAduanPage() {
                 <div className="pt-2 flex items-center justify-between text-xs text-[#718783]">
                   <span>Waktu Kirim: {item.createdAt}</span>
 
-                  {/* PRD FR-RPT-08: Pembatalan Laporan jika status masih SUBMITTED */}
+                  {/* Pembatalan Laporan jika status masih SUBMITTED */}
                   {item.status === "SUBMITTED" && (
                     <button
                       type="button"

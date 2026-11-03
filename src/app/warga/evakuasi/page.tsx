@@ -17,6 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
+import { EvakuasiBottomSheet } from "@/components/dashboard/EvakuasiBottomSheet";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -496,7 +497,7 @@ export default function WargaEvakuasiPage() {
 
   return (
     <>
-      <div className="w-full h-full flex flex-col">
+      <div className="w-full h-full flex flex-col flex-1 relative overflow-hidden">
         {/* PETA SPASIAL KESIAPSIAGAAN & RUTE EVAKUASI (FULL VIEWPORT GIS) */}
         <WargaSpatialMap
           reports={mapReportPoints}
@@ -508,6 +509,25 @@ export default function WargaEvakuasiPage() {
             const matched = shelters.find((item) => item.id === s.id);
             if (matched) handleOpenNav(matched);
           }}
+        />
+
+        {/* BOTTOM SHEET SLIDER INTERAKTIF ALA GOOGLE MAPS (MOBILE ONLY) */}
+        <EvakuasiBottomSheet
+          shelters={mapShelterPoints}
+          reports={mapReportPoints}
+          telemetry={telemetryPoints}
+          onSelectShelter={(s) => {
+            const matched = shelters.find((item) => item.id === s.id);
+            if (matched) handleOpenNav(matched);
+          }}
+          onSelectReport={(r) => {
+            const matched = complaints.find((c) => c.id === r.id);
+            if (matched) {
+              // focus on report
+            }
+          }}
+          onOpenReportModal={() => setShowReportModal(true)}
+          onOpenContactsModal={() => setShowContactsModal(true)}
         />
       </div>
 

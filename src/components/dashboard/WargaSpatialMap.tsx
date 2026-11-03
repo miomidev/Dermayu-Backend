@@ -431,10 +431,10 @@ export default function WargaSpatialMap({
 
   return (
     <div
-      className={`relative rounded-3xl overflow-hidden border border-[#D5E4E0] bg-white shadow-sm flex flex-col isolate z-0 ${
+      className={`relative rounded-none md:rounded-3xl overflow-hidden border-0 md:border border-[#D5E4E0] bg-white shadow-none md:shadow-sm flex flex-col isolate z-0 [&_.leaflet-bottom.leaflet-right]:bottom-44 md:[&_.leaflet-bottom.leaflet-right]:bottom-3 ${
         isFullscreen
           ? "fixed inset-4 z-50 rounded-2xl shadow-2xl"
-          : className || "h-[calc(100dvh-10rem)] md:h-[calc(100vh-7.5rem)] min-h-[460px] md:min-h-[560px]"
+          : className || "h-[calc(100dvh-4rem)] md:h-[calc(100vh-7.5rem)] min-h-[460px] md:min-h-[560px]"
       }`}
     >
       {/* Map Canvas & Floating Controls Wrapper (100% Edge-to-Edge) */}

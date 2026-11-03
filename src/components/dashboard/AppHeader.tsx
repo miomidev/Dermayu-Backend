@@ -17,6 +17,12 @@ import {
 } from "lucide-react";
 import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { AuthBackgroundDecor } from "@/components/auth/AuthBackgroundDecor";
+import {
+  Bell,
+  X,
+  ChevronRight,
+} from "lucide-react";
+import { MobileSearchOverlay, searchableData, type SearchItem } from "@/components/dashboard/MobileSearchOverlay";
 import { getActiveSession, clearUserSession, type UserSession } from "@/utils/authSession";
 
 // Pemetaan judul dinamis berdasarkan pathname aktif
@@ -53,10 +59,61 @@ export function AppHeader({
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [session, setSession] = useState<UserSession | null>(propSession || null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Notifikasi & Desktop Search State
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
+  const [desktopQuery, setDesktopQuery] = useState("");
+  const [desktopSearchOpen, setDesktopSearchOpen] = useState(false);
+
+  const desktopSearchRef = useRef<HTMLDivElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopNotifRef = useRef<HTMLDivElement>(null);
+  const mobileNotifRef = useRef<HTMLDivElement>(null);
+  const mobileCleanNotifRef = useRef<HTMLDivElement>(null);
 
   const desktopDropdownRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const mobileCleanDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Data Notifikasi Siaga
+  const [notifications, setNotifications] = useState([
+    {
+      id: "notif-1",
+      title: "Peringatan Dini Rob Eretan Wetan",
+      message: "Ketinggian genangan air pasang mencapai 45 cm. Akses jalan pelelangan ikan dialihkan.",
+      time: "10m lalu",
+      type: "warning",
+      unread: true,
+      href: "/warga/evakuasi",
+    },
+    {
+      id: "notif-2",
+      title: "Posko Baru Dibuka",
+      message: "GOR Mini Kandanghaur kini siap menerima warga pengungsi dengan kapasitas 500 jiwa.",
+      time: "35m lalu",
+      type: "info",
+      unread: true,
+      href: "/warga/posko",
+    },
+    {
+      id: "notif-3",
+      title: "Laporan Banjir Diverifikasi",
+      message: "Tiket #DMY-0038 telah divalidasi oleh petugas BPBD Indramayu. Status: Ditindaklanjuti.",
+      time: "1j lalu",
+      type: "success",
+      unread: false,
+      href: "/warga/aduan",
+    },
+  ]);
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  // Auto-close search on route change
+  useEffect(() => {
+    setIsSearchOpen(false);
+  }, [pathname]);
 
   // Sync session from storage / event
   useEffect(() => {
@@ -103,9 +160,35 @@ export function AppHeader({
       if (!insideDesktop && !insideMobile && !insideMobileClean) {
         setDropdownOpen(false);
       }
+
+      const insideDesktopNotif = desktopNotifRef.current && desktopNotifRef.current.contains(target);
+      const insideMobileNotif = mobileNotifRef.current && mobileNotifRef.current.contains(target);
+      const insideMobileCleanNotif = mobileCleanNotifRef.current && mobileCleanNotifRef.current.contains(target);
+      if (!insideDesktopNotif && !insideMobileNotif && !insideMobileCleanNotif) {
+        setNotifOpen(false);
+        setMobileNotifOpen(false);
+      }
+
+      const insideDesktopSearch = desktopSearchRef.current && desktopSearchRef.current.contains(target);
+      if (!insideDesktopSearch) {
+        setDesktopSearchOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Keyboard shortcut Ctrl+K / Cmd+K untuk fokus pencarian web
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        desktopSearchInputRef.current?.focus();
+        setDesktopSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleLogout = () => {
@@ -130,6 +213,107 @@ export function AppHeader({
       pathname === "/dashboard" ||
       pathname === "/warga" ||
       pathname === "/");
+
+  // Hasil filter pencarian desktop
+  const filteredDesktopResults = desktopQuery.trim()
+    ? searchableData
+        .filter((item) => {
+          const q = desktopQuery.trim().toLowerCase();
+          return (
+            item.title.toLowerCase().includes(q) ||
+            item.description.toLowerCase().includes(q) ||
+            item.category.toLowerCase().includes(q) ||
+            item.keywords.some((k) => k.includes(q))
+          );
+        })
+        .slice(0, 6)
+    : [];
+
+  const handleDesktopSelect = (href: string) => {
+    setDesktopQuery("");
+    setDesktopSearchOpen(false);
+    router.push(href);
+  };
+
+  const handleDesktopSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && filteredDesktopResults.length > 0) {
+      e.preventDefault();
+      handleDesktopSelect(filteredDesktopResults[0].href);
+    }
+    if (e.key === "Escape") {
+      setDesktopSearchOpen(false);
+      desktopSearchInputRef.current?.blur();
+    }
+  };
+
+  // Komponen Notifikasi Dropdown Reusable
+  const renderNotificationDropdown = (positionClasses = "right-0 mt-2") => (
+    <div
+      className={`absolute ${positionClasses} w-80 sm:w-88 bg-white rounded-2xl border border-[#D5E4E0] shadow-2xl p-3 z-50 text-left text-slate-800`}
+    >
+      <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <Bell className="w-4 h-4 text-[#38746D]" />
+          <span className="text-xs font-bold text-slate-900">Notifikasi Siaga</span>
+          {unreadCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600">
+              {unreadCount} baru
+            </span>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+            }}
+            className="text-[10px] font-semibold text-[#155E45] hover:underline cursor-pointer"
+          >
+            Tandai dibaca
+          </button>
+        )}
+      </div>
+
+      <div className="divide-y divide-gray-50 mt-1.5 max-h-72 overflow-y-auto space-y-1">
+        {notifications.map((notif) => (
+          <Link
+            key={notif.id}
+            href={notif.href || "#"}
+            onClick={() => {
+              setNotifOpen(false);
+              setMobileNotifOpen(false);
+            }}
+            className={`block p-2 rounded-xl transition-colors ${
+              notif.unread
+                ? "bg-emerald-50/60 hover:bg-emerald-50"
+                : "hover:bg-slate-50"
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span
+                className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                  notif.unread ? "bg-emerald-500 animate-pulse" : "bg-transparent"
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 truncate">
+                    {notif.title}
+                  </h4>
+                  <span className="text-[9px] text-slate-400 shrink-0 ml-1">
+                    {notif.time}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug mt-0.5 line-clamp-2">
+                  {notif.message}
+                </p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 
   // Komponen Dropdown Menu 4 Item yang Reusable
   const renderUserDropdownMenu = () => (
@@ -197,18 +381,119 @@ export function AppHeader({
           </h1>
         </div>
 
-        <div className="flex items-center gap-5">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#4B635F] hover:text-[#132422] transition-colors"
-          >
-            <span>Lihat Web Publik</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
+        <div className="flex items-center gap-3.5">
+          {/* 1. Desktop Direct Search Bar Responsif Web */}
+          <div className="relative" ref={desktopSearchRef}>
+            <div className="w-64 lg:w-80 h-10 rounded-full bg-[#F8FAF9] border border-[#D5E4E0] px-3.5 flex items-center gap-2.5 text-xs focus-within:border-[#38746D] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#38746D]/15 transition-all">
+              <Search className="w-4 h-4 text-[#4B635F] shrink-0" />
+              <input
+                ref={desktopSearchInputRef}
+                type="text"
+                value={desktopQuery}
+                onChange={(e) => {
+                  setDesktopQuery(e.target.value);
+                  setDesktopSearchOpen(true);
+                }}
+                onFocus={() => {
+                  if (desktopQuery.trim()) setDesktopSearchOpen(true);
+                }}
+                onKeyDown={handleDesktopSearchKeyDown}
+                placeholder="Cari rute, posko, aduan..."
+                className="bg-transparent flex-1 outline-none text-xs text-[#132422] placeholder:text-gray-400 font-medium"
+              />
+              {desktopQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDesktopQuery("");
+                    setDesktopSearchOpen(false);
+                  }}
+                  className="p-1 rounded-full text-gray-400 hover:text-gray-600 cursor-pointer"
+                  aria-label="Hapus kata kunci"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <kbd className="hidden lg:inline-flex items-center text-[10px] font-mono text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200 shadow-2xs">
+                  Ctrl K
+                </kbd>
+              )}
+            </div>
+
+            {/* Desktop Search Live Dropdown Results */}
+            {desktopSearchOpen && desktopQuery.trim() && (
+              <div className="absolute top-full right-0 left-0 mt-2 bg-white rounded-2xl border border-[#D5E4E0] shadow-2xl p-2 z-50 max-h-80 overflow-y-auto">
+                {filteredDesktopResults.length > 0 ? (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 py-1 block">
+                      Hasil Pencarian ({filteredDesktopResults.length})
+                    </span>
+                    {filteredDesktopResults.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleDesktopSelect(item.href)}
+                          className="w-full p-2 rounded-xl hover:bg-[#EEF5F3] flex items-center justify-between text-left transition-colors group cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg ${item.iconBg} ${item.iconColor} flex items-center justify-center shrink-0`}
+                            >
+                              <ItemIcon className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-800 group-hover:text-[#1D443F] truncate">
+                                  {item.title}
+                                </span>
+                                {item.badge && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-600 shrink-0">
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500 truncate">
+                                {item.description}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-[#38746D] shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-xs text-gray-500">
+                    Tidak ada hasil untuk &ldquo;{desktopQuery}&rdquo;
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Tombol Notifikasi Bell Responsif Web */}
+          <div className="relative" ref={desktopNotifRef}>
+            <button
+              type="button"
+              onClick={() => setNotifOpen(!notifOpen)}
+              className="w-10 h-10 rounded-full hover:bg-[#EEF5F3] text-[#1D443F] flex items-center justify-center transition-colors relative cursor-pointer border border-[#D5E4E0]/80 hover:border-[#38746D]/40"
+              aria-expanded={notifOpen}
+              aria-label="Notifikasi Siaga"
+            >
+              <Bell className="w-4 h-4 text-[#1D443F]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+              )}
+            </button>
+
+            {notifOpen && renderNotificationDropdown("right-0 mt-2")}
+          </div>
 
           <div className="h-5 w-[1px] bg-gray-200" />
 
-          {/* Profil User Dropdown Desktop */}
+          {/* 3. Profil User Dropdown Desktop */}
           <div className="relative" ref={desktopDropdownRef}>
             <button
               type="button"
@@ -280,13 +565,36 @@ export function AppHeader({
 
                     <div className="flex items-center gap-2.5">
                       {/* Tombol Search Putih Solid Sesuai Tema Aplikasi */}
-                      <button
-                        type="button"
-                        className="w-9 h-9 rounded-full bg-white text-[#1D443F] shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
-                        aria-label="Pencarian Cepat"
-                      >
-                        <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
-                      </button>
+                      {!isSearchOpen ? (
+                        <motion.button
+                          layoutId="mobile-search-pill"
+                          type="button"
+                          onClick={() => setIsSearchOpen(true)}
+                          className="w-9 h-9 rounded-full bg-white text-[#1D443F] shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
+                          aria-label="Pencarian Cepat"
+                        >
+                          <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
+                        </motion.button>
+                      ) : (
+                        <div className="w-9 h-9" />
+                      )}
+
+                      {/* Tombol Notifikasi Bell di Antara Search dan Profil */}
+                      <div className="relative" ref={mobileNotifRef}>
+                        <button
+                          type="button"
+                          onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
+                          className="w-9 h-9 rounded-full bg-white text-[#1D443F] shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer relative"
+                          aria-label="Notifikasi Siaga"
+                        >
+                          <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
+                          {unreadCount > 0 && (
+                            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
+                          )}
+                        </button>
+
+                        {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
+                      </div>
 
                       {/* Avatar Profil Inisial + Dropdown Menu */}
                       <div className="relative" ref={mobileDropdownRef}>
@@ -377,8 +685,36 @@ export function AppHeader({
                 </Link>
               </div>
 
-              {/* Avatar Inisial di Mobile Header Halaman Fitur Lain */}
-              <div className="relative" ref={mobileCleanDropdownRef}>
+              <div className="flex items-center gap-2">
+                {/* Tombol Search Cepat Halaman Fitur */}
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(true)}
+                  className="w-9 h-9 rounded-full bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
+                  aria-label="Pencarian Cepat"
+                >
+                  <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
+                </button>
+
+                {/* Tombol Notifikasi Bell Halaman Fitur */}
+                <div className="relative" ref={mobileCleanNotifRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
+                    className="w-9 h-9 rounded-full bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer relative"
+                    aria-label="Notifikasi Siaga"
+                  >
+                    <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
+                    )}
+                  </button>
+
+                  {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
+                </div>
+
+                {/* Avatar Inisial di Mobile Header Halaman Fitur Lain */}
+                <div className="relative" ref={mobileCleanDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -392,11 +728,18 @@ export function AppHeader({
                 </button>
 
                 {dropdownOpen && renderUserDropdownMenu()}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* 3. Fullscreen Search Overlay Mobile dengan Saran Kata Kunci & Live Results */}
+      <MobileSearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </>
   );
 }

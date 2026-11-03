@@ -153,7 +153,13 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
         />
 
         {/* Content Canvas (Hanya bagian ini yang berganti saat navigasi) */}
-        <main className="p-3.5 sm:p-6 lg:p-8 flex-1 min-w-0 pb-24 md:pb-8">
+        <main
+          className={`flex-1 min-w-0 flex flex-col ${
+            pathname === "/warga/evakuasi"
+              ? "p-0 pb-0 md:p-6 lg:p-8 md:pb-8"
+              : "p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-8"
+          }`}
+        >
           {children}
         </main>
       </div>

@@ -535,7 +535,7 @@ export function AppHeader({
               animate={{ opacity: 1 }}
               exit={{ y: "-100%", opacity: 0 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pt-4 pb-4 rounded-b-[36px] shadow-lg relative z-20 overflow-hidden flex flex-col justify-between"
+              className="w-full max-w-full h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pt-4 pb-4 rounded-b-[36px] shadow-lg relative z-20 overflow-hidden flex flex-col justify-between"
             >
               {/* Ornamen Geometri Abstrak Identik 100% dengan Halaman Auth/Login */}
               <AuthBackgroundDecor />

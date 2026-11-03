@@ -9,7 +9,6 @@ import {
   Sparkles,
   CheckCircle2,
   PhoneCall,
-  Home,
   ShieldCheck,
   Droplets,
   Activity,
@@ -18,8 +17,7 @@ import {
 
 export default function WargaDashboard() {
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
-      {/* ============================================================ */}
+    <div className="space-y-5 max-w-4xl mx-auto w-full min-w-0 overflow-x-hidden">
       {/* 1. HERO BANNER KHUSUS DESKTOP (DI MOBILE SUDAH DI APP HEADER) */}
       {/* ============================================================ */}
       <div className="hidden md:block bg-gradient-to-r from-[#0E3D2D] to-[#155E45] text-white rounded-3xl p-6 lg:p-8 shadow-sm">
@@ -67,9 +65,9 @@ export default function WargaDashboard() {
       {/* Meluncur halus dari samping/bawah secara bertahap            */}
       {/* ============================================================ */}
       <motion.div
-        initial={{ x: 20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.45, delay: 0.35, ease: "easeOut" }}
+        initial={{ y: 15, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="space-y-5"
       >
       {/* ============================================================ */}
@@ -293,15 +291,15 @@ export default function WargaDashboard() {
       {/* ============================================================ */}
       {/* 4. TELEMETRI AIR & STATUS WILAYAH (DESKTOP WIDGET)           */}
       {/* ============================================================ */}
-      <section className="bg-[#F8FAF9] border border-[#D5E4E0] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <section className="bg-white md:bg-[#F8FAF9] border border-[#D5E4E0] rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="font-bold text-[#1D443F]">Status Siaga Indramayu:</span>
-          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-semibold border border-amber-300">
+          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-semibold border border-amber-300 text-[11px]">
             SIAGA II (Waspada Rob)
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[#4B635F]">
+        <div className="flex items-center gap-3 text-[#4B635F] text-[11px] sm:text-xs flex-wrap">
           <span className="flex items-center gap-1.5">
             <Droplets className="w-3.5 h-3.5 text-[#38746D]" />
             Debit Rentang: <strong className="text-[#132422]">310 m³/s</strong>

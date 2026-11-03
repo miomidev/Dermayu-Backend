@@ -20,6 +20,18 @@ interface MobileBottomNavProps {
 
 export function MobileBottomNav({ role }: MobileBottomNavProps) {
   const pathname = usePathname();
+  const [isForceHidden, setIsForceHidden] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkNavVisibility = () => {
+      setIsForceHidden(document.body.classList.contains('hide-mobile-nav'));
+    };
+    checkNavVisibility();
+
+    const observer = new MutationObserver(checkNavVisibility);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Warga Bottom Nav Items (Tepat 5 Menu: Beranda -> Rute -> Lapor (FAB) -> Posko -> Akun)
   const wargaNavItems = [
@@ -105,6 +117,8 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     }
     return pathname === href || pathname.startsWith(href + "/");
   };
+
+  if (isForceHidden) return null;
 
   return (
     <nav

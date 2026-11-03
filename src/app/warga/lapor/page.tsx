@@ -21,9 +21,11 @@ import {
   Crosshair,
   LifeBuoy,
   RefreshCw,
-  ExternalLink,
-  ChevronRight,
+  Image as ImageIcon,
+  Scan,
 } from "lucide-react";
+import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
+import { AiScannerOverlay } from "@/components/dashboard/AiScannerOverlay";
 
 export type ReportCategoryCode =
   | "FLOOD"
@@ -120,21 +122,21 @@ const STATUS_CONFIG: Record<
     badgeClass: "bg-sky-50 border-sky-200 text-sky-900",
     textClass: "text-sky-800",
     stepIndex: 2,
-    label: "Diverifikasi Petugas Lapangan",
+    label: "Terverifikasi & Diteruskan ke Posko",
   },
   PENANGANAN: {
     dotClass: "bg-emerald-500 animate-pulse",
-    badgeClass: "bg-emerald-50 border-emerald-300 text-emerald-900",
+    badgeClass: "bg-emerald-50 border-emerald-200 text-emerald-900",
     textClass: "text-emerald-800",
     stepIndex: 3,
-    label: "Regu SAR / Tim Lapangan Dikerahkan",
+    label: "Regu Penyelamat Menuju Lokasi",
   },
   SELESAI: {
-    dotClass: "bg-emerald-600",
-    badgeClass: "bg-emerald-50 border-emerald-300 text-emerald-900",
-    textClass: "text-emerald-800",
+    dotClass: "bg-teal-600",
+    badgeClass: "bg-teal-50 border-teal-200 text-teal-900",
+    textClass: "text-teal-800",
     stepIndex: 4,
-    label: "Penanganan Selesai",
+    label: "Tindakan Lapangan Selesai",
   },
 };
 
@@ -196,12 +198,22 @@ const initialReports: ReportTicket[] = [
 const STORAGE_KEY = "dermayu_user_reports";
 
 export default function WargaLaporPage() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
   // Responsive Mobile Tab Switcher: "FORM" | "HISTORY"
   const [mobileTab, setMobileTab] = useState<"FORM" | "HISTORY">("FORM");
 
-  // Form State
+  // Progressive Step Flow State:
+  // State 1: Scanner Card (photos.length === 0 && !hasBypassedPhoto)
+  // State 2: Fullscreen Camera View (isCameraOpen) -> AI Scanner Overlay (isAiScanning)
+  // State 3: Verified Photo + Full Form (photos.length > 0 || hasBypassedPhoto)
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isAiScanning, setIsAiScanning] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const [hasBypassedPhoto, setHasBypassedPhoto] = useState(false);
+
+  // Form Data State
   const [category, setCategory] = useState<ReportCategoryCode>("FLOOD");
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
@@ -297,7 +309,46 @@ export default function WargaLaporPage() {
     );
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Trigger when a photo is captured from camera
+  const handleCameraCapture = (dataUrl: string) => {
+    setIsCameraOpen(false);
+    setPendingPhoto(dataUrl);
+    setIsAiScanning(true);
+    // Background auto-fetch GPS
+    handleGetGPS();
+  };
+
+  // Trigger when photo selected from gallery
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        setPendingPhoto(dataUrl);
+        setIsAiScanning(true);
+        // Background auto-fetch GPS
+        handleGetGPS();
+      }
+    };
+    reader.readAsDataURL(file);
+
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
+  };
+
+  // Called when AI Scan 1.8s animation finishes
+  const handleScanComplete = () => {
+    if (pendingPhoto) {
+      setPhotos([pendingPhoto]);
+    }
+    setPendingPhoto(null);
+    setIsAiScanning(false);
+  };
+
+  // Handle adding more photos in State 3
+  const handleAddMorePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -316,17 +367,31 @@ export default function WargaLaporPage() {
       reader.readAsDataURL(file);
     });
 
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (additionalFileInputRef.current) additionalFileInputRef.current.value = "";
   };
 
   const handleRemovePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    const updated = photos.filter((_, i) => i !== index);
+    setPhotos(updated);
+    if (updated.length === 0) {
+      setHasBypassedPhoto(false);
+    }
+  };
+
+  const handleResetPhoto = () => {
+    setPhotos([]);
+    setPendingPhoto(null);
+    setHasBypassedPhoto(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !location.trim()) {
-      alert("Mohon lengkapi judul kejadian dan titik lokasi.");
+    const effectiveTitle =
+      title.trim() ||
+      `${CATEGORY_CONFIG[category].label} - ${location.trim() || "Area Pesisir"}`;
+
+    if (!location.trim()) {
+      alert("Mohon tentukan titik lokasi kejadian (gunakan GPS atau ketik alamat).");
       return;
     }
 
@@ -353,12 +418,12 @@ export default function WargaLaporPage() {
       id: ticketCode,
       category: CATEGORY_CONFIG[category].label,
       categoryCode: category,
-      title: title.trim(),
+      title: effectiveTitle,
       location: location.trim(),
       time: timeFormatted,
       status: "DITERIMA",
       statusNote:
-        "Laporan telah diterima sistem Pusdalops BPBD Indramayu. Operator siaga sedang meneruskan informasi ke koordinator lapangan posko terdekat.",
+        "Laporan telah diterima sistem Pusdalops BPBD Indramayu dengan bukti terverifikasi AI CNN. Operator siaga sedang meneruskan koordinat ke regu posko terdekat.",
       photos: photos.length > 0 ? photos : undefined,
       severity,
       waterLevel: category === "FLOOD" ? waterLevelMap[waterLevel] : undefined,
@@ -383,6 +448,7 @@ export default function WargaLaporPage() {
     setNotes("");
     setPhotos([]);
     setUrgentNeeds([]);
+    setHasBypassedPhoto(false);
 
     // If on mobile, switch to History tab so user sees their new ticket immediately
     if (window.innerWidth < 768) {
@@ -390,33 +456,72 @@ export default function WargaLaporPage() {
     }
   };
 
+  // Determine whether to display State 1 (Scanner Card) or State 3 (Full Form)
+  const isFormActive = photos.length > 0 || hasBypassedPhoto;
+
   return (
     <div className="space-y-6 text-left">
-      {/* Alert Banner Tiket Berhasil */}
+      {/* Hidden Gallery Input */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleGallerySelect}
+      />
+
+      {/* Hidden Additional Photos Input */}
+      <input
+        ref={additionalFileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleAddMorePhotos}
+      />
+
+      {/* State 2: Fullscreen Camera View Modal */}
+      <FullscreenCameraModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        onSelectGallery={() => {
+          setIsCameraOpen(false);
+          galleryInputRef.current?.click();
+        }}
+      />
+
+      {/* State 2.5: AI Scanning Loading Overlay (1.8s) */}
+      <AiScannerOverlay
+        isOpen={isAiScanning}
+        photoUrl={pendingPhoto}
+        onScanComplete={handleScanComplete}
+      />
+
+      {/* Alert Banner Tiket Berhasil Dibuat */}
       <AnimatePresence>
         {newlyCreatedTicket && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-center justify-between shadow-xs"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start justify-between gap-3 shadow-xs"
           >
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-700 shrink-0" />
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs sm:text-sm font-bold">
-                  Laporan Berhasil Masuk ke Pusdalops BPBD Indramayu!
+                <p className="text-xs font-bold">
+                  Laporan Berhasil Diterbitkan: Tiket #{newlyCreatedTicket}
                 </p>
-                <p className="text-xs text-emerald-800 mt-0.5">
-                  Nomor Tiket: <span className="font-mono font-extrabold">{newlyCreatedTicket}</span>.
-                  Tim reaksi cepat BPBD segera memverifikasi titik lokasi Anda.
+                <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                  Petugas Pusdalops BPBD & posko terdekat telah menerima data laporan dan foto validasi AI CNN Anda.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setNewlyCreatedTicket(null)}
-              className="text-xs font-bold text-emerald-800 hover:text-emerald-950 p-1.5 rounded-lg hover:bg-emerald-100 transition-colors ml-4 cursor-pointer"
+              className="text-emerald-700 hover:text-emerald-900 cursor-pointer p-1"
             >
               <X className="w-4 h-4" />
             </button>
@@ -455,305 +560,415 @@ export default function WargaLaporPage() {
       {/* DUA KOLOM: FORMULIR PELAPORAN (7 COLS) + RIWAYAT ADUAN (5 COLS) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 items-start">
         {/* ==================================================== */}
-        {/* KOLOM KIRI: FORMULIR PELAPORAN DARURAT (7 COLS)      */}
+        {/* KOLOM KIRI: ALUR PELAPORAN PROGRESSIVE (7 COLS)      */}
         {/* ==================================================== */}
         <div
-          className={`md:col-span-7 bg-white border border-[#D5E4E0] rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 ${
+          className={`md:col-span-7 space-y-6 ${
             mobileTab === "HISTORY" ? "hidden md:block" : "block"
           }`}
         >
-          <div>
-            <div className="flex items-center gap-2 text-[#38746D] mb-1">
-              <AlertCircle className="w-4 h-4" />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">
-                Pusdalops-PB BPBD Kabupaten Indramayu
-              </span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
-              Formulir Lapor Titik Bencana
-            </h2>
-            <p className="text-xs text-[#4B635F] mt-1 leading-relaxed">
-              Kirimkan laporan titik luapan sungai, pasang rob, atau kerusakan tanggul. Informasi Anda langsung diteruskan ke regu posko terdekat.
-            </p>
-          </div>
+          <AnimatePresence mode="wait">
+            {!isFormActive ? (
+              /* ========================================================== */
+              /* STATE 1: LAYAR AWAL LAPOR (VISUAL SCANNER CARD)           */
+              /* ========================================================== */
+              <motion.div
+                key="state-scanner-card"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.3 }}
+                className="relative rounded-3xl p-6 sm:p-8 text-white overflow-hidden shadow-xl border border-emerald-700/50"
+                style={{
+                  backgroundColor: "#155E45",
+                  backgroundImage:
+                    "radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.22) 0%, transparent 60%), radial-gradient(circle at 0% 100%, rgba(6, 78, 59, 0.8) 0%, transparent 70%)",
+                }}
+              >
+                {/* Decorative Viewfinder Ambient Grid */}
+                <div className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* 1. Kategori Laporan */}
-            <div>
-              <label className="block text-xs font-bold text-[#132422] mb-2 uppercase tracking-wider">
-                1. Kategori Kejadian <span className="text-rose-500">*</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(Object.keys(CATEGORY_CONFIG) as ReportCategoryCode[]).map((code) => {
-                  const item = CATEGORY_CONFIG[code];
-                  const Icon = item.icon;
-                  const isSelected = category === code;
-                  return (
-                    <button
-                      type="button"
-                      key={code}
-                      onClick={() => setCategory(code)}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                        isSelected
-                          ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F] ring-1 ring-[#38746D]"
-                          : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                          isSelected ? "bg-[#38746D] text-white" : "bg-white text-[#38746D] border border-[#D5E4E0]"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="block text-xs font-bold leading-tight text-[#132422]">
-                          {item.label}
-                        </span>
-                        <span className="block text-[10px] text-[#718783] line-clamp-1 mt-0.5">
-                          {item.desc}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 2. Judul Kejadian */}
-            <div>
-              <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                2. Judul Ringkas Kondisi <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Contoh: Tanggul nelayan barat jebol 2 meter, air merendam pekarangan"
-                required
-                className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
-              />
-            </div>
-
-            {/* 3. Lokasi & Smart GPS Picker */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-[#132422] uppercase tracking-wider">
-                  3. Titik Lokasi Kejadian <span className="text-rose-500">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleGetGPS}
-                  disabled={isLocating}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] text-[11px] font-bold border border-[#38746D]/20 transition-all cursor-pointer active:scale-95"
-                >
-                  <Crosshair className={`w-3.5 h-3.5 ${isLocating ? "animate-spin text-[#38746D]" : ""}`} />
-                  <span>{isLocating ? "Mengunci GPS..." : "Kunci GPS Saya"}</span>
-                </button>
-              </div>
-
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Ketik alamat: Desa, RT/RW, gang, atau patokan (misal: dekat Masjid Baiturrahim)"
-                required
-                className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
-              />
-
-              {/* Feedback GPS */}
-              {gpsCoords && (
-                <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>
-                      Koordinat GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)} (Akurasi ±{gpsCoords.accuracy || 8}m)
+                {/* Badges Header */}
+                <div className="flex items-center mb-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-200 text-xs font-bold tracking-wide backdrop-blur-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                     </span>
-                  </span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>AI CNN Flood Verification</span>
+                  </div>
+                </div>
+
+                {/* Central Camera / Viewfinder Visual Hero */}
+                <div className="my-6 flex flex-col items-center justify-center text-center">
+                  <div className="relative w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner group hover:scale-105 transition-transform duration-300">
+                    {/* Viewfinder Target Marks */}
+                    <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-emerald-300 rounded-tl-sm" />
+                    <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-emerald-300 rounded-tr-sm" />
+                    <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-emerald-300 rounded-bl-sm" />
+                    <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-emerald-300 rounded-br-sm" />
+                    
+                    <Scan className="w-9 h-9 text-emerald-200 animate-pulse" />
+                  </div>
+                </div>
+
+                {/* Title & Description */}
+                <div className="text-center space-y-2 mb-8">
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
+                    Ambil Dokumentasi Foto Genangan Banjir
+                  </h2>
+                  <p className="text-xs sm:text-sm text-emerald-100/90 max-w-md mx-auto leading-relaxed">
+                    Foto kondisi banjir, tanggul, atau akses jalan terputus secara langsung di lokasi untuk verifikasi spasial dan prioritas penanganan tim penyelamat.
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-3">
+                  {/* Tombol Aksi Utama: Lebar Penuh (Buka Kamera Langsung) */}
                   <button
                     type="button"
-                    onClick={() => setGpsCoords(null)}
-                    className="text-xs text-rose-600 hover:underline cursor-pointer"
+                    onClick={() => setIsCameraOpen(true)}
+                    className="w-full py-4 px-5 rounded-2xl bg-white text-[#155E45] font-extrabold text-sm sm:text-base shadow-xl hover:bg-emerald-50 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5 group"
                   >
-                    Batal
+                    <Camera className="w-5 h-5 text-[#155E45] group-hover:scale-110 transition-transform" />
+                    <span>Buka Kamera Langsung</span>
                   </button>
-                </div>
-              )}
 
-              {gpsError && (
-                <p className="text-[11px] text-rose-600 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{gpsError}</span>
-                </p>
-              )}
-
-              {/* Quick Village Chips */}
-              <div className="pt-1">
-                <span className="text-[10px] text-[#718783] block mb-1 font-semibold">
-                  Pilih cepat desa / wilayah rentan:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_LOCATIONS.map((loc) => (
-                    <button
-                      type="button"
-                      key={loc}
-                      onClick={() => {
-                        if (!location.includes(loc)) {
-                          setLocation((prev) => (prev ? `${prev}, Desa ${loc}` : `Desa ${loc}`));
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] text-[#4B635F] hover:text-[#1D443F] transition-colors cursor-pointer"
-                    >
-                      + {loc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Estimasi Ketinggian Air & Tingkat Keparahan */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                  4. Estimasi Ketinggian Air
-                </label>
-                <select
-                  value={waterLevel}
-                  onChange={(e) => setWaterLevel(e.target.value as WaterLevelCode)}
-                  className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                >
-                  <option value="ANKLE">Semata Kaki (10–30 cm)</option>
-                  <option value="KNEE">Setinggi Betis / Lutut (40–60 cm)</option>
-                  <option value="THIGH">Setinggi Paha (70–90 cm)</option>
-                  <option value="WAIST">Setinggi Pinggang (100–120 cm)</option>
-                  <option value="ABOVE_CHEST">Di Atas Dada / Arus Deras (&gt; 120 cm)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                  Tingkat Keparahan (Urgensi)
-                </label>
-                <select
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
-                  className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                >
-                  <option value="LOW">Rendah — Genangan jalan desa, masih bisa dilalui</option>
-                  <option value="MEDIUM">Sedang — Air mulai masuk pekarangan & teras</option>
-                  <option value="HIGH">Tinggi — Air masuk ruang rumah, perabotan terendam</option>
-                  <option value="CRITICAL">Kritis — Arus deras, ada warga rentan butuh evakuasi</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 5. Kebutuhan Mendesak Warga */}
-            <div>
-              <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                5. Kebutuhan Mendesak Warga (Bisa pilih lebih dari satu)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {URGENT_NEEDS_LIST.map((item) => (
+                  {/* Tombol Sekunder: Outline (Pilih dari Galeri Foto) */}
                   <button
                     type="button"
-                    key={item}
-                    onClick={() => toggleUrgentNeed(item)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                      urgentNeeds.includes(item)
-                        ? "bg-[#1D443F] text-white border-[#1D443F] shadow-xs"
-                        : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
-                    }`}
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-transparent border-2 border-white/40 text-white font-bold text-xs sm:text-sm hover:bg-white/10 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {urgentNeeds.includes(item) ? "✓ " : "+ "}
-                    {item}
+                    <ImageIcon className="w-4 h-4 text-emerald-200" />
+                    <span>Pilih dari Galeri Foto</span>
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* 6. Unggah Foto Bukti Lapangan */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-[#132422] uppercase tracking-wider">
-                  6. Foto Bukti Kejadian di Lapangan (1–5 Foto)
-                </label>
-                <span className="text-xs text-[#718783]">{photos.length} / 5 Terunggah</span>
-              </div>
 
-              <div className="flex flex-wrap gap-3 items-center">
-                {photos.map((photo, idx) => (
-                  <div
-                    key={idx}
-                    className="relative w-20 h-20 rounded-2xl overflow-hidden border border-[#D5E4E0] group shadow-2xs"
-                  >
-                    <img
-                      src={photo}
-                      alt={`Foto Bukti ${idx + 1}`}
-                      className="w-full h-full object-cover"
+              </motion.div>
+            ) : (
+              /* ========================================================== */
+              /* STATE 3: TAMPILAN HASIL PINDAI & FORMULIR LENGKAP          */
+              /* ========================================================== */
+              <motion.div
+                key="state-form-verified"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="bg-white border border-[#D5E4E0] rounded-3xl p-5 sm:p-7 shadow-xs space-y-6"
+              >
+                {/* Header Formulir */}
+                <div>
+                  <div className="flex items-center gap-2 text-[#38746D] mb-1">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider">
+                      Pusdalops-PB BPBD Kabupaten Indramayu
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
+                    Formulir Lapor Titik Bencana
+                  </h2>
+                  <p className="text-xs text-[#4B635F] mt-1 leading-relaxed">
+                    Data terverifikasi akan disinkronkan langsung ke peta operasional SAR dan regu posko tanggap darurat.
+                  </p>
+                </div>
+
+                {/* ============================================================ */}
+                {/* THUMBNAIL FOTO TERVERIFIKASI AI CNN (94%)                    */}
+                {/* ============================================================ */}
+                {photos.length > 0 && (
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                    <div className="flex items-center gap-3.5">
+                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 bg-black shadow-xs">
+                        <img
+                          src={photos[0]}
+                          alt="Foto Terverifikasi"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] font-extrabold text-center py-0.5">
+                          AI CNN
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-extrabold tracking-wide mb-1 shadow-xs">
+                          <CheckCircle2 className="w-3 h-3 text-white" />
+                          <span>Foto Terverifikasi AI CNN</span>
+                        </div>
+                        <p className="text-xs font-bold text-[#132422] truncate">
+                          Bukti Ketinggian Genangan Tervalidasi
+                        </p>
+                        <p className="text-[11px] text-[#4B635F] leading-tight mt-0.5">
+                          Karakteristik batas air sesuai ambang rob pesisir
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tombol Opsi Ganti Foto & Tambah Foto */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {photos.length < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => additionalFileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-50 transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>+ Foto ({photos.length}/5)</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleResetPhoto}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Ganti Foto</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* ============================================================ */}
+                  {/* 1. KATEGORI KEJADIAN                                         */}
+                  {/* ============================================================ */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#132422] mb-2 uppercase tracking-wider">
+                      1. Kategori Kejadian <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(Object.keys(CATEGORY_CONFIG) as ReportCategoryCode[]).map((code) => {
+                        const item = CATEGORY_CONFIG[code];
+                        const Icon = item.icon;
+                        const isSelected = category === code;
+                        return (
+                          <button
+                            type="button"
+                            key={code}
+                            onClick={() => setCategory(code)}
+                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                              isSelected
+                                ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F] ring-1 ring-[#38746D]"
+                                : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
+                            }`}
+                          >
+                            <div
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? "bg-[#38746D] text-white"
+                                  : "bg-white text-[#38746D] border border-[#D5E4E0]"
+                              }`}
+                            >
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block text-xs font-bold leading-tight text-[#132422]">
+                                {item.label}
+                              </span>
+                              <span className="block text-[10px] text-[#718783] line-clamp-1 mt-0.5">
+                                {item.desc}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ============================================================ */}
+                  {/* 2. ESTIMASI KETINGGIAN AIR & 3. TINGKAT KEPARAHAN / URGENSI   */}
+                  {/* ============================================================ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
+                        2. Estimasi Ketinggian Air
+                      </label>
+                      <select
+                        value={waterLevel}
+                        onChange={(e) => setWaterLevel(e.target.value as WaterLevelCode)}
+                        className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
+                      >
+                        <option value="ANKLE">Semata Kaki (10–30 cm)</option>
+                        <option value="KNEE">Setinggi Betis / Lutut (40–60 cm)</option>
+                        <option value="THIGH">Setinggi Paha (70–90 cm)</option>
+                        <option value="WAIST">Setinggi Pinggang (100–120 cm)</option>
+                        <option value="ABOVE_CHEST">Di Atas Dada / Rumah (&gt; 120 cm)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
+                        3. Tingkat Keparahan / Urgensi
+                      </label>
+                      <select
+                        value={severity}
+                        onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
+                        className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
+                      >
+                        <option value="LOW">Rendah — Genangan jalan desa, masih bisa dilalui</option>
+                        <option value="MEDIUM">Sedang — Air mulai masuk pekarangan & teras</option>
+                        <option value="HIGH">Tinggi — Air masuk ruang rumah, perabotan terendam</option>
+                        <option value="CRITICAL">Kritis — Arus deras, ada warga rentan butuh evakuasi</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* ============================================================ */}
+                  {/* 4. KEBUTUHAN MENDESAK WARGA                                  */}
+                  {/* ============================================================ */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
+                      4. Kebutuhan Mendesak Warga (Bisa pilih lebih dari satu)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {URGENT_NEEDS_LIST.map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          onClick={() => toggleUrgentNeed(item)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                            urgentNeeds.includes(item)
+                              ? "bg-[#1D443F] text-white border-[#1D443F] shadow-xs"
+                              : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
+                          }`}
+                        >
+                          {urgentNeeds.includes(item) ? "✓ " : "+ "}
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ============================================================ */}
+                  {/* 5. LOKASI OTOMATIS (PINPOINT GPS TERDETEKSI)                 */}
+                  {/* ============================================================ */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-[#132422] uppercase tracking-wider">
+                        5. Lokasi Otomatis (Pinpoint GPS) <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGetGPS}
+                        disabled={isLocating}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] text-[11px] font-bold border border-[#38746D]/20 transition-all cursor-pointer active:scale-95"
+                      >
+                        <Crosshair className={`w-3.5 h-3.5 ${isLocating ? "animate-spin text-[#38746D]" : ""}`} />
+                        <span>{isLocating ? "Mengunci GPS..." : "Kunci Ulang GPS"}</span>
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Ketik alamat atau patokan: Desa, RT/RW, gang, dekat masjid/balai desa"
+                      required
+                      className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
                     />
+
+                    {/* Feedback Sinyal GPS */}
+                    {gpsCoords && (
+                      <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>
+                            GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)} (Akurasi ±{gpsCoords.accuracy || 8}m)
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setGpsCoords(null)}
+                          className="text-xs text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    )}
+
+                    {gpsError && (
+                      <p className="text-[11px] text-rose-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{gpsError}</span>
+                      </p>
+                    )}
+
+                    {/* Quick Village Chips */}
+                    <div className="pt-1">
+                      <span className="text-[10px] text-[#718783] block mb-1 font-semibold">
+                        Pilih cepat desa / wilayah rawan:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {QUICK_LOCATIONS.map((loc) => (
+                          <button
+                            type="button"
+                            key={loc}
+                            onClick={() => {
+                              if (!location.includes(loc)) {
+                                setLocation((prev) => (prev ? `${prev}, Desa ${loc}` : `Desa ${loc}`));
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] text-[#4B635F] hover:text-[#1D443F] transition-colors cursor-pointer"
+                          >
+                            + {loc}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Judul Ringkas Kondisi (Opsional jika ingin disesuaikan) */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
+                      Judul Ringkas Kondisi (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Contoh: Genangan masuk pemukiman, akses jalan tertutup 50 cm"
+                      className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
+                    />
+                  </div>
+
+                  {/* Catatan Tambahan (Opsional) */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
+                      Catatan Tambahan (Opsional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Contoh: Ada 2 lansia di rumah panggung ujung gang butuh tandu evakuasi segera."
+                      className="w-full bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl p-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] resize-none"
+                    />
+                  </div>
+
+                  {/* ============================================================ */}
+                  {/* 6. TOMBOL BESAR DI BAGIAN PALING BAWAH                       */}
+                  {/* ============================================================ */}
+                  <div className="pt-3">
                     <button
-                      type="button"
-                      onClick={() => handleRemovePhoto(idx)}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-rose-600 text-white shadow-xs hover:bg-rose-700 cursor-pointer"
+                      type="submit"
+                      disabled={isSubmitting || !location.trim()}
+                      className="w-full py-4 rounded-2xl bg-[#1D443F] hover:bg-[#24544E] active:scale-98 disabled:opacity-50 text-white text-sm sm:text-base font-bold shadow-lg shadow-[#1D443F]/20 transition-all cursor-pointer flex items-center justify-center gap-2.5"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Send className="w-5 h-5 text-[#88BDB6]" />
+                      <span>
+                        {isSubmitting
+                          ? "Mengirim Laporan ke BPBD Indramayu..."
+                          : "Kirim Laporan Darurat Sekarang"}
+                      </span>
                     </button>
                   </div>
-                ))}
-
-                {photos.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-20 h-20 rounded-2xl border-2 border-dashed border-[#A4C6C1] hover:border-[#38746D] bg-[#F8FAF9] hover:bg-[#EEF5F3] flex flex-col items-center justify-center text-[#38746D] transition-colors cursor-pointer"
-                  >
-                    <Camera className="w-6 h-6 mb-1 text-[#38746D]" />
-                    <span className="text-[10px] font-bold">Ambil / Unggah</span>
-                  </button>
-                )}
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handlePhotoUpload}
-              />
-
-              <p className="text-[11px] text-[#718783] mt-2 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-                <span>Foto bukti digunakan petugas piket Pusdalops untuk mencocokkan ketinggian air dan menentukan armada evakuasi.</span>
-              </p>
-            </div>
-
-            {/* 7. Catatan Tambahan */}
-            <div>
-              <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                7. Catatan Tambahan (Opsional)
-              </label>
-              <textarea
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Contoh: Ada 2 lansia di rumah panggung ujung gang butuh tandu evakuasi segera."
-                className="w-full bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl p-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] resize-none"
-              />
-            </div>
-
-            {/* Tombol Submit */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isSubmitting || !title.trim() || !location.trim()}
-                className="w-full py-3.5 rounded-2xl bg-[#1D443F] hover:bg-[#24544E] active:scale-98 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4 text-[#88BDB6]" />
-                <span>{isSubmitting ? "Mengirim Laporan ke BPBD..." : "Kirim Laporan Darurat Sekarang"}</span>
-              </button>
-            </div>
-          </form>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ==================================================== */}

@@ -153,7 +153,7 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
         />
 
         {/* Content Canvas (Hanya bagian ini yang berganti saat navigasi) */}
-        <main className="p-2.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 flex-1 min-w-0 pb-20 md:pb-8">
+        <main className="p-3.5 sm:p-6 lg:p-8 flex-1 min-w-0 pb-24 md:pb-8">
           {children}
         </main>
       </div>

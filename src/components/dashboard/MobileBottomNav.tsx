@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ForkedRouteIcon, BeaconAlertIcon, PoskoShelterIcon } from "@/components/ui/Icons";
 import {
-  ShieldCheck,
   Home,
-  AlertCircle,
-  Users,
-  PhoneCall,
+  User,
   LayoutDashboard,
   ClipboardList,
   Map,
   Activity,
+  Users,
 } from "lucide-react";
+import React from "react";
 
 interface MobileBottomNavProps {
   role: "warga" | "petugas";
@@ -21,41 +21,41 @@ interface MobileBottomNavProps {
 export function MobileBottomNav({ role }: MobileBottomNavProps) {
   const pathname = usePathname();
 
-  // Warga Bottom Nav Items (5 Aksi Prioritas Warga)
+  // Warga Bottom Nav Items (Tepat 5 Menu: Beranda -> Rute -> Lapor (FAB) -> Posko -> Akun)
   const wargaNavItems = [
     {
-      label: "Dasbor",
+      label: "Beranda",
       href: "/warga/dashboard",
-      icon: ShieldCheck,
+      icon: Home,
       isCenter: false,
     },
     {
-      label: "Posko",
-      href: "/warga/posko",
-      icon: Home,
+      label: "Rute",
+      href: "/warga/evakuasi",
+      icon: ForkedRouteIcon,
       isCenter: false,
     },
     {
       label: "Lapor",
       href: "/warga/lapor",
-      icon: AlertCircle,
+      icon: BeaconAlertIcon,
       isCenter: true,
     },
     {
-      label: "Warga",
+      label: "Posko",
+      href: "/warga/posko",
+      icon: PoskoShelterIcon,
+      isCenter: false,
+    },
+    {
+      label: "Komunitas",
       href: "/warga/komunitas",
       icon: Users,
       isCenter: false,
     },
-    {
-      label: "Kontak 112",
-      href: "/warga/kontak",
-      icon: PhoneCall,
-      isCenter: false,
-    },
   ];
 
-  // Petugas Bottom Nav Items (5 Aksi Prioritas Tim Reaksi Cepat BPBD)
+  // Petugas Bottom Nav Items (Tim Reaksi Cepat BPBD)
   const petugasNavItems = [
     {
       label: "Dasbor",
@@ -91,39 +91,56 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
 
   const items = role === "petugas" ? petugasNavItems : wargaNavItems;
 
+  const isItemActive = (href: string) => {
+    if (href === "/warga/dashboard") {
+      return (
+        pathname === "/warga/dashboard" ||
+        pathname === "/dashboard" ||
+        pathname === "/warga" ||
+        pathname === "/"
+      );
+    }
+    if (href === "/petugas/dashboard") {
+      return pathname === "/petugas/dashboard" || pathname === "/petugas";
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
   return (
     <nav
       aria-label="Navigasi Bawah Mobile"
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#D5E4E0] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:hidden select-none touch-manipulation"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] block md:hidden select-none touch-manipulation pb-safe"
       style={{
         paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="flex items-center justify-around px-2 pt-1.5 h-16 max-w-md mx-auto">
+      <div className="grid grid-cols-5 items-center px-2 h-16 max-w-md mx-auto">
         {items.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isItemActive(item.href);
           const Icon = item.icon;
 
-          // Elevated Center Action Button
+          // 1. Center Floating Action Button (FAB)
           if (item.isCenter) {
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className="relative -top-3.5 flex flex-col items-center justify-center shrink-0 group cursor-pointer"
+                className="relative -top-3 flex flex-col items-center justify-center group cursor-pointer"
               >
                 <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md transition-all active:scale-90 border-[3px] border-white ${
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 ${
                     isActive
-                      ? "bg-rose-700 text-white shadow-rose-700/30 ring-2 ring-rose-500 scale-105"
-                      : "bg-[#1D443F] text-white hover:bg-[#24544E] shadow-[#1D443F]/30"
+                      ? "bg-[#0E3D2D] text-white shadow-lg shadow-[#0E3D2D]/40 scale-105"
+                      : "bg-[#0E3D2D] text-white hover:bg-[#155E45] shadow-lg shadow-[#0E3D2D]/30"
                   }`}
                 >
-                  <Icon className="w-5 h-5 stroke-[2.4]" />
+                  <Icon className="w-7 h-7 text-white" />
                 </div>
                 <span
-                  className={`text-[10px] font-bold mt-1 tracking-tight text-center leading-none ${
-                    isActive ? "text-rose-700" : "text-[#1D443F]"
+                  className={`text-[11px] mt-1 tracking-tight text-center leading-none transition-colors ${
+                    isActive
+                      ? "font-semibold text-[#0E3D2D]"
+                      : "font-medium text-slate-600 group-hover:text-[#0E3D2D]"
                   }`}
                 >
                   {item.label}
@@ -132,33 +149,29 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
             );
           }
 
-          // Regular Tab Items
+          // 2. Regular Tab Navigation Items (Beranda, Rute, Posko, Akun)
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center justify-center py-1 transition-all active:scale-95 cursor-pointer ${
-                isActive ? "text-[#1D443F]" : "text-gray-400 hover:text-gray-600"
+              className={`flex flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95 cursor-pointer ${
+                isActive
+                  ? "text-[#0E3D2D]"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <div
-                className={`flex items-center justify-center px-3 py-1 rounded-full transition-all ${
-                  isActive ? "bg-[#EEF5F3]" : "bg-transparent"
-                }`}
-              >
-                <Icon
-                  className={`w-5 h-5 transition-transform ${
-                    isActive
-                      ? "stroke-[2.4] text-[#1D443F] scale-105"
-                      : "stroke-[1.8]"
-                  }`}
-                />
-              </div>
-              <span
-                className={`text-[10px] tracking-tight leading-tight mt-0.5 text-center truncate max-w-[64px] ${
+              <Icon
+                className={`w-6 h-6 transition-transform ${
                   isActive
-                    ? "font-extrabold text-[#1D443F]"
-                    : "font-semibold text-gray-500"
+                    ? "stroke-[2.3] text-[#0E3D2D] scale-105"
+                    : "stroke-[1.9] text-slate-500"
+                }`}
+              />
+              <span
+                className={`text-[11px] tracking-tight leading-tight mt-1 text-center truncate max-w-[68px] ${
+                  isActive
+                    ? "font-semibold text-[#0E3D2D]"
+                    : "font-medium text-slate-500"
                 }`}
               >
                 {item.label}

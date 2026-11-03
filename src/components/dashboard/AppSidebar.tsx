@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { LogoDermayu } from "@/components/ui/LogoDermayu";
+import { ForkedRouteIcon, BeaconAlertIcon, PoskoShelterIcon } from "@/components/ui/Icons";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import {
@@ -22,8 +23,6 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 export interface AppSidebarProps {
@@ -67,13 +66,14 @@ export function AppSidebar({
           { label: "Ringkasan Dasbor", href: "/petugas/dashboard", icon: LayoutDashboard },
           { label: "Triage & Verifikasi Aduan", href: "/petugas/triage", icon: ClipboardList, badge: "3" },
           { label: "Peta Spasial & SAR", href: "/admin/dashboard", icon: Map },
-          { label: "Manajemen Posko", href: "/petugas/posko", icon: Home },
+          { label: "Manajemen Posko", href: "/petugas/posko", icon: PoskoShelterIcon },
           { label: "Telemetri TMA & Rob", href: "/petugas/telemetri", icon: Activity },
         ]
       : [
-          { label: "Dasbor Kesiapsiagaan", href: "/warga/dashboard", icon: ShieldCheck },
-          { label: "Lapor Titik Banjir", href: "/warga/lapor", icon: AlertCircle },
-          { label: "Pantauan Posko", href: "/warga/posko", icon: Home },
+          { label: "Dasbor Kesiapsiagaan", href: "/warga/dashboard", icon: Home },
+          { label: "Peta & Rute Evakuasi", href: "/warga/evakuasi", icon: ForkedRouteIcon },
+          { label: "Lapor Titik Banjir", href: "/warga/lapor", icon: BeaconAlertIcon },
+          { label: "Pantauan Posko", href: "/warga/posko", icon: PoskoShelterIcon },
           { label: "Komunitas Warga", href: "/warga/komunitas", icon: Users },
         ];
 
@@ -154,22 +154,7 @@ export function AppSidebar({
         collapsed ? "w-20" : "w-64"
       }`}
     >
-        {/* Tombol Toggle Bulat di Pinggiran Sidebar (Border Edge) */}
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="hidden md:flex absolute -right-3.5 top-6.5 w-7 h-7 rounded-full bg-white text-[#1D443F] border border-[#D5E4E0] shadow-md items-center justify-center hover:bg-[#EEF5F3] hover:scale-110 active:scale-95 transition-all z-50 cursor-pointer"
-            title={collapsed ? "Perluas Sidebar (Ctrl+B)" : "Ciutkan Sidebar (Ctrl+B)"}
-            aria-label={collapsed ? "Perluas Sidebar" : "Ciutkan Sidebar"}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4 text-[#1D443F]" />
-            ) : (
-              <ChevronLeft className="w-4 h-4 text-[#1D443F]" />
-            )}
-          </button>
-        )}
+
 
         <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/10">
           {/* Logo Header */}

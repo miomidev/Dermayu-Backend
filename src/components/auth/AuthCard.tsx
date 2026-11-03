@@ -235,14 +235,14 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       touchDashboardActivity();
       const targetDashboard = getDashboardUrl(session.role);
 
-      // Berikan jeda 380ms agar animasi slide exit kontainer auth selesai terlihat mulus
+      // Berikan jeda 480ms agar transisi exit mobile (form turun & header morph) tuntas
       setTimeout(() => {
         router.push(targetDashboard);
         // Reset kembali state exit setelah navigasi terpicu agar halaman login tidak blank saat logout
         setTimeout(() => {
           setIsLoggingIn(false);
-        }, 500);
-      }, 380);
+        }, 600);
+      }, 480);
     };
 
     try {
@@ -451,63 +451,63 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#1D443F]">
-      <motion.div
-        animate={isLoggingIn ? { x: "100%", opacity: 0 } : { x: 0, opacity: 1 }}
-        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] as const }}
-        className="w-full h-full min-h-screen select-none"
-      >
+      <div className="w-full h-full min-h-screen select-none">
         {/* ============================================================ */}
         {/* A. TAMPILAN KHUSUS MOBILE (< md) - FLOATING CARD SHEET      */}
         {/* ============================================================ */}
         <div className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col">
-        {/* 1. Header Hijau di Belakang dengan Animasi Slide Down Lembut */}
+        {/* 1. Header Hijau di Belakang dengan Animasi Morphing ke Sudut Melengkung */}
         <motion.div
           initial={{ opacity: 0, y: -25 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] as const }}
-          className="fixed top-0 left-0 right-0 h-[270px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start pt-9 px-6 text-center z-0"
+          animate={
+            isLoggingIn
+              ? { borderBottomLeftRadius: 36, borderBottomRightRadius: 36, opacity: 1, y: 0 }
+              : { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, opacity: 1, y: 0 }
+          }
+          transition={{ duration: isLoggingIn ? 0.4 : 0.55, ease: [0.16, 1, 0.3, 1] as const }}
+          className="fixed top-0 left-0 right-0 h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start pt-9 px-6 text-center z-0 overflow-hidden"
         >
-          {/* Ornamen Geometri Abstrak Samar di Background */}
-          <motion.div
-            animate={{ scale: [1, 1.12, 1], opacity: [0.1, 0.22, 0.1] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-10 -right-10 w-44 h-44 rounded-full border border-white/20 pointer-events-none"
-          />
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], opacity: [0.06, 0.16, 0.06] }}
-            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-16 -left-12 w-36 h-36 rounded-full bg-white/10 blur-sm pointer-events-none"
-          />
-          <motion.div
-            animate={{ rotate: [45, 405] }}
-            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-            className="absolute bottom-6 right-12 w-16 h-16 bg-white/10 rounded-2xl border border-white/10 pointer-events-none"
-          />
+          {/* Ornamen Geometri Abstrak Identik dengan Dashboard */}
+          <AuthBackgroundDecor />
 
-          {/* Brand Logo & Keterangan (Header Bersih tanpa tombol back / TLS badge) */}
-          <LogoDermayu
-            variant="light"
-            width={48}
-            height={48}
-            priority
-            className="w-12 h-12 object-contain mb-2 drop-shadow-sm"
-          />
-          <h1 className="text-2xl font-extrabold tracking-tight text-white">
-            {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
-          </h1>
-          <p className="text-xs text-[#D1E5E2] max-w-xs mt-1 leading-relaxed opacity-95">
-            {isRegister
-              ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
-              : "Masuk untuk akses pantauan rute evakuasi dan pelaporan terpadu."}
-          </p>
+          {/* Brand Logo & Keterangan (Exit Phase 2: Meluncur ke atas dengan delay 0.1s) */}
+          <motion.div
+            animate={isLoggingIn ? { y: -40, opacity: 0 } : { y: 0, opacity: 1 }}
+            transition={{ duration: 0.35, delay: isLoggingIn ? 0.1 : 0, ease: "easeOut" }}
+            className="flex flex-col items-center text-center z-10"
+          >
+            <LogoDermayu
+              variant="light"
+              width={48}
+              height={48}
+              priority
+              className="w-12 h-12 object-contain mb-2 drop-shadow-sm"
+            />
+            <h1 className="text-2xl font-extrabold tracking-tight text-white">
+              {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
+            </h1>
+            <p className="text-xs text-[#D1E5E2] max-w-xs mt-1 leading-relaxed opacity-95">
+              {isRegister
+                ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
+                : "Masuk untuk akses pantauan rute evakuasi dan pelaporan terpadu."}
+            </p>
+          </motion.div>
         </motion.div>
 
         {/* 2. Scrollable Container untuk Form Melayang (Floating Card Tanpa Strip & Header Ganda) */}
-        <div className="relative z-10 w-full min-h-screen flex flex-col justify-start pt-[195px] pb-10 px-4 sm:px-6">
+        <div className="relative z-10 w-full min-h-screen flex flex-col justify-start pt-[205px] pb-10 px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 65, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.65, delay: 0.15, ease: [0.16, 1, 0.3, 1] as const }}
+            animate={
+              isLoggingIn
+                ? { y: "100%", opacity: 0 }
+                : { opacity: 1, y: 0, scale: 1 }
+            }
+            transition={
+              isLoggingIn
+                ? { duration: 0.45, ease: [0.32, 0.72, 0, 1] }
+                : { duration: 0.65, delay: 0.15, ease: [0.16, 1, 0.3, 1] as const }
+            }
             className="w-full max-w-md mx-auto bg-white rounded-[26px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 flex flex-col"
           >
             {/* Error & Success Messages */}
@@ -885,7 +885,11 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       {/* ============================================================ */}
       {/* B. TAMPILAN DESKTOP (>= md) - DUAL-PANEL SLIDING 100% UTUH   */}
       {/* ============================================================ */}
-      <div className="hidden md:flex relative w-screen h-screen min-h-screen overflow-hidden select-none bg-white">
+      <motion.div
+        animate={isLoggingIn ? { x: "100%", opacity: 0 } : { x: 0, opacity: 1 }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] as const }}
+        className="hidden md:flex relative w-screen h-screen min-h-screen overflow-hidden select-none bg-white"
+      >
         {/* 1. Tombol Navigasi Kembali ke Beranda (Fixed di Pojok Kiri Atas Viewport Desktop) */}
         <motion.div
           initial={{ opacity: 0, x: -25 }}
@@ -1396,8 +1400,8 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
             Sistem Informasi Mitigasi &amp; Kesiapsiagaan Banjir Indramayu 2026
           </div>
         </motion.div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   </div>
 );
 }

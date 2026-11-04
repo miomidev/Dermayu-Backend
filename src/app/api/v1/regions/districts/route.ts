@@ -1,7 +1,6 @@
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
-
 export async function GET() {
   try {
     const districts = await db.district.findMany({

@@ -23,7 +23,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { MobileSearchOverlay, searchableData, type SearchItem } from "@/components/dashboard/MobileSearchOverlay";
-import { getActiveSession, clearUserSession, type UserSession } from "@/utils/authSession";
+import { getActiveSession, clearUserSession, performLogout, type UserSession } from "@/utils/authSession";
 
 // Pemetaan judul dinamis berdasarkan pathname aktif
 const titleMap: Record<string, string> = {
@@ -121,26 +121,25 @@ export function AppHeader({
       const active = getActiveSession();
       if (active) {
         setSession(active);
+      } else if (propSession) {
+        setSession(propSession);
       } else {
-        setSession({
-          name: role === "petugas" ? "Petugas BPBD" : "Warga Indramayu",
-          email: role === "petugas" ? "petugas@dermayu.id" : "warga@dermayu.id",
-          role: role,
-          lastDashboardActive: Date.now(),
-        });
+        setSession(null);
       }
     };
 
     updateSession();
 
     window.addEventListener("dermayu_session_updated", updateSession);
+    window.addEventListener("dermayu_session_cleared", updateSession);
     window.addEventListener("storage", updateSession);
 
     return () => {
       window.removeEventListener("dermayu_session_updated", updateSession);
+      window.removeEventListener("dermayu_session_cleared", updateSession);
       window.removeEventListener("storage", updateSession);
     };
-  }, [role]);
+  }, [role, propSession]);
 
   // If parent propSession changes, update local state
   useEffect(() => {
@@ -192,12 +191,8 @@ export function AppHeader({
   }, []);
 
   const handleLogout = () => {
-    clearUserSession();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    } else {
-      router.push("/login");
-    }
+    setSession(null);
+    performLogout("/login");
   };
 
   const currentTitle =

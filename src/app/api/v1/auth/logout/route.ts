@@ -41,10 +41,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return apiSuccess({ message: "Logout berhasil, sesi telah dicabut" });
+    const response = apiSuccess({ message: "Logout berhasil, sesi telah dicabut" });
+    const pastDate = new Date(0);
+    const cookieNames = [
+      "user_session",
+      "dermayu_token",
+      "dermayu_refresh_token",
+      "auth_token",
+      "token",
+      "accessToken",
+      "refreshToken",
+    ];
+
+    cookieNames.forEach((name) => {
+      response.cookies.set(name, "", {
+        path: "/",
+        maxAge: 0,
+        expires: pastDate,
+        httpOnly: true,
+        sameSite: "lax",
+      });
+    });
+
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return apiError("INTERNAL_ERROR", "Terjadi kesalahan saat logout", 500);
   }
 }
-

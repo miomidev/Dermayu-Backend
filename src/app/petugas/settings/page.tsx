@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearUserSession } from "@/utils/authSession";
+import { clearUserSession, performLogout } from "@/utils/authSession";
 import {
   Settings,
   User,
@@ -52,12 +52,7 @@ export default function PetugasSettingsPage() {
 
   const handleLogout = () => {
     if (confirm("Apakah Anda yakin ingin keluar dari sesi operator Pusdalops BPBD?")) {
-      clearUserSession();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      } else {
-        router.push("/login");
-      }
+      performLogout("/login");
     }
   };
 
@@ -185,7 +180,7 @@ export default function PetugasSettingsPage() {
 
               <div>
                 <label className="block text-gray-700 font-semibold mb-1.5">
-                  Maks Debit Rentang (m³/s)
+                  Maks Debit Rentang (mÂ³/s)
                 </label>
                 <input
                   type="number"
@@ -193,7 +188,7 @@ export default function PetugasSettingsPage() {
                   onChange={(e) => setDebitCimanukMax(Number(e.target.value))}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#D5E4E0] focus:outline-hidden focus:border-[#38746D]"
                 />
-                <span className="text-[10px] text-gray-500 mt-1 block">Default: 700 m³/s</span>
+                <span className="text-[10px] text-gray-500 mt-1 block">Default: 700 mÂ³/s</span>
               </div>
             </div>
           </div>

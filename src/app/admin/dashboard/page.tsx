@@ -1,5 +1,5 @@
 "use client";
-import { getActiveSession, clearUserSession } from "@/utils/authSession";
+import { getActiveSession, clearUserSession, performLogout } from "@/utils/authSession";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -259,52 +259,71 @@ export default function AdminDashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Auth check
+  // Auth check & bfcache protection
   useEffect(() => {
-    const storedToken = localStorage.getItem("dermayu_token");
-    const storedUserStr = localStorage.getItem("dermayu_user");
-    const activeSession = getActiveSession();
+    const checkAuth = () => {
+      const storedToken = localStorage.getItem("dermayu_token");
+      const storedUserStr = localStorage.getItem("dermayu_user");
+      const activeSession = getActiveSession();
 
-    if (!storedToken && !activeSession) {
-      router.push("/login");
-      return;
-    }
-
-    try {
-      let user: any = null;
-      if (storedUserStr) {
-        user = JSON.parse(storedUserStr);
-      } else if (activeSession) {
-        user = {
-          name: activeSession.name,
-          fullName: activeSession.name,
-          email: activeSession.email,
-          role: activeSession.role,
-          district: activeSession.district,
-        };
-      }
-
-      const roleUpper = (user?.role || activeSession?.role || "").toUpperCase();
-      if (roleUpper !== "ADMIN" && roleUpper !== "SUPERADMIN") {
-        router.push("/login");
+      if (!storedToken && !activeSession) {
+        window.location.replace("/");
         return;
       }
 
-      const resolvedUser: UserProfile = {
-        id: String(user.id || "1"),
-        fullName: user.fullName || user.name || activeSession?.name || "Super Admin DERMAYU",
-        name: user.name || user.fullName || activeSession?.name || "Super Admin DERMAYU",
-        email: user.email || activeSession?.email || "superadmin@dermayu.id",
-        role: "SUPERADMIN",
-        district: user.district || activeSession?.district,
-        phone: user.phone,
-      };
+      try {
+        let user: any = null;
+        if (storedUserStr) {
+          user = JSON.parse(storedUserStr);
+        } else if (activeSession) {
+          user = {
+            name: activeSession.name,
+            fullName: activeSession.name,
+            email: activeSession.email,
+            role: activeSession.role,
+            district: activeSession.district,
+          };
+        }
 
-      setCurrentUser(resolvedUser);
-      setToken(storedToken || "demo_token");
-    } catch {
-      router.push("/login");
-    }
+        const roleUpper = (user?.role || activeSession?.role || "").toUpperCase();
+        if (roleUpper !== "ADMIN" && roleUpper !== "SUPERADMIN") {
+          window.location.replace("/");
+          return;
+        }
+
+        const resolvedUser: UserProfile = {
+          id: String(user?.id || "1"),
+          fullName: user?.fullName || user?.name || activeSession?.name || "Super Admin DERMAYU",
+          name: user?.name || user?.fullName || activeSession?.name || "Super Admin DERMAYU",
+          email: user?.email || activeSession?.email || "superadmin@dermayu.id",
+          role: "SUPERADMIN",
+          district: user?.district || activeSession?.district,
+          phone: user?.phone,
+        };
+
+        setCurrentUser(resolvedUser);
+        setToken(storedToken || "demo_token");
+      } catch {
+        window.location.replace("/");
+      }
+    };
+
+    checkAuth();
+
+    // Intercept back-forward cache (bfcache)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || !getActiveSession()) {
+        window.location.replace("/");
+      }
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("dermayu_session_cleared", checkAuth);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("dermayu_session_cleared", checkAuth);
+    };
   }, [router]);
 
   // Load dashboard data
@@ -519,7 +538,7 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Gagal menyiarkan Dering");
 
-      showToast("🚨 Dering Evakuasi berhasil disiarkan ke seluruh perangkat warga!");
+      showToast("ðŸš¨ Dering Evakuasi berhasil disiarkan ke seluruh perangkat warga!");
       setAlertModalOpen(false);
       setAlertForm({
         title: "",
@@ -585,11 +604,9 @@ export default function AdminDashboardPage() {
   };
 
   const handleLogout = () => {
-    clearUserSession();
-    localStorage.removeItem("dermayu_token");
-    localStorage.removeItem("dermayu_refresh_token");
-    localStorage.removeItem("dermayu_user");
-    router.push("/login");
+    setCurrentUser(null);
+    setToken(null);
+    performLogout("/login");
   };
 
   const handleExportCsv = async () => {
@@ -693,13 +710,13 @@ export default function AdminDashboardPage() {
   const getAlertLevelBadge = (level: string) => {
     switch (level) {
       case "EVAKUASI":
-        return <span className="px-2.5 py-1 rounded-md text-xs font-black bg-red-600 text-white animate-pulse">🚨 EVAKUASI</span>;
+        return <span className="px-2.5 py-1 rounded-md text-xs font-black bg-red-600 text-white animate-pulse">ðŸš¨ EVAKUASI</span>;
       case "AWAS":
-        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-red-950 text-red-300 border border-red-800">⚠️ AWAS</span>;
+        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-red-950 text-red-300 border border-red-800">âš ï¸ AWAS</span>;
       case "SIAGA":
-        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-orange-950 text-orange-300 border border-orange-800">⚡ SIAGA</span>;
+        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-orange-950 text-orange-300 border border-orange-800">âš¡ SIAGA</span>;
       default:
-        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-950 text-amber-300 border border-amber-800">🔔 WASPADA</span>;
+        return <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-950 text-amber-300 border border-amber-800">ðŸ”” WASPADA</span>;
     }
   };
 
@@ -1228,7 +1245,7 @@ export default function AdminDashboardPage() {
                                 {getSeverityBadge(report.severity)}
                                 {report.water_level && (
                                   <span className="text-[10px] text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                                    🌊 {getWaterLevelLabel(report.water_level)}
+                                    ðŸŒŠ {getWaterLevelLabel(report.water_level)}
                                   </span>
                                 )}
                               </div>
@@ -1522,7 +1539,7 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-emerald-400 font-medium">● Aktif</span>
+                            <span className="text-emerald-400 font-medium">â— Aktif</span>
                           </td>
                           <td className="py-3 px-4 text-slate-500">
                             {new Date(u.created_at).toLocaleDateString("id-ID")}
@@ -1672,7 +1689,7 @@ export default function AdminDashboardPage() {
                 onClick={() => setCreateUserModalOpen(false)}
                 className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -1930,7 +1947,7 @@ export default function AdminDashboardPage() {
                 onClick={() => setSelectedReport(null)}
                 className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
               >
-                ✕
+                âœ•
               </button>
             </div>
 

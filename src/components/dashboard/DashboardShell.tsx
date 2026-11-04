@@ -25,7 +25,9 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
   // Close mobile sidebar on route change & touch activity
   useEffect(() => {
     setMobileMenuOpen(false);
-    touchDashboardActivity();
+    if (getActiveSession()) {
+      touchDashboardActivity();
+    }
   }, [pathname]);
 
   // Load saved sidebar preference
@@ -71,40 +73,59 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Session Synchronization (Single Source of Truth)
+  // Session Synchronization & Protection Guard (Single Source of Truth)
   useEffect(() => {
     const syncSession = () => {
       const active = getActiveSession();
       if (active) {
         setSession(active);
       } else {
-        setSession({
-          name: role === "petugas" ? "Petugas BPBD" : "Warga Indramayu",
-          email: role === "petugas" ? "petugas@dermayu.id" : "warga@dermayu.id",
-          role: role,
-          lastDashboardActive: Date.now(),
-        });
+        // Jika unauthenticated / logout, jangan rekayasa session dummy! Segera redirect ke Landing Page
+        setSession(null);
+        window.location.replace("/");
       }
     };
 
     syncSession();
 
+    // Mencegah pemulihan dari bfcache (Back/Forward Cache) saat user menekan tombol 'Back' browser/ponsel
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || !getActiveSession()) {
+        setSession(null);
+        window.location.replace("/");
+      }
+    };
+
+    const handleSessionCleared = () => {
+      setSession(null);
+      window.location.replace("/");
+    };
+
     window.addEventListener("dermayu_session_updated", syncSession);
+    window.addEventListener("dermayu_session_cleared", handleSessionCleared);
     window.addEventListener("storage", syncSession);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       window.removeEventListener("dermayu_session_updated", syncSession);
+      window.removeEventListener("dermayu_session_cleared", handleSessionCleared);
       window.removeEventListener("storage", syncSession);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, [role]);
 
-  // Session Heartbeat: Saat user berada di dalam dashboard, session tidak boleh expired
+  // Session Heartbeat: Hanya aktif jika sesi benar-benar valid
   useEffect(() => {
+    if (!getActiveSession()) return;
     touchDashboardActivity();
 
     // Heartbeat setiap 1 menit saat aktif di dashboard
     const heartbeatInterval = setInterval(() => {
-      touchDashboardActivity();
+      if (getActiveSession()) {
+        touchDashboardActivity();
+      } else {
+        window.location.replace("/");
+      }
     }, 60 * 1000);
 
     // Event listener interaksi pengguna (throttled 30s)
@@ -113,7 +134,9 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
       const now = Date.now();
       if (now - lastTouch > 30 * 1000) {
         lastTouch = now;
-        touchDashboardActivity();
+        if (getActiveSession()) {
+          touchDashboardActivity();
+        }
       }
     };
 
@@ -169,4 +192,3 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
     </div>
   );
 }
-

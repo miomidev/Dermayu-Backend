@@ -172,8 +172,21 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
   // Sync saat tombol navigasi back / forward browser ditekan
   useEffect(() => {
     const handlePopState = () => {
-      const isReg = window.location.pathname.includes("register");
-      prevPathnameRef.current = window.location.pathname;
+      const path = window.location.pathname;
+      // Jika user menekan tombol Back dan riwayat mengarah ke rute terlindungi (dasbor),
+      // otomatis alihkan ke Landing Page ('/')
+      if (
+        path.startsWith("/warga") ||
+        path.startsWith("/petugas") ||
+        path.startsWith("/admin") ||
+        path.startsWith("/dashboard")
+      ) {
+        window.location.replace("/");
+        return;
+      }
+
+      const isReg = path.includes("register");
+      prevPathnameRef.current = path;
       setIsRegisterMode(isReg);
     };
     window.addEventListener("popstate", handlePopState);
@@ -470,6 +483,17 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           {/* Ornamen Geometri Abstrak Identik dengan Dashboard */}
           <AuthBackgroundDecor />
 
+          {/* Tombol Kembali ke Beranda Mobile (Pojok Kiri Atas) */}
+          <Link
+            href="/"
+            className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 hover:bg-black/35 text-white/90 text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            aria-label="Kembali ke Beranda"
+            title="Kembali ke Beranda"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Beranda</span>
+          </Link>
+
           {/* Brand Logo & Keterangan (Exit Phase 2: Meluncur ke atas dengan delay 0.1s) */}
           <motion.div
             animate={isLoggingIn ? { y: -40, opacity: 0 } : { y: 0, opacity: 1 }}
@@ -584,7 +608,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                         type={showLoginPassword ? "text" : "password"}
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="••••••••"
+                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                         required
                         className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                       />
@@ -1222,7 +1246,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     type={showLoginPassword ? "text" : "password"}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     required
                     className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />

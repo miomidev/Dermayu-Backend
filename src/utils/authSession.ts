@@ -80,34 +80,20 @@ export function touchDashboardActivity(): void {
   if (typeof window === "undefined") return;
 
   try {
-    let session = getActiveSession();
+    const session = getActiveSession();
     const now = Date.now();
 
+    // Jika tidak ada session aktif, jangan rekayasa atau perbarui apapun
     if (!session) {
-      // Coba pulihkan dari legacy jika ada
-      const legacyRaw = localStorage.getItem(LEGACY_SESSION_KEY);
-      if (legacyRaw) {
-        const legacy = JSON.parse(legacyRaw);
-        session = {
-          name: legacy.name || "Pengguna DERMAYU",
-          email: legacy.email || "user@dermayu.id",
-          role: (legacy.role as UserSession["role"]) || "warga",
-          district: legacy.district,
-          loginTime: now,
-          lastDashboardActive: now,
-        };
-      }
+      return;
     }
 
-    if (session) {
-      session.lastDashboardActive = now;
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      // Sinkronkan ke key cadangan
-      localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(session));
-      document.cookie = `user_session=${encodeURIComponent(
-        JSON.stringify(session)
-      )}; path=/; max-age=604800; SameSite=Lax`;
-    }
+    session.lastDashboardActive = now;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(session));
+    document.cookie = `user_session=${encodeURIComponent(
+      JSON.stringify(session)
+    )}; path=/; max-age=604800; SameSite=Lax`;
   } catch (e) {
     console.error("Error updating dashboard activity:", e);
   }
@@ -167,11 +153,14 @@ export function saveUserSession(user: {
   if (typeof window !== "undefined") {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(session));
-    localStorage.setItem("dermayu_user", JSON.stringify({
-      ...session,
-      id: isSuperadmin ? "1" : isOfficer ? "2" : "3",
-      role: isSuperadmin ? "SUPERADMIN" : isOfficer ? "OFFICER" : "CITIZEN",
-    }));
+    localStorage.setItem(
+      "dermayu_user",
+      JSON.stringify({
+        ...session,
+        id: isSuperadmin ? "1" : isOfficer ? "2" : "3",
+        role: isSuperadmin ? "SUPERADMIN" : isOfficer ? "OFFICER" : "CITIZEN",
+      })
+    );
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;
@@ -182,22 +171,96 @@ export function saveUserSession(user: {
 }
 
 /**
- * Menghapus seluruh session dari localStorage dan cookie saat logout eksplisit
- * atau saat timeout 15 menit berakhir.
+ * Menghapus seluruh session dari localStorage, sessionStorage, dan cookie saat logout eksplisit
+ * atau saat timeout grace period berakhir.
  */
 export function clearUserSession(): void {
   if (typeof window === "undefined") return;
 
   try {
+    // 1. Bersihkan seluruh token & session di localStorage
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(LEGACY_SESSION_KEY);
     localStorage.removeItem("dermayu_user");
     localStorage.removeItem("dermayu_token");
     localStorage.removeItem("dermayu_refresh_token");
-    document.cookie = "user_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    localStorage.removeItem("token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user");
+
+    // 2. Bersihkan sessionStorage
+    sessionStorage.clear();
+
+    // 3. Cabut cookie otentikasi (atur max-age=0 dan tanggal lampau)
+    const pastDate = "Thu, 01 Jan 1970 00:00:00 GMT";
+    const cookiesToClear = [
+      "user_session",
+      "dermayu_token",
+      "dermayu_refresh_token",
+      "auth_token",
+      "token",
+      "accessToken",
+      "refreshToken",
+    ];
+
+    cookiesToClear.forEach((name) => {
+      document.cookie = `${name}=; path=/; max-age=0; expires=${pastDate}`;
+      // Coba juga dengan domain kosong & SameSite
+      document.cookie = `${name}=; path=/; max-age=0; expires=${pastDate}; SameSite=Lax`;
+    });
+
+    // 4. Siarkan event agar komponen dashboard langsung mereset state user ke null
+    window.dispatchEvent(new Event("dermayu_session_cleared"));
+    window.dispatchEvent(new Event("dermayu_session_updated"));
+    window.dispatchEvent(new Event("storage"));
   } catch (e) {
     console.error("Error clearing user session:", e);
   }
+}
+
+/**
+ * Melakukan proses logout lengkap:
+ * 1. Panggil server endpoint POST /api/v1/auth/logout untuk mencabut token & menghapus cookie HttpOnly
+ * 2. Bersihkan seluruh penyimpanan client (localStorage, sessionStorage, cookie)
+ * 3. Gantikan entry history dasbor dengan Landing Page ('/'), lalu arahkan ke Halaman Login ('/login')
+ *    sehingga saat user berada di /login dan menekan tombol Back tanpa login,
+ *    browser otomatis kembali ke Landing Page ('/').
+ */
+export async function performLogout(redirectTo: string = "/login"): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const refreshToken = localStorage.getItem("dermayu_refresh_token") || undefined;
+  const accessToken = localStorage.getItem("dermayu_token") || undefined;
+
+  // 1. Panggil endpoint logout server (asynchronous)
+  try {
+    await fetch("/api/v1/auth/logout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ refreshToken }),
+      credentials: "include",
+    }).catch(() => {});
+  } catch (err) {
+    console.warn("Logout server request failed, continuing client cleanup:", err);
+  }
+
+  // 2. Bersihkan seluruh token & session client
+  clearUserSession();
+
+  // 3. Rekayasa history stack browser:
+  // Gantikan entri dashboard aktif dengan Landing Page ('/'),
+  // kemudian navigasikan ke halaman login ('/login').
+  // Stack riwayat: [..., '/', '/login']
+  // Saat user menekan tombol 'Back' (kembali) di ponsel atau peramban dari /login,
+  // browser akan langsung kembali ke Landing Page ('/').
+  try {
+    window.history.replaceState(null, "", "/");
+  } catch {}
+
+  window.location.href = redirectTo;
 }
 
 /**

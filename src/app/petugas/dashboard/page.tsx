@@ -29,7 +29,7 @@ import {
   Sparkles,
   ExternalLink,
 } from "lucide-react";
-import { getActiveSession, clearUserSession } from "@/utils/authSession";
+import { getActiveSession, clearUserSession, performLogout } from "@/utils/authSession";
 
 interface UserSession {
   name: string;
@@ -208,12 +208,7 @@ export default function PetugasDashboard() {
   }, []);
 
   const handleLogout = () => {
-    clearUserSession();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    } else {
-      router.push("/login");
-    }
+    performLogout("/login");
   };
 
   // Triage Action Handlers

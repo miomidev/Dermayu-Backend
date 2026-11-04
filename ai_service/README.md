@@ -9,7 +9,7 @@ Layanan microservice mandiri berbasis **FastAPI** dan **TensorFlow/Keras** untuk
 ```text
 ai_service/
 ├── model/
-│   └── model_banjir_indramayu.h5   # Model CNN Keras (MobileNetV2 Transfer Learning)
+│   └── model_banjir_tflearning_fix_sementara.keras   # Model CNN Keras 3 (MobileNetV2 Transfer Learning)
 ├── main.py                         # REST API FastAPI (Endpoint /v1/predict)
 ├── test_predict.py                 # CLI tester mandiri untuk 1 gambar
 ├── requirements.txt                # Dependensi Python
@@ -21,8 +21,8 @@ ai_service/
 
 ## ⚙️ Spesifikasi Model
 
-- **Arsitektur:** CNN MobileNetV2 (`mobilenetv2_1.00_224`) + Custom Dense Head
-- **Ukuran Input:** `224 x 224` pixel, 3 kanal RGB
+- **Arsitektur:** CNN MobileNetV2 (`mobilenetv2_0.35_128`) + Custom Dense Head
+- **Ukuran Input:** `128 x 128` pixel, 3 kanal RGB
 - **Rentang Nilai:** `0 - 255` (Rescaling internal `1/127.5` dan offset `-1.0` sudah ada di dalam arsitektur model)
 - **Output:** Nilai probabilitas Sigmoid tunggal `[0.0 - 1.0]`
   - Probabilitas $\ge 0.50$ ➔ `flood` (Banjir)

@@ -15,7 +15,7 @@ def test_local_model(image_path: str):
         print(f"❌ Error: File gambar '{image_path}' tidak ditemukan.")
         return
 
-    model_path = os.path.join(os.path.dirname(__file__), "model", "model_banjir_indramayu.h5")
+    model_path = os.path.join(os.path.dirname(__file__), "model", "model_banjir_tflearning_fix_sementara.keras")
     if not os.path.exists(model_path):
         print(f"❌ Error: File model '{model_path}' tidak ditemukan.")
         return
@@ -29,15 +29,20 @@ def test_local_model(image_path: str):
 
     import numpy as np
     from PIL import Image
-    import tensorflow as tf
+    try:
+        os.environ.setdefault("KERAS_BACKEND", "torch")
+        import keras
+    except ImportError:
+        import tensorflow as tf
+        keras = tf.keras
 
     t0 = time.time()
-    model = tf.keras.models.load_model(model_path, compile=False)
+    model = keras.models.load_model(model_path, compile=False)
     load_time = time.time() - t0
     print(f"✅ Model berhasil dimuat dalam {load_time:.2f} detik.")
 
     # Preprocessing
-    image = Image.open(image_path).convert("RGB").resize((224, 224))
+    image = Image.open(image_path).convert("RGB").resize((128, 128))
     img_array = np.expand_dims(np.array(image, dtype=np.float32), axis=0)
 
     # Predict
@@ -45,9 +50,10 @@ def test_local_model(image_path: str):
     pred = model.predict(img_array, verbose=0)
     inference_ms = int((time.time() - t_pred) * 1000)
 
-    prob_flood = float(pred[0][0])
-    prob_non_flood = 1.0 - prob_flood
-    label = "flood" if prob_flood >= 0.5 else "non_flood"
+    raw_prob = float(pred[0][0])
+    prob_flood = float(1.0 - raw_prob)
+    prob_non_flood = float(raw_prob)
+    label = "flood" if prob_flood >= 0.65 else ("review" if prob_flood >= 0.35 else "non_flood")
 
     print("\n📊 HASIL INFERENSI:")
     print(f" - Prediksi Label       : {'🚨 BANJIR (flood)' if label == 'flood' else '✅ BUKAN BANJIR (non_flood)'}")

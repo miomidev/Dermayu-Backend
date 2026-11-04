@@ -5,6 +5,54 @@ import db from "./db";
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 const AI_INTERNAL_KEY = process.env.AI_INTERNAL_KEY || "internal_ai_secret_key_dermayu";
 
+export interface AiInferenceResult {
+  label: "flood" | "non_flood" | string;
+  confidence: number;
+  probabilities: {
+    flood: number;
+    non_flood: number;
+  };
+  model_version: string;
+  inference_ms: number;
+}
+
+export async function predictImageBuffer(
+  fileBuffer: Buffer,
+  fileName = "scan.jpg"
+): Promise<AiInferenceResult> {
+  const mimeType = fileName.toLowerCase().endsWith(".png")
+    ? "image/png"
+    : fileName.toLowerCase().endsWith(".webp")
+    ? "image/webp"
+    : "image/jpeg";
+  const formData = new FormData();
+  const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+  formData.append("file", blob, fileName);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(`${AI_SERVICE_URL}/v1/predict`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${AI_INTERNAL_KEY}`,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`AI Service returned HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data as AiInferenceResult;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function triggerAiPrediction(mediaId: bigint, storageKey: string) {
   try {
     const filePath = path.join(process.cwd(), "public", "uploads", storageKey);

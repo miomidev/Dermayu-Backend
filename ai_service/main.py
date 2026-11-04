@@ -13,10 +13,10 @@ logger = logging.getLogger("dermayu-ai")
 
 # Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "model", "model_banjir_indramayu.h5"))
+MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "model", "model_banjir_tflearning_fix_sementara.keras"))
 INTERNAL_API_KEY = os.getenv("AI_INTERNAL_KEY", "internal_ai_secret_key_dermayu")
 MODEL_VERSION = "cnn-flood-indramayu-v1.0"
-TARGET_SIZE = (224, 224)
+TARGET_SIZE = (128, 128)
 
 app = FastAPI(
     title="DERMAYU AI Inference Service",
@@ -35,13 +35,20 @@ app.add_middleware(
 # Global model state
 model = None
 is_tf_available = False
+keras_module = None
 
 try:
     import numpy as np
     from PIL import Image
-    import tensorflow as tf
+    try:
+        os.environ.setdefault("KERAS_BACKEND", "torch")
+        import keras
+        keras_module = keras
+    except ImportError:
+        import tensorflow as tf
+        keras_module = tf.keras
     is_tf_available = True
-    logger.info("TensorFlow %s terdeteksi.", tf.__version__)
+    logger.info("Deep learning framework terdeteksi.")
 except ImportError as e:
     logger.warning("TensorFlow atau NumPy belum terpasang (%s). Mode simulasi/fallback aktif.", e)
 
@@ -55,7 +62,7 @@ def load_ai_model():
         try:
             logger.info("Memuat model CNN dari: %s ...", MODEL_PATH)
             # Load Keras/TensorFlow H5 model
-            model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+            model = keras_module.models.load_model(MODEL_PATH, compile=False)
             logger.info("Model CNN MobileNetV2 berhasil dimuat ke RAM!")
             return True
         except Exception as e:
@@ -113,7 +120,8 @@ async def predict_flood(
         )
 
     # 2. Validasi Format Berkas
-    if not file.content_type.startswith("image/"):
+    content_type = file.content_type or ""
+    if content_type and not (content_type.startswith("image/") or content_type == "application/octet-stream"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Berkas yang diunggah harus berupa gambar (JPEG/PNG/WebP).",
@@ -132,16 +140,25 @@ async def predict_flood(
             # Model memiliki layer Rescaling bawaan ((x / 127.5) - 1.0),
             # jadi pass raw pixel array dalam rentang [0, 255].
             img_array = np.array(image, dtype=np.float32)
-            img_array = np.expand_dims(img_array, axis=0)  # Shape: (1, 224, 224, 3)
+            img_array = np.expand_dims(img_array, axis=0)  # Shape: (1, 128, 128, 3)
 
             prediction = model.predict(img_array, verbose=0)
-            prob_flood = float(prediction[0][0])
-            prob_flood = max(0.0, min(1.0, prob_flood))  # Clamp 0.0 - 1.0
-            prob_non_flood = float(1.0 - prob_flood)
+            raw_prob = float(prediction[0][0])
+            raw_prob = max(0.0, min(1.0, raw_prob))
+            prob_flood = float(1.0 - raw_prob)
+            prob_non_flood = float(raw_prob)
 
             # Klasifikasi biner (threshold 0.50)
-            label = "flood" if prob_flood >= 0.50 else "non_flood"
-            confidence = prob_flood if label == "flood" else prob_non_flood
+            if prob_flood >= 0.65:
+                label = "flood"
+                confidence = prob_flood
+            elif prob_flood >= 0.35:
+                label = "review"
+                confidence = max(prob_flood, prob_non_flood)
+            else:
+                label = "non_flood"
+                confidence = prob_non_flood
+
         else:
             # === Fallback / Mock Simulation jika TF belum diinstall di environment ini ===
             logger.info("Menggunakan fallback inferensi simulasi...")

@@ -25,7 +25,7 @@ import {
   Scan,
 } from "lucide-react";
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
-import { AiScannerOverlay } from "@/components/dashboard/AiScannerOverlay";
+import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
 
 export type ReportCategoryCode =
   | "FLOOD"
@@ -210,6 +210,8 @@ export default function WargaLaporPage() {
   // State 3: Verified Photo + Full Form (photos.length > 0 || hasBypassedPhoto)
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isAiScanning, setIsAiScanning] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiScanResult, setAiScanResult] = useState<AiScanResult | null>(null);
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
   const [hasBypassedPhoto, setHasBypassedPhoto] = useState(false);
 
@@ -309,11 +311,48 @@ export default function WargaLaporPage() {
     );
   };
 
+  // Trigger real AI inference via Next.js proxy
+  const triggerAiInference = async (dataUrl: string, fileObj?: File) => {
+    setIsAiAnalyzing(true);
+    try {
+      let res;
+      if (fileObj) {
+        const formData = new FormData();
+        formData.append("file", fileObj);
+        res = await fetch("/api/v1/ai/scan", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch("/api/v1/ai/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataUrl }),
+        });
+      }
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setAiScanResult(json.data);
+          return;
+        }
+      }
+      setAiScanResult(null);
+    } catch (err) {
+      console.warn("AI scan warning:", err);
+      setAiScanResult(null);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
   // Trigger when a photo is captured from camera
   const handleCameraCapture = (dataUrl: string) => {
     setIsCameraOpen(false);
     setPendingPhoto(dataUrl);
     setIsAiScanning(true);
+    triggerAiInference(dataUrl);
     // Background auto-fetch GPS
     handleGetGPS();
   };
@@ -329,6 +368,7 @@ export default function WargaLaporPage() {
         const dataUrl = event.target.result as string;
         setPendingPhoto(dataUrl);
         setIsAiScanning(true);
+    triggerAiInference(dataUrl);
         // Background auto-fetch GPS
         handleGetGPS();
       }
@@ -495,6 +535,8 @@ export default function WargaLaporPage() {
       <AiScannerOverlay
         isOpen={isAiScanning}
         photoUrl={pendingPhoto}
+        scanResult={aiScanResult}
+        isAnalyzing={isAiAnalyzing}
         onScanComplete={handleScanComplete}
       />
 
@@ -680,7 +722,17 @@ export default function WargaLaporPage() {
                 {/* THUMBNAIL FOTO TERVERIFIKASI AI CNN (94%)                    */}
                 {/* ============================================================ */}
                 {photos.length > 0 && (
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                  <div
+                    className={`p-3.5 sm:p-4 rounded-2xl ${
+                      aiScanResult
+                        ? aiScanResult.is_flood
+                          ? "bg-emerald-50/90 border-emerald-200"
+                          : aiScanResult.label === "review"
+                          ? "bg-amber-50/90 border-amber-200"
+                          : "bg-blue-50/90 border-blue-200"
+                        : "bg-emerald-50/90 border-emerald-200"
+                    } border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5`}
+                  >
                     <div className="flex items-center gap-3.5">
                       <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 bg-black shadow-xs">
                         <img
@@ -694,15 +746,41 @@ export default function WargaLaporPage() {
                       </div>
 
                       <div className="min-w-0">
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-extrabold tracking-wide mb-1 shadow-xs">
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${
+                            aiScanResult
+                              ? aiScanResult.is_flood
+                                ? "bg-emerald-600 text-white"
+                                : aiScanResult.label === "review"
+                                ? "bg-amber-600 text-white"
+                                : "bg-blue-600 text-white"
+                              : "bg-emerald-600 text-white"
+                          } text-[10.5px] font-extrabold tracking-wide mb-1 shadow-xs`}
+                        >
                           <CheckCircle2 className="w-3 h-3 text-white" />
-                          <span>Foto Terverifikasi AI CNN</span>
+                          <span>
+                            {aiScanResult
+                              ? aiScanResult.is_flood
+                                ? `Foto Terverifikasi Banjir (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                                : aiScanResult.label === "review"
+                                ? `Perlu Ditinjau Manual (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                                : `Terdeteksi Bukan Banjir (${(aiScanResult.prob_non_flood * 100).toFixed(1)}%)`
+                              : "Foto Terverifikasi AI CNN"}
+                          </span>
                         </div>
                         <p className="text-xs font-bold text-[#132422] truncate">
-                          Bukti Ketinggian Genangan Tervalidasi
+                          {aiScanResult
+                            ? aiScanResult.is_flood
+                              ? "Bukti Ketinggian Genangan Tervalidasi"
+                              : "Perhatian: Indikasi Objek Bukan Genangan"
+                            : "Bukti Ketinggian Genangan Tervalidasi"}
                         </p>
                         <p className="text-[11px] text-[#4B635F] leading-tight mt-0.5">
-                          Karakteristik batas air sesuai ambang rob pesisir
+                          {aiScanResult
+                            ? aiScanResult.is_flood
+                              ? `Model MobileNetV2 mendeteksi genangan air (${(aiScanResult.prob_flood * 100).toFixed(1)}% validitas • ${aiScanResult.inference_ms} ms)`
+                              : "Model mendeteksi gambar kemungkinan bukan banjir. Pastikan foto memperlihatkan air genangan."
+                            : "Karakteristik batas air sesuai ambang rob pesisir"}
                         </p>
                       </div>
                     </div>

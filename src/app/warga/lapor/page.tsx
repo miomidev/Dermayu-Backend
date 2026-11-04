@@ -5,13 +5,9 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   AlertCircle,
   Camera,
-  Trash2,
-  Droplets,
   ShieldCheck,
   Waves,
-  Navigation,
   AlertTriangle,
-  FileText,
   MapPin,
   CheckCircle2,
   Clock,
@@ -19,10 +15,10 @@ import {
   X,
   PhoneCall,
   Crosshair,
-  LifeBuoy,
   RefreshCw,
   Image as ImageIcon,
   Scan,
+  FileText,
 } from "lucide-react";
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
 import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
@@ -52,53 +48,13 @@ export interface ReportTicket {
   severity?: SeverityLevel;
   waterLevel?: string;
   urgentNeeds?: string[];
+  notes?: string;
   gps?: {
     lat: number;
     lng: number;
     accuracy?: number;
   };
 }
-
-const CATEGORY_CONFIG: Record<
-  ReportCategoryCode,
-  { label: string; desc: string; icon: React.ComponentType<{ className?: string }> }
-> = {
-  FLOOD: {
-    label: "Banjir / Rob Pesisir",
-    desc: "Air pasang laut atau luapan sungai masuk jalan / rumah",
-    icon: Droplets,
-  },
-  LEVEE: {
-    label: "Tanggul Kritis / Jebol",
-    desc: "Rembesan tanggul tanah, retakan bronjong, atau tanggul jebol",
-    icon: ShieldCheck,
-  },
-  EVACUATION: {
-    label: "Evakuasi Darurat",
-    desc: "Warga terjebak genangan tinggi, butuh perahu karet segera",
-    icon: LifeBuoy,
-  },
-  DRAINAGE: {
-    label: "Drainase / Muara Mampet",
-    desc: "Saluran pembuang tersumbat sampah atau sedimentasi lumpur",
-    icon: Waves,
-  },
-  ROAD: {
-    label: "Akses Jalan Terputus",
-    desc: "Jalan ambles atau terendam dalam, tidak bisa dilalui kendaraan",
-    icon: Navigation,
-  },
-  TREE: {
-    label: "Pohon / Tiang Listrik Roboh",
-    desc: "Membahayakan warga di sekitar pemukiman dan jaringan listrik",
-    icon: AlertTriangle,
-  },
-  OTHER: {
-    label: "Aduan Kebencanaan Lain",
-    desc: "Kebutuhan air bersih darurat, fasilitas pengungsian, dll.",
-    icon: FileText,
-  },
-};
 
 const STATUS_CONFIG: Record<
   string,
@@ -118,16 +74,16 @@ const STATUS_CONFIG: Record<
     label: "Menunggu Verifikasi Pusdalops",
   },
   DIVERIFIKASI: {
-    dotClass: "bg-sky-500 animate-pulse",
-    badgeClass: "bg-sky-50 border-sky-200 text-sky-900",
-    textClass: "text-sky-800",
-    stepIndex: 2,
-    label: "Terverifikasi & Diteruskan ke Posko",
-  },
-  PENANGANAN: {
     dotClass: "bg-emerald-500 animate-pulse",
     badgeClass: "bg-emerald-50 border-emerald-200 text-emerald-900",
     textClass: "text-emerald-800",
+    stepIndex: 2,
+    label: "Terverifikasi AI / Posko Siaga",
+  },
+  PENANGANAN: {
+    dotClass: "bg-sky-500 animate-pulse",
+    badgeClass: "bg-sky-50 border-sky-200 text-sky-900",
+    textClass: "text-sky-800",
     stepIndex: 3,
     label: "Regu Penyelamat Menuju Lokasi",
   },
@@ -140,26 +96,15 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const URGENT_NEEDS_LIST = [
-  "Perahu Karet Evakuasi",
-  "Bantuan Evakuasi Lansia / Bayi",
-  "Pompa Penyedot Genangan (Damkar)",
-  "Karung Pasir Penahan Tanggul",
-  "Dapur Umum & Makanan Siap Saji",
-  "Air Bersih & Minum PDAM",
-  "Obat & Penanganan Medis Darurat",
-  "Tenda & Matras Pengungsian",
-];
-
 const QUICK_LOCATIONS = [
-  "Eretan Wetan (Kandanghaur)",
-  "Eretan Kulon (Kandanghaur)",
+  "Eretan Wetan",
+  "Eretan Kulon",
   "Ilir (Kandanghaur)",
   "Cantigi Kulon",
   "Cantigi Wetan",
   "Pasekan",
-  "Karangsong (Indramayu)",
-  "Limbangan (Juntinyuat)",
+  "Karangsong",
+  "Limbangan",
 ];
 
 const initialReports: ReportTicket[] = [
@@ -199,25 +144,21 @@ const STORAGE_KEY = "dermayu_user_reports";
 
 export default function WargaLaporPage() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Responsive Mobile Tab Switcher: "FORM" | "HISTORY"
-  const [mobileTab, setMobileTab] = useState<"FORM" | "HISTORY">("FORM");
+  // Tab Switcher: "FORM" | "HISTORY"
+  const [activeTab, setActiveTab] = useState<"FORM" | "HISTORY">("FORM");
 
   // Progressive Step Flow State:
-  // State 1: Scanner Card (photos.length === 0 && !hasBypassedPhoto)
+  // State 1: Scanner Card (photos.length === 0)
   // State 2: Fullscreen Camera View (isCameraOpen) -> AI Scanner Overlay (isAiScanning)
-  // State 3: Verified Photo + Full Form (photos.length > 0 || hasBypassedPhoto)
+  // State 3: Verified Photo + Clean Form (photos.length > 0)
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isAiScanning, setIsAiScanning] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [aiScanResult, setAiScanResult] = useState<AiScanResult | null>(null);
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
-  const [hasBypassedPhoto, setHasBypassedPhoto] = useState(false);
 
   // Form Data State
-  const [category, setCategory] = useState<ReportCategoryCode>("FLOOD");
-  const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [gpsCoords, setGpsCoords] = useState<{
     lat: number;
@@ -227,9 +168,6 @@ export default function WargaLaporPage() {
   const [isLocating, setIsLocating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
-  const [severity, setSeverity] = useState<SeverityLevel>("HIGH");
-  const [waterLevel, setWaterLevel] = useState<WaterLevelCode>("KNEE");
-  const [urgentNeeds, setUrgentNeeds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -266,12 +204,6 @@ export default function WargaLaporPage() {
     }
   };
 
-  const toggleUrgentNeed = (item: string) => {
-    setUrgentNeeds((prev) =>
-      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-    );
-  };
-
   // Real GPS Geolocation Acquisition
   const handleGetGPS = () => {
     if (!navigator.geolocation) {
@@ -295,16 +227,16 @@ export default function WargaLaporPage() {
         // If location text is empty, auto-fill with coordinates
         if (!location.trim()) {
           setLocation(
-            `Titik Koordinat: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (Kandanghaur/Pesisir)`
+            `Koordinat: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
           );
         }
       },
       (err) => {
         setIsLocating(false);
         if (err.code === 1) {
-          setGpsError("Izin lokasi GPS belum diizinkan. Silakan ketik nama lokasi.");
+          setGpsError("Izin GPS dinonaktifkan di browser. Silakan ketik alamat patokan atau pilih desa di bawah.");
         } else {
-          setGpsError("Gagal mengunci sinyal GPS. Silakan ketik patokan lokasi.");
+          setGpsError("Gagal mengunci sinyal GPS. Silakan ketik patokan lokasi Anda.");
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -353,7 +285,6 @@ export default function WargaLaporPage() {
     setPendingPhoto(dataUrl);
     setIsAiScanning(true);
     triggerAiInference(dataUrl);
-    // Background auto-fetch GPS
     handleGetGPS();
   };
 
@@ -368,8 +299,7 @@ export default function WargaLaporPage() {
         const dataUrl = event.target.result as string;
         setPendingPhoto(dataUrl);
         setIsAiScanning(true);
-    triggerAiInference(dataUrl);
-        // Background auto-fetch GPS
+        triggerAiInference(dataUrl, file);
         handleGetGPS();
       }
     };
@@ -378,7 +308,7 @@ export default function WargaLaporPage() {
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
-  // Called when AI Scan 1.8s animation finishes
+  // Called when AI Scan overlay closes
   const handleScanComplete = () => {
     if (pendingPhoto) {
       setPhotos([pendingPhoto]);
@@ -387,51 +317,18 @@ export default function WargaLaporPage() {
     setIsAiScanning(false);
   };
 
-  // Handle adding more photos in State 3
-  const handleAddMorePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    if (photos.length + files.length > 5) {
-      alert("Maksimal 5 foto per laporan kejadian.");
-      return;
-    }
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        if (uploadEvent.target?.result) {
-          setPhotos((prev) => [...prev, uploadEvent.target!.result as string].slice(0, 5));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    if (additionalFileInputRef.current) additionalFileInputRef.current.value = "";
-  };
-
-  const handleRemovePhoto = (index: number) => {
-    const updated = photos.filter((_, i) => i !== index);
-    setPhotos(updated);
-    if (updated.length === 0) {
-      setHasBypassedPhoto(false);
-    }
-  };
-
   const handleResetPhoto = () => {
     setPhotos([]);
     setPendingPhoto(null);
-    setHasBypassedPhoto(false);
+    setAiScanResult(null);
   };
 
+  // Handle Submit Formulir Ringkas
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const effectiveTitle =
-      title.trim() ||
-      `${CATEGORY_CONFIG[category].label} - ${location.trim() || "Area Pesisir"}`;
 
     if (!location.trim()) {
-      alert("Mohon tentukan titik lokasi kejadian (gunakan GPS atau ketik alamat).");
+      alert("Mohon tentukan titik lokasi kejadian (gunakan GPS atau ketik patokan lokasi).");
       return;
     }
 
@@ -442,32 +339,35 @@ export default function WargaLaporPage() {
     const randNum = String(Math.floor(1000 + Math.random() * 9000));
     const ticketCode = `DMY-${dateStr}-${randNum}`;
 
-    const waterLevelMap: Record<WaterLevelCode, string> = {
-      ANKLE: "Semata Kaki (10–30 cm)",
-      KNEE: "Setinggi Lutut (40–60 cm)",
-      THIGH: "Setinggi Paha (70–90 cm)",
-      WAIST: "Setinggi Pinggang (100–120 cm)",
-      ABOVE_CHEST: "Di Atas Dada (> 120 cm)",
-    };
-
     const timeFormatted = `Hari ini, ${String(now.getHours()).padStart(2, "0")}:${String(
       now.getMinutes()
     ).padStart(2, "0")} WIB`;
 
+    const isAiVerified = aiScanResult?.is_flood === true;
+
+    // Status: Jika AI konfirmasi banjir (>=65%), langsung terverifikasi otomatis.
+    const ticketStatus = isAiVerified ? "DIVERIFIKASI" : "DITERIMA";
+    const statusNote = isAiVerified
+      ? `Terverifikasi otomatis oleh AI CNN (${(aiScanResult.prob_flood * 100).toFixed(1)}%). Koordinat dipetakan dan langsung diteruskan ke regu posko siaga BPBD.`
+      : "Laporan telah masuk ke sistem. Menunggu verifikasi lanjutan oleh operator Pusdalops BPBD Indramayu.";
+
+    const effectiveTitle = notes.trim()
+      ? notes.length > 55
+        ? notes.slice(0, 55) + "..."
+        : notes
+      : `Laporan Titik Banjir - ${location.trim()}`;
+
     const newTicket: ReportTicket = {
       id: ticketCode,
-      category: CATEGORY_CONFIG[category].label,
-      categoryCode: category,
+      category: "Banjir / Rob Pesisir",
+      categoryCode: "FLOOD",
       title: effectiveTitle,
       location: location.trim(),
       time: timeFormatted,
-      status: "DITERIMA",
-      statusNote:
-        "Laporan telah diterima sistem Pusdalops BPBD Indramayu dengan bukti terverifikasi AI CNN. Operator siaga sedang meneruskan koordinat ke regu posko terdekat.",
+      status: ticketStatus,
+      statusNote: statusNote,
       photos: photos.length > 0 ? photos : undefined,
-      severity,
-      waterLevel: category === "FLOOD" ? waterLevelMap[waterLevel] : undefined,
-      urgentNeeds: urgentNeeds.length > 0 ? urgentNeeds : undefined,
+      notes: notes.trim() || undefined,
       gps: gpsCoords || {
         lat: -6.3475 + (Math.random() - 0.5) * 0.02,
         lng: 108.1189 + (Math.random() - 0.5) * 0.02,
@@ -482,25 +382,20 @@ export default function WargaLaporPage() {
     setIsSubmitting(false);
 
     // Reset Form Fields
-    setTitle("");
     setLocation("");
     setGpsCoords(null);
     setNotes("");
     setPhotos([]);
-    setUrgentNeeds([]);
-    setHasBypassedPhoto(false);
+    setAiScanResult(null);
 
-    // If on mobile, switch to History tab so user sees their new ticket immediately
-    if (window.innerWidth < 768) {
-      setMobileTab("HISTORY");
-    }
+    // Switch to History tab so user sees their new ticket immediately
+    setActiveTab("HISTORY");
   };
 
-  // Determine whether to display State 1 (Scanner Card) or State 3 (Full Form)
-  const isFormActive = photos.length > 0 || hasBypassedPhoto;
+  const isFormActive = photos.length > 0;
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="max-w-2xl mx-auto space-y-6 text-left">
       {/* Hidden Gallery Input */}
       <input
         ref={galleryInputRef}
@@ -508,16 +403,6 @@ export default function WargaLaporPage() {
         accept="image/*"
         className="hidden"
         onChange={handleGallerySelect}
-      />
-
-      {/* Hidden Additional Photos Input */}
-      <input
-        ref={additionalFileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={handleAddMorePhotos}
       />
 
       {/* State 2: Fullscreen Camera View Modal */}
@@ -531,7 +416,7 @@ export default function WargaLaporPage() {
         }}
       />
 
-      {/* State 2.5: AI Scanning Loading Overlay (1.8s) */}
+      {/* State 2.5: AI Scanning Loading Overlay */}
       <AiScannerOverlay
         isOpen={isAiScanning}
         photoUrl={pendingPhoto}
@@ -540,7 +425,68 @@ export default function WargaLaporPage() {
         onScanComplete={handleScanComplete}
       />
 
-      {/* Alert Banner Tiket Berhasil Dibuat */}
+      {/* HEADER SECTION & DARURAT 112 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#D5E4E0]/60">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#132422] tracking-tight">
+            Lapor Titik Banjir
+          </h1>
+          <p className="text-xs sm:text-sm text-[#4B635F] mt-0.5">
+            Verifikasi citra cerdas & pelaporan tanggap darurat Kabupaten Indramayu
+          </p>
+        </div>
+        <a
+          href="tel:112"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs transition-colors shrink-0 self-start sm:self-auto"
+          title="Telepon Darurat BPBD Bebas Pulsa"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+          </span>
+          <PhoneCall className="w-3.5 h-3.5 text-rose-600" />
+          <span>Darurat 112 BPBD</span>
+        </a>
+      </div>
+
+      {/* CLEAN SEGMENTED TAB SWITCHER */}
+      <div className="flex items-center p-1 rounded-2xl bg-[#EEF5F3] border border-[#D5E4E0]/80">
+        <button
+          type="button"
+          onClick={() => setActiveTab("FORM")}
+          className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeTab === "FORM"
+              ? "bg-[#1D443F] text-white shadow-sm"
+              : "text-[#4B635F] hover:text-[#132422]"
+          }`}
+        >
+          <Camera className="w-4 h-4" />
+          <span>Buat Laporan Baru</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("HISTORY")}
+          className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeTab === "HISTORY"
+              ? "bg-[#1D443F] text-white shadow-sm"
+              : "text-[#4B635F] hover:text-[#132422]"
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Riwayat Aduan</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+              activeTab === "HISTORY"
+                ? "bg-white/20 text-white"
+                : "bg-[#D5E4E0] text-[#1D443F]"
+            }`}
+          >
+            {reports.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ALERT BANNER TIKET BERHASIL DITERBITKAN */}
       <AnimatePresence>
         {newlyCreatedTicket && (
           <motion.div
@@ -552,11 +498,11 @@ export default function WargaLaporPage() {
             <div className="flex items-start gap-2.5">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-bold">
+                <p className="text-xs sm:text-sm font-bold">
                   Laporan Berhasil Diterbitkan: Tiket #{newlyCreatedTicket}
                 </p>
                 <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
-                  Petugas Pusdalops BPBD & posko terdekat telah menerima data laporan dan foto validasi AI CNN Anda.
+                  Laporan Anda tercatat di Pusdalops BPBD Indramayu dan regu posko siaga terdekat.
                 </p>
               </div>
             </div>
@@ -571,518 +517,342 @@ export default function WargaLaporPage() {
         )}
       </AnimatePresence>
 
-      {/* MOBILE TAB SWITCHER (< MD) */}
-      <div className="flex items-center p-1 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs md:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileTab("FORM")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            mobileTab === "FORM"
-              ? "bg-[#1D443F] text-white shadow-xs"
-              : "text-[#4B635F] hover:text-[#132422]"
-          }`}
-        >
-          <Send className="w-3.5 h-3.5" />
-          <span>Buat Laporan Baru</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab("HISTORY")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            mobileTab === "HISTORY"
-              ? "bg-[#1D443F] text-white shadow-xs"
-              : "text-[#4B635F] hover:text-[#132422]"
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5" />
-          <span>Riwayat Aduan ({reports.length})</span>
-        </button>
-      </div>
+      {/* ========================================================= */}
+      {/* TAB 1: FORMULIR PELAPORAN                                 */}
+      {/* ========================================================= */}
+      {activeTab === "FORM" && (
+        <AnimatePresence mode="wait">
+          {!isFormActive ? (
+            /* STATE 1: HERO SCANNER CARD (SEBELUM FOTO) */
+            <motion.div
+              key="state-scanner-card"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3 }}
+              className="relative rounded-3xl p-7 sm:p-10 text-white overflow-hidden shadow-xl border border-emerald-700/50"
+              style={{
+                backgroundColor: "#155E45",
+                backgroundImage:
+                  "radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.25) 0%, transparent 60%), radial-gradient(circle at 0% 100%, rgba(6, 78, 59, 0.8) 0%, transparent 70%)",
+              }}
+            >
+              <div className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
 
-      {/* DUA KOLOM: FORMULIR PELAPORAN (7 COLS) + RIWAYAT ADUAN (5 COLS) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 items-start">
-        {/* ==================================================== */}
-        {/* KOLOM KIRI: ALUR PELAPORAN PROGRESSIVE (7 COLS)      */}
-        {/* ==================================================== */}
-        <div
-          className={`md:col-span-7 space-y-6 ${
-            mobileTab === "HISTORY" ? "hidden md:block" : "block"
-          }`}
-        >
-          <AnimatePresence mode="wait">
-            {!isFormActive ? (
-              /* ========================================================== */
-              /* STATE 1: LAYAR AWAL LAPOR (VISUAL SCANNER CARD)           */
-              /* ========================================================== */
-              <motion.div
-                key="state-scanner-card"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.3 }}
-                className="relative rounded-3xl p-6 sm:p-8 text-white overflow-hidden shadow-xl border border-emerald-700/50"
-                style={{
-                  backgroundColor: "#155E45",
-                  backgroundImage:
-                    "radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.22) 0%, transparent 60%), radial-gradient(circle at 0% 100%, rgba(6, 78, 59, 0.8) 0%, transparent 70%)",
-                }}
-              >
-                {/* Decorative Viewfinder Ambient Grid */}
-                <div className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
-
-                {/* Badges Header */}
-                <div className="flex items-center mb-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-200 text-xs font-bold tracking-wide backdrop-blur-sm">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                    </span>
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>AI CNN Flood Verification</span>
-                  </div>
+              {/* Badges Header */}
+              <div className="flex items-center mb-6">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-200 text-xs font-bold tracking-wide backdrop-blur-sm">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>AI CNN Flood Verification</span>
                 </div>
+              </div>
 
-                {/* Central Camera / Viewfinder Visual Hero */}
-                <div className="my-6 flex flex-col items-center justify-center text-center">
-                  <div className="relative w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner group hover:scale-105 transition-transform duration-300">
-                    {/* Viewfinder Target Marks */}
-                    <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-emerald-300 rounded-tl-sm" />
-                    <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-emerald-300 rounded-tr-sm" />
-                    <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-emerald-300 rounded-bl-sm" />
-                    <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-emerald-300 rounded-br-sm" />
-                    
-                    <Scan className="w-9 h-9 text-emerald-200 animate-pulse" />
-                  </div>
+              {/* Viewfinder Visual Hero */}
+              <div className="my-6 flex flex-col items-center justify-center text-center">
+                <div className="relative w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner group hover:scale-105 transition-transform duration-300">
+                  <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-emerald-300 rounded-tl-sm" />
+                  <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-emerald-300 rounded-tr-sm" />
+                  <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-emerald-300 rounded-bl-sm" />
+                  <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-emerald-300 rounded-br-sm" />
+                  
+                  <Scan className="w-10 h-10 text-emerald-200 animate-pulse" />
                 </div>
+              </div>
 
-                {/* Title & Description */}
-                <div className="text-center space-y-2 mb-8">
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
-                    Ambil Dokumentasi Foto Genangan Banjir
-                  </h2>
-                  <p className="text-xs sm:text-sm text-emerald-100/90 max-w-md mx-auto leading-relaxed">
-                    Foto kondisi banjir, tanggul, atau akses jalan terputus secara langsung di lokasi untuk verifikasi spasial dan prioritas penanganan tim penyelamat.
-                  </p>
-                </div>
+              {/* Title & Description */}
+              <div className="text-center space-y-2 mb-8">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
+                  Ambil Dokumentasi Foto Genangan Banjir
+                </h2>
+                <p className="text-xs sm:text-sm text-emerald-100/90 max-w-md mx-auto leading-relaxed">
+                  Ambil foto genangan air secara langsung di lokasi. AI akan memverifikasi bukti banjir dan mengunci koordinat GPS secara otomatis.
+                </p>
+              </div>
 
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  {/* Tombol Aksi Utama: Lebar Penuh (Buka Kamera Langsung) */}
-                  <button
-                    type="button"
-                    onClick={() => setIsCameraOpen(true)}
-                    className="w-full py-4 px-5 rounded-2xl bg-white text-[#155E45] font-extrabold text-sm sm:text-base shadow-xl hover:bg-emerald-50 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5 group"
-                  >
-                    <Camera className="w-5 h-5 text-[#155E45] group-hover:scale-110 transition-transform" />
-                    <span>Buka Kamera Langsung</span>
-                  </button>
+              {/* Action Buttons */}
+              <div className="space-y-3 max-w-md mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="w-full py-4 px-5 rounded-2xl bg-white text-[#155E45] font-extrabold text-sm sm:text-base shadow-xl hover:bg-emerald-50 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5 group"
+                >
+                  <Camera className="w-5 h-5 text-[#155E45] group-hover:scale-110 transition-transform" />
+                  <span>Buka Kamera Langsung</span>
+                </button>
 
-                  {/* Tombol Sekunder: Outline (Pilih dari Galeri Foto) */}
-                  <button
-                    type="button"
-                    onClick={() => galleryInputRef.current?.click()}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-transparent border-2 border-white/40 text-white font-bold text-xs sm:text-sm hover:bg-white/10 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <ImageIcon className="w-4 h-4 text-emerald-200" />
-                    <span>Pilih dari Galeri Foto</span>
-                  </button>
-                </div>
-
-
-              </motion.div>
-            ) : (
-              /* ========================================================== */
-              /* STATE 3: TAMPILAN HASIL PINDAI & FORMULIR LENGKAP          */
-              /* ========================================================== */
-              <motion.div
-                key="state-form-verified"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="bg-white border border-[#D5E4E0] rounded-3xl p-5 sm:p-7 shadow-xs space-y-6"
-              >
-                {/* Header Formulir */}
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-transparent border-2 border-white/40 text-white font-bold text-xs sm:text-sm hover:bg-white/10 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <ImageIcon className="w-4 h-4 text-emerald-200" />
+                  <span>Pilih dari Galeri Foto</span>
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* STATE 3: FORMULIR RINGKAS & HASIL VERIFIKASI AI */
+            <motion.div
+              key="state-form-verified"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="bg-white border border-[#D5E4E0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6"
+            >
+              {/* Header Card */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                 <div>
-                  <div className="flex items-center gap-2 text-[#38746D] mb-1">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider">
-                      Pusdalops-PB BPBD Kabupaten Indramayu
-                    </span>
-                  </div>
                   <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
-                    Formulir Lapor Titik Bencana
+                    Konfirmasi Laporan
                   </h2>
-                  <p className="text-xs text-[#4B635F] mt-1 leading-relaxed">
-                    Data terverifikasi akan disinkronkan langsung ke peta operasional SAR dan regu posko tanggap darurat.
+                  <p className="text-xs text-[#4B635F] mt-0.5">
+                    Periksa bukti foto dan pastikan lokasi sudah tepat sebelum dikirim.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleResetPhoto}
+                  className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Ganti Foto</span>
+                </button>
+              </div>
 
-                {/* ============================================================ */}
-                {/* THUMBNAIL FOTO TERVERIFIKASI AI CNN (94%)                    */}
-                {/* ============================================================ */}
-                {photos.length > 0 && (
-                  <div
-                    className={`p-3.5 sm:p-4 rounded-2xl ${
-                      aiScanResult
-                        ? aiScanResult.is_flood
-                          ? "bg-emerald-50/90 border-emerald-200"
-                          : aiScanResult.label === "review"
-                          ? "bg-amber-50/90 border-amber-200"
-                          : "bg-blue-50/90 border-blue-200"
-                        : "bg-emerald-50/90 border-emerald-200"
-                    } border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5`}
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 bg-black shadow-xs">
-                        <img
-                          src={photos[0]}
-                          alt="Foto Terverifikasi"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] font-extrabold text-center py-0.5">
-                          AI CNN
-                        </div>
-                      </div>
+              {/* FOTO HERO & BADGE AI (KAMERA SMART PREVIEW) */}
+              <div className="relative w-full h-52 sm:h-64 rounded-2xl overflow-hidden border border-gray-200 bg-gray-900 shadow-inner group">
+                <img
+                  src={photos[0]}
+                  alt="Bukti Foto Banjir"
+                  className="w-full h-full object-cover"
+                />
 
-                      <div className="min-w-0">
-                        <div
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${
-                            aiScanResult
-                              ? aiScanResult.is_flood
-                                ? "bg-emerald-600 text-white"
-                                : aiScanResult.label === "review"
-                                ? "bg-amber-600 text-white"
-                                : "bg-blue-600 text-white"
-                              : "bg-emerald-600 text-white"
-                          } text-[10.5px] font-extrabold tracking-wide mb-1 shadow-xs`}
-                        >
-                          <CheckCircle2 className="w-3 h-3 text-white" />
-                          <span>
-                            {aiScanResult
-                              ? aiScanResult.is_flood
-                                ? `Foto Terverifikasi Banjir (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
-                                : aiScanResult.label === "review"
-                                ? `Perlu Ditinjau Manual (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
-                                : `Terdeteksi Bukan Banjir (${(aiScanResult.prob_non_flood * 100).toFixed(1)}%)`
-                              : "Foto Terverifikasi AI CNN"}
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-[#132422] truncate">
-                          {aiScanResult
-                            ? aiScanResult.is_flood
-                              ? "Bukti Ketinggian Genangan Tervalidasi"
-                              : "Perhatian: Indikasi Objek Bukan Genangan"
-                            : "Bukti Ketinggian Genangan Tervalidasi"}
-                        </p>
-                        <p className="text-[11px] text-[#4B635F] leading-tight mt-0.5">
-                          {aiScanResult
-                            ? aiScanResult.is_flood
-                              ? `Model MobileNetV2 mendeteksi genangan air (${(aiScanResult.prob_flood * 100).toFixed(1)}% validitas • ${aiScanResult.inference_ms} ms)`
-                              : "Model mendeteksi gambar kemungkinan bukan banjir. Pastikan foto memperlihatkan air genangan."
-                            : "Karakteristik batas air sesuai ambang rob pesisir"}
-                        </p>
-                      </div>
-                    </div>
+                {/* Top Badge: AI CNN Tag */}
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold tracking-wide border border-white/20">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span>MobileNetV2 CNN</span>
+                </div>
 
-                    {/* Tombol Opsi Ganti Foto & Tambah Foto */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {photos.length < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => additionalFileInputRef.current?.click()}
-                          className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-50 transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>+ Foto ({photos.length}/5)</span>
-                        </button>
+                {/* Bottom Overlay with Real-time AI Classification */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4 text-white space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold shadow-sm ${
+                        aiScanResult
+                          ? aiScanResult.is_flood
+                            ? "bg-emerald-500 text-white"
+                            : aiScanResult.label === "review"
+                            ? "bg-amber-500 text-white"
+                            : "bg-sky-500 text-white"
+                          : "bg-slate-700 text-white"
+                      }`}
+                    >
+                      {aiScanResult?.is_flood ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      ) : aiScanResult?.label === "review" ? (
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5" />
                       )}
-                      <button
-                        type="button"
-                        onClick={handleResetPhoto}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Ganti Foto</span>
-                      </button>
-                    </div>
+                      <span>
+                        {aiScanResult
+                          ? aiScanResult.is_flood
+                            ? `Terverifikasi Banjir (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                            : aiScanResult.label === "review"
+                            ? `Perlu Tinjauan Petugas (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                            : `Terdeteksi Bukan Banjir (${(aiScanResult.prob_non_flood * 100).toFixed(1)}%)`
+                          : isAiAnalyzing
+                          ? "Menganalisis Foto..."
+                          : "Foto Terverifikasi AI"}
+                      </span>
+                    </span>
+                    {aiScanResult?.inference_ms && (
+                      <span className="text-[10px] text-gray-300 font-mono">
+                        {aiScanResult.inference_ms} ms
+                      </span>
+                    )}
                   </div>
-                )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* ============================================================ */}
-                  {/* 1. KATEGORI KEJADIAN                                         */}
-                  {/* ============================================================ */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#132422] mb-2 uppercase tracking-wider">
-                      1. Kategori Kejadian <span className="text-rose-500">*</span>
+                  <p className="text-[11.5px] text-gray-200 leading-snug">
+                    {aiScanResult
+                      ? aiScanResult.is_flood
+                        ? "Model AI mengonfirmasi genangan air tervalidasi. Laporan siap dikirim ke posko siaga."
+                        : aiScanResult.label === "review"
+                        ? "Tingkat keyakinan berada di rentang ambang. Petugas posko akan memverifikasi foto secara visual."
+                        : "Model mendeteksi gambar bukan air genangan. Tetap lanjutkan jika lokasi memang terdampak."
+                      : "Memeriksa karakteristik visual genangan air..."}
+                  </p>
+                </div>
+              </div>
+
+              {/* FORMULIR PELAPORAN BERSIH */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* FIELD 1: LOKASI KEJADIAN */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs sm:text-sm font-bold text-[#132422] flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-[#38746D]" />
+                      <span>Titik Lokasi Kejadian</span>
+                      <span className="text-rose-500">*</span>
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {(Object.keys(CATEGORY_CONFIG) as ReportCategoryCode[]).map((code) => {
-                        const item = CATEGORY_CONFIG[code];
-                        const Icon = item.icon;
-                        const isSelected = category === code;
-                        return (
-                          <button
-                            type="button"
-                            key={code}
-                            onClick={() => setCategory(code)}
-                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                              isSelected
-                                ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F] ring-1 ring-[#38746D]"
-                                : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
-                            }`}
-                          >
-                            <div
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                                isSelected
-                                  ? "bg-[#38746D] text-white"
-                                  : "bg-white text-[#38746D] border border-[#D5E4E0]"
-                              }`}
-                            >
-                              <Icon className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <span className="block text-xs font-bold leading-tight text-[#132422]">
-                                {item.label}
-                              </span>
-                              <span className="block text-[10px] text-[#718783] line-clamp-1 mt-0.5">
-                                {item.desc}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGetGPS}
+                      disabled={isLocating}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] text-[11px] font-bold border border-[#38746D]/20 transition-all cursor-pointer active:scale-95"
+                    >
+                      <Crosshair
+                        className={`w-3.5 h-3.5 ${
+                          isLocating ? "animate-spin text-[#38746D]" : ""
+                        }`}
+                      />
+                      <span>{isLocating ? "Mengunci GPS..." : "Kunci Ulang GPS"}</span>
+                    </button>
                   </div>
 
-                  {/* ============================================================ */}
-                  {/* 2. ESTIMASI KETINGGIAN AIR & 3. TINGKAT KEPARAHAN / URGENSI   */}
-                  {/* ============================================================ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                        2. Estimasi Ketinggian Air
-                      </label>
-                      <select
-                        value={waterLevel}
-                        onChange={(e) => setWaterLevel(e.target.value as WaterLevelCode)}
-                        className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                      >
-                        <option value="ANKLE">Semata Kaki (10–30 cm)</option>
-                        <option value="KNEE">Setinggi Betis / Lutut (40–60 cm)</option>
-                        <option value="THIGH">Setinggi Paha (70–90 cm)</option>
-                        <option value="WAIST">Setinggi Pinggang (100–120 cm)</option>
-                        <option value="ABOVE_CHEST">Di Atas Dada / Rumah (&gt; 120 cm)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                        3. Tingkat Keparahan / Urgensi
-                      </label>
-                      <select
-                        value={severity}
-                        onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
-                        className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] cursor-pointer"
-                      >
-                        <option value="LOW">Rendah — Genangan jalan desa, masih bisa dilalui</option>
-                        <option value="MEDIUM">Sedang — Air mulai masuk pekarangan & teras</option>
-                        <option value="HIGH">Tinggi — Air masuk ruang rumah, perabotan terendam</option>
-                        <option value="CRITICAL">Kritis — Arus deras, ada warga rentan butuh evakuasi</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* ============================================================ */}
-                  {/* 4. KEBUTUHAN MENDESAK WARGA                                  */}
-                  {/* ============================================================ */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                      4. Kebutuhan Mendesak Warga (Bisa pilih lebih dari satu)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {URGENT_NEEDS_LIST.map((item) => (
-                        <button
-                          type="button"
-                          key={item}
-                          onClick={() => toggleUrgentNeed(item)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                            urgentNeeds.includes(item)
-                              ? "bg-[#1D443F] text-white border-[#1D443F] shadow-xs"
-                              : "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0] hover:bg-gray-100"
-                          }`}
-                        >
-                          {urgentNeeds.includes(item) ? "✓ " : "+ "}
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ============================================================ */}
-                  {/* 5. LOKASI OTOMATIS (PINPOINT GPS TERDETEKSI)                 */}
-                  {/* ============================================================ */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-[#132422] uppercase tracking-wider">
-                        5. Lokasi Otomatis (Pinpoint GPS) <span className="text-rose-500">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleGetGPS}
-                        disabled={isLocating}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] text-[11px] font-bold border border-[#38746D]/20 transition-all cursor-pointer active:scale-95"
-                      >
-                        <Crosshair className={`w-3.5 h-3.5 ${isLocating ? "animate-spin text-[#38746D]" : ""}`} />
-                        <span>{isLocating ? "Mengunci GPS..." : "Kunci Ulang GPS"}</span>
-                      </button>
-                    </div>
-
+                  <div className="relative">
                     <input
                       type="text"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Ketik alamat atau patokan: Desa, RT/RW, gang, dekat masjid/balai desa"
+                      placeholder="Ketik patokan lokasi: Nama Desa, RT/RW, gang, dekat balai desa / masjid"
                       required
-                      className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
+                      className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
                     />
+                  </div>
 
-                    {/* Feedback Sinyal GPS */}
-                    {gpsCoords && (
-                      <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-semibold">
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>
-                            GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)} (Akurasi ±{gpsCoords.accuracy || 8}m)
-                          </span>
+                  {/* Feedback Sinyal GPS */}
+                  {gpsCoords && (
+                    <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>
+                          GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)} (±{gpsCoords.accuracy || 8}m)
                         </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGpsCoords(null)}
+                        className="text-xs text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  )}
+
+                  {gpsError && (
+                    <p className="text-[11px] text-amber-800 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                      <span>{gpsError}</span>
+                    </p>
+                  )}
+
+                  {/* Quick Village Chips */}
+                  <div className="pt-1 space-y-1.5">
+                    <span className="text-[10.5px] text-[#718783] block font-semibold">
+                      Pilihan cepat wilayah rawan rob / genangan:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_LOCATIONS.map((loc) => (
                         <button
                           type="button"
-                          onClick={() => setGpsCoords(null)}
-                          className="text-xs text-rose-600 hover:underline cursor-pointer"
+                          key={loc}
+                          onClick={() => {
+                            if (!location.includes(loc)) {
+                              setLocation((prev) =>
+                                prev ? `${prev}, Desa ${loc}` : `Desa ${loc}`
+                              );
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] text-[#4B635F] hover:text-[#1D443F] transition-colors cursor-pointer"
                         >
-                          Batal
+                          + {loc}
                         </button>
-                      </div>
-                    )}
-
-                    {gpsError && (
-                      <p className="text-[11px] text-rose-600 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>{gpsError}</span>
-                      </p>
-                    )}
-
-                    {/* Quick Village Chips */}
-                    <div className="pt-1">
-                      <span className="text-[10px] text-[#718783] block mb-1 font-semibold">
-                        Pilih cepat desa / wilayah rawan:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {QUICK_LOCATIONS.map((loc) => (
-                          <button
-                            type="button"
-                            key={loc}
-                            onClick={() => {
-                              if (!location.includes(loc)) {
-                                setLocation((prev) => (prev ? `${prev}, Desa ${loc}` : `Desa ${loc}`));
-                              }
-                            }}
-                            className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] text-[#4B635F] hover:text-[#1D443F] transition-colors cursor-pointer"
-                          >
-                            + {loc}
-                          </button>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                   </div>
+                </div>
 
-                  {/* Judul Ringkas Kondisi (Opsional jika ingin disesuaikan) */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                      Judul Ringkas Kondisi (Opsional)
-                    </label>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Contoh: Genangan masuk pemukiman, akses jalan tertutup 50 cm"
-                      className="w-full h-11 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl px-4 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] transition-colors"
-                    />
-                  </div>
+                {/* FIELD 2: KETERANGAN TAMBAHAN */}
+                <div className="space-y-1.5">
+                  <label className="text-xs sm:text-sm font-bold text-[#132422] flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#38746D]" />
+                    <span>Keterangan Tambahan / Kebutuhan Mendesak</span>
+                    <span className="text-[11px] font-normal text-[#718783]">(Opsional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Contoh: Air masuk teras setinggi 50 cm, ada lansia butuh perahu evakuasi..."
+                    className="w-full bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl p-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] resize-none"
+                  />
+                </div>
 
-                  {/* Catatan Tambahan (Opsional) */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#132422] mb-1.5 uppercase tracking-wider">
-                      Catatan Tambahan (Opsional)
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Contoh: Ada 2 lansia di rumah panggung ujung gang butuh tandu evakuasi segera."
-                      className="w-full bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl p-3 text-xs sm:text-sm text-[#132422] outline-none focus:border-[#38746D] resize-none"
-                    />
-                  </div>
+                {/* TOMBOL BESAR KIRIM LAPORAN */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !location.trim()}
+                    className="w-full py-4 rounded-2xl bg-[#1D443F] hover:bg-[#255851] active:scale-98 disabled:opacity-50 text-white text-sm sm:text-base font-bold shadow-lg shadow-[#1D443F]/20 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                  >
+                    <Send className="w-5 h-5 text-[#88BDB6]" />
+                    <span>
+                      {isSubmitting
+                        ? "Mengirim Laporan ke BPBD..."
+                        : "Kirim Laporan Darurat Sekarang"}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
-                  {/* ============================================================ */}
-                  {/* 6. TOMBOL BESAR DI BAGIAN PALING BAWAH                       */}
-                  {/* ============================================================ */}
-                  <div className="pt-3">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || !location.trim()}
-                      className="w-full py-4 rounded-2xl bg-[#1D443F] hover:bg-[#24544E] active:scale-98 disabled:opacity-50 text-white text-sm sm:text-base font-bold shadow-lg shadow-[#1D443F]/20 transition-all cursor-pointer flex items-center justify-center gap-2.5"
-                    >
-                      <Send className="w-5 h-5 text-[#88BDB6]" />
-                      <span>
-                        {isSubmitting
-                          ? "Mengirim Laporan ke BPBD Indramayu..."
-                          : "Kirim Laporan Darurat Sekarang"}
-                      </span>
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ==================================================== */}
-        {/* KOLOM KANAN: SECTION RIWAYAT ADUAN SAYA (5 COLS)     */}
-        {/* ==================================================== */}
-        <div
-          className={`md:col-span-5 space-y-4 ${
-            mobileTab === "FORM" ? "hidden md:block" : "block"
-          }`}
-        >
+      {/* ========================================================= */}
+      {/* TAB 2: RIWAYAT ADUAN SAYA                                 */}
+      {/* ========================================================= */}
+      {activeTab === "HISTORY" && (
+        <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <div>
-              <h3 className="text-base font-bold text-[#132422]">Riwayat Aduan Saya</h3>
+              <h2 className="text-lg font-bold text-[#132422]">Riwayat Aduan Saya</h2>
               <p className="text-xs text-[#4B635F]">
-                Pantau progres tindak lanjut oleh tim SAR / BPBD
+                Pantau progres tindak lanjut oleh posko tanggap darurat BPBD
               </p>
             </div>
-            <a
-              href="tel:112"
-              className="px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 hover:bg-rose-100 transition-colors"
-              title="Panggilan Darurat BPBD"
+            <button
+              type="button"
+              onClick={() => setActiveTab("FORM")}
+              className="px-3 py-1.5 rounded-xl bg-[#1D443F] text-white text-xs font-bold hover:bg-[#255851] transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <PhoneCall className="w-3.5 h-3.5 text-rose-600" />
-              <span>112</span>
-            </a>
+              <Camera className="w-3.5 h-3.5" />
+              <span>Lapor Baru</span>
+            </button>
           </div>
 
-          {/* List Tiket Aduan */}
           <div className="space-y-3.5">
             {reports.length === 0 ? (
-              <div className="p-8 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2">
-                <Clock className="w-8 h-8 text-[#A4C6C1] mx-auto" />
+              <div className="p-10 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2.5">
+                <Clock className="w-10 h-10 text-[#A4C6C1] mx-auto" />
                 <p className="text-sm font-bold text-gray-700">Belum ada riwayat aduan</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
                   Laporan kejadian darurat yang Anda kirim akan otomatis tercatat dan dapat dipantau di sini secara real-time.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("FORM")}
+                  className="mt-2 px-4 py-2 rounded-xl bg-[#1D443F] text-white text-xs font-bold hover:bg-[#255851] cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Buat Laporan Sekarang</span>
+                </button>
               </div>
             ) : (
               reports.map((item) => {
@@ -1110,7 +880,7 @@ export default function WargaLaporPage() {
                       </span>
                     </div>
 
-                    {/* Judul & Kategori */}
+                    {/* Judul & Lokasi */}
                     <div>
                       <span className="text-[10px] font-extrabold text-[#38746D] uppercase tracking-wider block mb-0.5">
                         {item.category}
@@ -1124,32 +894,41 @@ export default function WargaLaporPage() {
                       </p>
                     </div>
 
-                    {/* Badge Ketinggian & Kebutuhan */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      {item.waterLevel && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10.5px] font-semibold">
-                          <Waves className="w-3 h-3 text-amber-600" />
-                          <span>{item.waterLevel}</span>
-                        </span>
-                      )}
-                      {item.urgentNeeds &&
-                        item.urgentNeeds.slice(0, 2).map((need, nIdx) => (
-                          <span
-                            key={nIdx}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 text-[10.5px] font-semibold"
-                          >
-                            <span>✓ {need}</span>
-                          </span>
-                        ))}
-                    </div>
+                    {/* Catatan / Keterangan Tambahan Jika Ada */}
+                    {item.notes && (
+                      <p className="text-[11.5px] text-[#4B635F] italic bg-[#F8FAF9] p-2.5 rounded-xl border border-gray-100">
+                        &ldquo;{item.notes}&rdquo;
+                      </p>
+                    )}
 
-                    {/* Thumbnail Foto Terunggah (Jika Ada) */}
+                    {/* Badge Ketinggian (Legacy Support) */}
+                    {(item.waterLevel || (item.urgentNeeds && item.urgentNeeds.length > 0)) && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {item.waterLevel && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10.5px] font-semibold">
+                            <Waves className="w-3 h-3 text-amber-600" />
+                            <span>{item.waterLevel}</span>
+                          </span>
+                        )}
+                        {item.urgentNeeds &&
+                          item.urgentNeeds.slice(0, 2).map((need, nIdx) => (
+                            <span
+                              key={nIdx}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 text-[10.5px] font-semibold"
+                            >
+                              <span>✓ {need}</span>
+                            </span>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Thumbnail Foto Terunggah */}
                     {item.photos && item.photos.length > 0 && (
                       <div className="flex items-center gap-2 overflow-x-auto pb-1">
                         {item.photos.map((imgUrl, pIdx) => (
                           <div
                             key={pIdx}
-                            className="w-14 h-14 rounded-xl border border-gray-200 overflow-hidden shrink-0"
+                            className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden shrink-0"
                           >
                             <img
                               src={imgUrl}
@@ -1182,7 +961,7 @@ export default function WargaLaporPage() {
             )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

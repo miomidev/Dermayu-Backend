@@ -116,9 +116,7 @@ export default function WargaEvakuasiPage() {
 
   // Modals state
   const [showReportModal, setShowReportModal] = useState(false);
-  const [showNavModal, setShowNavModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
-  const [selectedShelterForNav, setSelectedShelterForNav] = useState<ShelterItem | null>(null);
 
   // Report form state
   const [reportCategory, setReportCategory] = useState<ReportCategoryCode>("FLOOD");
@@ -354,11 +352,6 @@ export default function WargaEvakuasiPage() {
     } catch {}
   }, []);
 
-  const handleOpenNav = (shelter?: ShelterItem) => {
-    setSelectedShelterForNav(shelter || shelters[0]);
-    setShowNavModal(true);
-  };
-
   const toggleUrgentNeed = (item: string) => {
     setReportUrgentNeeds((prev) =>
       prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
@@ -503,12 +496,6 @@ export default function WargaEvakuasiPage() {
           reports={mapReportPoints}
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
-          onOpenReport={() => setShowReportModal(true)}
-          onOpenContacts={() => setShowContactsModal(true)}
-          onSelectShelter={(s) => {
-            const matched = shelters.find((item) => item.id === s.id);
-            if (matched) handleOpenNav(matched);
-          }}
         />
 
         {/* BOTTOM SHEET SLIDER INTERAKTIF ALA GOOGLE MAPS (MOBILE ONLY) */}
@@ -516,18 +503,12 @@ export default function WargaEvakuasiPage() {
           shelters={mapShelterPoints}
           reports={mapReportPoints}
           telemetry={telemetryPoints}
-          onSelectShelter={(s) => {
-            const matched = shelters.find((item) => item.id === s.id);
-            if (matched) handleOpenNav(matched);
-          }}
           onSelectReport={(r) => {
             const matched = complaints.find((c) => c.id === r.id);
             if (matched) {
               // focus on report
             }
           }}
-          onOpenReportModal={() => setShowReportModal(true)}
-          onOpenContactsModal={() => setShowContactsModal(true)}
         />
       </div>
 
@@ -771,78 +752,6 @@ export default function WargaEvakuasiPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* MODAL: PANDUAN RUTE EVAKUASI KE POSKO                        */}
-      {/* ============================================================ */}
-      {showNavModal && selectedShelterForNav && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 text-left max-h-[92vh] overflow-y-auto space-y-4">
-            <button
-              type="button"
-              onClick={() => setShowNavModal(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                <Navigation className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-[#132422]">Panduan Jalur Evakuasi Aman</h3>
-                <p className="text-xs text-[#4B635F]">Menuju {selectedShelterForNav.name}</p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#A4C6C1]/50 space-y-2 text-xs">
-              <div className="flex justify-between font-bold text-[#132422]">
-                <span>Status Posko:</span>
-                <span className="text-emerald-700">{selectedShelterForNav.status}</span>
-              </div>
-              <div className="flex justify-between text-[#4B635F]">
-                <span>Jarak dari Pesisir:</span>
-                <span className="font-semibold text-[#132422]">{selectedShelterForNav.distance}</span>
-              </div>
-              <div className="flex justify-between text-[#4B635F]">
-                <span>Sisa Kuota:</span>
-                <span className="font-semibold text-[#132422]">
-                  {selectedShelterForNav.capacityTotal - selectedShelterForNav.capacityFilled} Jiwa
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-[#132422] uppercase tracking-wider">
-                Langkah Jalur Darat Bebas Genangan:
-              </h4>
-              <ol className="space-y-2 text-xs text-[#4B635F] list-decimal list-inside bg-[#F8FAF9] p-3.5 rounded-2xl border border-[#D5E4E0]">
-                <li>Keluar dari gang pemukiman ke arah timur menuju Tanggul Nelayan.</li>
-                <li>Lintasi jembatan beton sekunder (permukaan kering dan di atas elevasi pasang).</li>
-                <li>Susuri jalan aspal Desa Eretan Wetan hingga pintu gerbang {selectedShelterForNav.name}.</li>
-                <li>Laporkan kedatangan ke Posko Medis / Meja Registrasi Kuwu.</li>
-              </ol>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <a
-                href={`tel:${selectedShelterForNav.contactPhone.replace(/[^0-9]/g, "")}`}
-                className="flex-1 py-2.5 px-3 rounded-xl border border-[#D5E4E0] text-[#132422] hover:bg-gray-100 text-xs font-bold transition flex items-center justify-center gap-1.5"
-              >
-                <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Telepon Pengelola Posko</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowNavModal(false)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-[#1D443F] text-white hover:bg-[#24544E] text-xs font-bold transition"
-              >
-                Tutup Panduan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================ */}
       {/* MODAL: DIREKTORI KONTAK DARURAT 24 JAM                       */}

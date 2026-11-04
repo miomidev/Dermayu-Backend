@@ -52,8 +52,8 @@ export function WhyUsSection() {
           </p>
         </motion.div>
 
-        {/* 2 Kolom Value Proposition Grid (2x2) */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:gap-7 max-w-4xl mx-auto">
+        {/* Value Proposition Grid (2 Kolom di Mobile, 4 Kolom Berjejer di Web/Desktop) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 w-full max-w-6xl mx-auto">
           {cards.map((c, idx) => (
             <motion.div
               key={idx}
@@ -66,7 +66,7 @@ export function WhyUsSection() {
                 ease: [0.16, 1, 0.3, 1],
               }}
               whileHover={{ y: -5 }}
-              className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#D5E4E0] hover:border-[#38746D] bg-[#EEF5F3]/70 p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between text-left transition-all duration-300 shadow-2xs hover:shadow-lg group cursor-pointer min-h-[160px] sm:min-h-[200px] lg:min-h-[220px]"
+              className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#D5E4E0] hover:border-[#38746D] bg-[#EEF5F3]/70 p-3.5 sm:p-5 lg:p-6 flex flex-col justify-between text-left transition-all duration-300 shadow-2xs hover:shadow-lg group cursor-pointer min-h-[160px] sm:min-h-[190px] lg:min-h-[220px]"
             >
               {/* Layer Motion Fill: Mengisi warna Deep Teal dari Bawah ke Atas saat Hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#1D443F] to-[#2E6A63] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] z-0 pointer-events-none" />
@@ -74,7 +74,7 @@ export function WhyUsSection() {
               {/* Konten Kartu di Atas Layer Fill */}
               <div className="relative z-10 flex flex-col h-full justify-between">
                 {/* Nomor Urut 01, 02, 03, 04 di Pojok Kanan Atas */}
-                <div className="flex justify-end items-start mb-2 sm:mb-4 lg:mb-5">
+                <div className="flex justify-end items-start mb-2 sm:mb-3 lg:mb-4">
                   <span className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#38746D] group-hover:text-[#A4C6C1] transition-colors duration-300 font-sans">
                     {c.num}
                   </span>
@@ -82,10 +82,10 @@ export function WhyUsSection() {
 
                 {/* Judul & Deskripsi */}
                 <div>
-                  <h3 className="text-xs sm:text-base lg:text-lg font-bold text-[#132422] group-hover:text-white transition-colors duration-300 leading-snug mb-1 sm:mb-2">
+                  <h3 className="text-xs sm:text-sm lg:text-base font-bold text-[#132422] group-hover:text-white transition-colors duration-300 leading-snug mb-1 sm:mb-2">
                     {c.title}
                   </h3>
-                  <p className="text-[10px] sm:text-xs lg:text-sm text-[#4B635F] leading-relaxed group-hover:text-[#EEF5F3] transition-colors duration-300">
+                  <p className="text-[10px] sm:text-[11px] lg:text-xs text-[#4B635F] leading-relaxed group-hover:text-[#EEF5F3] transition-colors duration-300">
                     {c.desc}
                   </p>
                 </div>

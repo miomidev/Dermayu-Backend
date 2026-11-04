@@ -16,7 +16,7 @@ interface StatusSiagaCardProps {
   className?: string;
 }
 
-interface ThemeConfig {
+export interface ThemeConfig {
   containerBg: string;
   borderColor: string;
   titleColor: string;
@@ -29,7 +29,7 @@ interface ThemeConfig {
   illustration: "bell_amber" | "bell_rose" | "shield";
 }
 
-const SIAGA_CONFIGS: Record<SiagaLevel, ThemeConfig> = {
+export const SIAGA_CONFIGS: Record<SiagaLevel, ThemeConfig> = {
   NORMAL: {
     containerBg: "bg-white",
     borderColor: "border-[#38746D]/20 sm:border-[#E8F1EE]",
@@ -87,7 +87,7 @@ const SIAGA_CONFIGS: Record<SiagaLevel, ThemeConfig> = {
 /**
  * 3D Ringing Bell Illustration dengan efek getar/soundwave sesuai referensi Gambar 2
  */
-function RingingBell3D({ color = "amber" }: { color?: "amber" | "rose" }) {
+export function RingingBell3D({ color = "amber" }: { color?: "amber" | "rose" }) {
   const isRose = color === "rose";
   const mainGradStart = isRose ? "#F43F5E" : "#FB923C";
   const mainGradEnd = isRose ? "#BE123C" : "#EA580C";
@@ -204,7 +204,7 @@ function RingingBell3D({ color = "amber" }: { color?: "amber" | "rose" }) {
  * Perisai Aman 3D untuk Status Normal (Aman)
  * Menggunakan palet Dermayu Teal (#38746D, #EEF5F3) agar serasi dengan card Fitur Tanggap Banjir
  */
-function ShieldSafeIllustration() {
+export function ShieldSafeIllustration() {
   return (
     <motion.div
       animate={{ y: [-2, 2, -2], rotate: [-1, 1, -1] }}

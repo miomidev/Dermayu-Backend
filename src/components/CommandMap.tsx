@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Layers, ShieldCheck, MapPin, ExternalLink, RefreshCw } from "lucide-react";
+import indramayuBoundaryData from "@/data/indramayuBoundary.json";
+import { Layers, ShieldCheck, MapPin, ExternalLink, RefreshCw, AlertTriangle, Waves, Home } from "lucide-react";
 
 interface MapReport {
   id: string;
@@ -46,6 +48,45 @@ interface CommandMapProps {
   onSelectReport?: (report: MapReport) => void;
 }
 
+const createCommandPinIcon = (type: "posko" | "genangan" | "kritis") => {
+  const config = {
+    posko: {
+      bg: "bg-[#2D6A4F]",
+      icon: <Home className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />,
+    },
+    genangan: {
+      bg: "bg-amber-500",
+      icon: <Waves className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />,
+    },
+    kritis: {
+      bg: "bg-rose-600",
+      icon: <AlertTriangle className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />,
+    },
+  }[type];
+
+  const html = `
+    <div class="relative flex flex-col items-center group cursor-pointer filter drop-shadow-md">
+      ${
+        type === "kritis"
+          ? '<span class="absolute -top-1 w-9 h-9 rounded-full bg-rose-500/40 animate-ping pointer-events-none"></span>'
+          : ""
+      }
+      <div class="w-8 h-8 ${config.bg} rounded-full border-2 border-white shadow-md flex items-center justify-center relative z-10 transition-transform group-hover:scale-110">
+        ${renderToStaticMarkup(config.icon)}
+      </div>
+      <div class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white -mt-[2px] relative z-0"></div>
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: "custom-pin-marker",
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -38],
+  });
+};
+
 export default function CommandMap({
   reports,
   evacuationPoints = [],
@@ -59,15 +100,25 @@ export default function CommandMap({
   const [showEvac, setShowEvac] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState<string>("ALL");
 
-  const indramayuCenter: [number, number] = [-6.3268, 108.3221];
+  const indramayuCenter: [number, number] = [-6.40, 108.28];
 
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+    // Batas koordinat pergerakan kamera Kabupaten Indramayu (lat: -6.70 s/d -6.20 dan lng: 107.90 s/d 108.60)
+    const indramayuBounds = L.latLngBounds(
+      [-6.70, 107.85],
+      [-6.20, 108.60]
+    );
+
     const map = L.map(mapContainerRef.current, {
       center: indramayuCenter,
-      zoom: 12,
+      zoom: 11,
+      minZoom: 9,
+      maxZoom: 18,
+      maxBounds: indramayuBounds.pad(0.08),
+      maxBoundsViscosity: 0.85,
       zoomControl: false,
     });
 
@@ -76,9 +127,28 @@ export default function CommandMap({
     // OpenStreetMap tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | DERMAYU',
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | BPBD DERMAYU',
       maxZoom: 19,
     }).addTo(map);
+
+    // Layer Batas Resmi Wilayah Kabupaten Indramayu (Tanpa isian warna / No Fill & Non-interaktif)
+    const boundaryLayer = L.geoJSON(indramayuBoundaryData as any, {
+      interactive: false,
+      style: {
+        fill: false,
+        fillOpacity: 0,
+        color: "#1B4D3E",
+        weight: 2.5,
+        opacity: 0.95,
+        dashArray: "6, 6",
+      },
+    }).addTo(map);
+
+    // Fit bounds saat pertama dimuat
+    const bounds = boundaryLayer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
+    }
 
     markersLayerRef.current = L.layerGroup().addTo(map);
     evacLayerRef.current = L.layerGroup().addTo(map);
@@ -122,25 +192,7 @@ export default function CommandMap({
       const isCritical = report.severity === "CRITICAL";
 
       // Custom DivIcon
-      const iconHtml = `
-        <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;">
-          ${
-            isCritical
-              ? `<span style="position: absolute; width: 100%; height: 100%; border-radius: 9999px; background-color: #ef4444; opacity: 0.75; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>`
-              : ""
-          }
-          <div style="width: 24px; height: 24px; border-radius: 9999px; background-color: ${bgColor}; border: 2px solid white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
-            ${report.severity === "CRITICAL" ? "!" : "•"}
-          </div>
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        html: iconHtml,
-        className: "custom-leaflet-marker",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
+      const customIcon = createCommandPinIcon(isCritical ? "kritis" : "genangan");
 
       const latestAi = report.media?.[0]?.ai_prediction;
       const popupHtml = `
@@ -177,18 +229,7 @@ export default function CommandMap({
         const lng = parseFloat(String(ep.longitude));
         if (isNaN(lat) || isNaN(lng)) return;
 
-        const evacIconHtml = `
-          <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background-color: #10b981; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); color: white; font-size: 12px;">
-            🏠
-          </div>
-        `;
-
-        const evacIcon = L.divIcon({
-          html: evacIconHtml,
-          className: "custom-leaflet-evac",
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        });
+        const evacIcon = createCommandPinIcon("posko");
 
         const evacPopup = `
           <div style="font-family: inherit; width: 200px; color: #0f172a;">

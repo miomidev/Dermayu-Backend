@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { PwaInstallModal } from "@/components/ui/PwaInstallModal";
+import { HeroPhoneMockup } from "@/components/landing/HeroPhoneMockup";
 
 export function HeroSection() {
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -134,14 +135,7 @@ export function HeroSection() {
             }}
             className="relative z-10 flex items-center justify-center w-full overflow-visible origin-bottom"
           >
-            <Image
-              src="/hero-dermayu.png"
-              alt="Antarmuka Pemantauan TMA dan Peringatan Dini DERMAYU Kabupaten Indramayu"
-              width={700}
-              height={912}
-              className="w-[300px] sm:w-[390px] md:w-[450px] lg:w-[500px] xl:w-[560px] max-w-none h-auto object-contain drop-shadow-2xl mx-auto select-none translate-x-7.5 md:translate-x-0"
-              priority
-            />
+            <HeroPhoneMockup />
           </motion.div>
         </div>
       </div>

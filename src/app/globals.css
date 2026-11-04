@@ -122,3 +122,34 @@ body {
   background: #F8FAFC !important;
   color: #000000 !important;
 }
+
+/* Tooltip Poligon Batas Kabupaten Indramayu (WebGIS DERMAYU) */
+.dermayu-boundary-tooltip {
+  background: #ffffff !important;
+  border: 1px solid #C7DDD6 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px -4px rgba(29, 68, 63, 0.18) !important;
+  padding: 4px 10px !important;
+  color: #1D443F !important;
+}
+
+.dermayu-boundary-tooltip::before {
+  border-top-color: #ffffff !important;
+}
+
+/* Marker GPS Lokasi Pengguna dengan Pulsa Radar */
+.custom-user-pulsing-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Custom Pin Teardrop Marker Google Maps Style */
+.custom-pin-marker,
+.custom-pin-marker * {
+  box-sizing: border-box;
+}
+
+.custom-pin-marker {
+  background: transparent !important;
+  border: none !important;
+}

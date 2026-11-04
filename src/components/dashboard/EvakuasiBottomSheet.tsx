@@ -18,6 +18,8 @@ import {
   ExternalLink,
   ChevronRight,
   ShieldCheck,
+  Share2,
+  Package,
 } from "lucide-react";
 import type {
   MapShelterPoint,
@@ -182,34 +184,6 @@ export function EvakuasiBottomSheet({
               <Building2 className="w-3 h-3 text-teal-600" />
               <span>{shelters.length} Posko Terdekat</span>
             </button>
-
-            {onOpenReportModal && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenReportModal();
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-[10.5px] font-bold text-rose-700 shrink-0 active:scale-95 transition-all"
-              >
-                <AlertTriangle className="w-3 h-3 text-rose-500" />
-                <span>Lapor Titik Genangan</span>
-              </button>
-            )}
-
-            {onOpenContactsModal && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenContactsModal();
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10.5px] font-bold text-amber-800 shrink-0 active:scale-95 transition-all"
-              >
-                <PhoneCall className="w-3 h-3 text-amber-600" />
-                <span>Darurat 112</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -412,33 +386,50 @@ export function EvakuasiBottomSheet({
                       </div>
                     </div>
 
-                    {/* Fasilitas */}
-                    {s.facilities && s.facilities.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {s.facilities.slice(0, 3).map((f) => (
-                          <span
-                            key={f}
-                            className="px-1.5 py-0.2 rounded text-[9px] bg-slate-100 text-slate-600"
-                          >
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Kontak Kuwu / Tagana */}
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-[10px] text-slate-500">
-                        {s.contactPerson} ({s.contactPhone})
-                      </span>
-                      <a
-                        href={`tel:${s.contactPhone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:underline"
+                    {/* Action Row */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectShelter) onSelectShelter(s);
+                          setIsExpanded(false);
+                        }}
+                        className="h-7 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[10.5px] font-black flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E]"
                       >
-                        <PhoneCall className="w-3 h-3" />
-                        <span>Hubungi</span>
-                      </a>
+                        <Navigation className="w-3 h-3 text-emerald-300" />
+                        <span>Arahkan Rute</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${s.contactPhone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          title={`Hubungi ${s.contactPerson} (${s.contactPhone})`}
+                          className="w-7 h-7 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 text-slate-700 flex items-center justify-center transition active:scale-95 shadow-2xs"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5 text-teal-700" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (navigator.share) {
+                              navigator.share({
+                                title: s.name,
+                                text: `Posko Evakuasi DERMAYU: ${s.name} (${s.location}) - Kapasitas: ${s.capacityFilled}/${s.capacityTotal} Jiwa. Hubungi: ${s.contactPerson} (${s.contactPhone})`,
+                                url: window.location.href,
+                              }).catch(() => {});
+                            } else {
+                              navigator.clipboard?.writeText(`${s.name} - ${s.location}`);
+                            }
+                          }}
+                          title="Bagikan Posko"
+                          className="w-7 h-7 rounded-xl border border-slate-200 bg-white hover:bg-sky-50 text-slate-700 flex items-center justify-center transition active:scale-95 shadow-2xs"
+                        >
+                          <Share2 className="w-3.5 h-3.5 text-sky-600" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

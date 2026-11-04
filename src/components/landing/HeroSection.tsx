@@ -1,44 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
-import { LogoDermayu } from "@/components/ui/LogoDermayu";
-import { X, ShieldAlert, Zap, Activity, Download } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { motion } from "motion/react";
+import { PwaInstallModal } from "@/components/ui/PwaInstallModal";
 
 export function HeroSection() {
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [installing, setInstalling] = useState(false);
 
-  const handleConfirmInstall = async () => {
-    if (typeof window === "undefined") return;
-    const promptEvent = (window as unknown as { __deferredInstallPrompt?: BeforeInstallPromptEvent })
-      .__deferredInstallPrompt;
-
-    if (!promptEvent) {
-      alert("Aplikasi DERMAYU dapat dipasang instan melalui menu browser Anda (titik tiga atau Share) -> Tambahkan ke Layar Utama.");
-      setShowInstallModal(false);
-      return;
-    }
-
-    setInstalling(true);
-    try {
-      await promptEvent.prompt();
-      const { outcome } = await promptEvent.userChoice;
-      console.log(`User interaction outcome: ${outcome}`);
-    } catch (err) {
-      console.error("[PWA] Install prompt error:", err);
-    } finally {
-      setInstalling(false);
-      (window as unknown as { __deferredInstallPrompt?: BeforeInstallPromptEvent | null }).__deferredInstallPrompt = null;
-      setShowInstallModal(false);
-    }
-  };
+  // Sinkronisasi pendengar event global jika tombol PWA di CtaBanner atau navbar diklik
+  useEffect(() => {
+    const handleOpen = () => setShowInstallModal(true);
+    window.addEventListener("open-pwa-modal", handleOpen);
+    return () => window.removeEventListener("open-pwa-modal", handleOpen);
+  }, []);
 
   return (
     <section
@@ -172,100 +147,10 @@ export function HeroSection() {
       </div>
 
       {/* Modal Petunjuk PWA iOS / Android */}
-      <AnimatePresence>
-        {showInstallModal && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 text-left"
-            >
-              {/* Mobile Grab Handle */}
-              <div className="flex justify-center -mt-2 mb-3 sm:hidden">
-                <div className="h-1 w-10 bg-slate-200 rounded-full" />
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={() => setShowInstallModal(false)}
-                className="absolute top-4 right-4 rounded-full p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                aria-label="Tutup"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              {/* App Identity Banner */}
-              <div className="flex items-center gap-3.5 pr-8">
-                <LogoDermayu
-                  variant="dark"
-                  width={48}
-                  height={48}
-                  className="w-12 h-12 object-contain shrink-0"
-                  priority
-                />
-                <div>
-                  <h3 className="text-base font-bold text-[#132422] leading-snug">
-                    Pasang Aplikasi DERMAYU
-                  </h3>
-                  <p className="text-xs text-[#4B635F] mt-0.5">dermayu.indramayukab.go.id</p>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#38746D]">
-                    <ShieldAlert className="h-3.5 w-3.5 text-[#38746D]" />
-                    <span>Peringatan Dini Offline &bull; Ringan &bull; 4.2 MB</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature Preview Badges */}
-              <div className="mt-4 pt-3.5 border-t border-[#E8F1EE] grid grid-cols-2 gap-2 text-xs text-[#132422]">
-                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EEF5F3]/80 border border-[#D5E4E0]">
-                  <Zap className="h-4 w-4 text-[#38746D] shrink-0" />
-                  <span className="text-[11px] font-medium leading-tight">Broadcast Siaga Cimanuk</span>
-                </div>
-                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EEF5F3]/80 border border-[#D5E4E0]">
-                  <Activity className="h-4 w-4 text-[#38746D] shrink-0" />
-                  <span className="text-[11px] font-medium leading-tight">Peta Offline Bebas Banjir</span>
-                </div>
-              </div>
-
-              {/* Platform Instructions */}
-              <div className="mt-4 p-3.5 rounded-2xl bg-[#EEF5F3] border border-[#D5E4E0] text-xs text-[#132422]">
-                <p className="font-bold flex items-center gap-1.5 text-[#132422]">
-                  <Download className="h-4 w-4 text-[#38746D]" />
-                  Langkah Pasang di iPhone / iPad (Safari):
-                </p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-[#4B635F]">
-                  1. Ketuk tombol <strong>Bagikan (Share)</strong> pada bilah bawah Safari.<br />
-                  2. Gulir ke bawah &rarr; pilih <strong>&quot;Tambahkan ke Layar Utama (Add to Home Screen)&quot;</strong>.<br />
-                  3. Ketuk <strong>Tambah</strong> di pojok kanan atas.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-5 flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setShowInstallModal(false)}
-                  className="flex-1 py-3 px-4 rounded-full border border-[#D5E4E0] text-[#4B635F] hover:bg-[#EEF5F3] font-semibold text-xs transition cursor-pointer text-center"
-                >
-                  Tutup
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmInstall}
-                  disabled={installing}
-                  className="flex-2 py-3 px-5 rounded-full bg-[#38746D] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
-                >
-                  <Download className="h-4 w-4 text-[#EEF5F3]" />
-                  <span>{installing ? "Memproses…" : "Pasang Sekarang"}</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <PwaInstallModal
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+      />
     </section>
   );
 }

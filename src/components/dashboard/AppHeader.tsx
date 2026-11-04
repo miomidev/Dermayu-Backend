@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   ExternalLink,
   ChevronDown,
@@ -15,6 +15,7 @@ import {
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
+import { ForkedRouteIcon, BeaconAlertIcon } from "@/components/ui/Icons";
 import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { AuthBackgroundDecor } from "@/components/auth/AuthBackgroundDecor";
 import {
@@ -23,6 +24,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { MobileSearchOverlay, searchableData, type SearchItem } from "@/components/dashboard/MobileSearchOverlay";
+import { Hero3DImage } from "@/components/dashboard/Hero3DImage";
 import { getActiveSession, clearUserSession, performLogout, type UserSession } from "@/utils/authSession";
 
 // Pemetaan judul dinamis berdasarkan pathname aktif
@@ -114,6 +116,44 @@ export function AppHeader({
   useEffect(() => {
     setIsSearchOpen(false);
   }, [pathname]);
+
+  // Melacak sumber navigasi (Internal Nav antar fitur vs Masuk dari Auth)
+  const prevPathnameRef = useRef<string | null>(null);
+  const [isInternalNav, setIsInternalNav] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fromAuth = sessionStorage.getItem("dermayu_from_auth") === "true";
+      if (fromAuth) {
+        setIsInternalNav(false);
+        sessionStorage.removeItem("dermayu_from_auth");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (prevPathnameRef.current !== null && prevPathnameRef.current !== pathname) {
+      setIsInternalNav(true);
+    }
+    prevPathnameRef.current = pathname;
+  }, [pathname]);
+
+  // Deteksi scroll untuk mengubah App Bar dari transparan ke frosted teal saat scroll melewati hero
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 150);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setIsScrolled(false);
+  }, [pathname]);
+
 
   // Sync session from storage / event
   useEffect(() => {
@@ -516,218 +556,214 @@ export function AppHeader({
       </header>
 
       {/* ============================================================ */}
-      {/* 2. MOBILE HEADER DENGAN ANIMASI FRAMER MOTION (< md)        */}
+      {/* 2. MOBILE HEADER & DYNAMIC HERO BANNER (< md)                */}
+      {/* Hero memanjang dari ujung atas layar dan memendek ke atas    */}
+      {/* Tanpa kedipan layar dan transisi warna app bar sealami fisis */}
       {/* ============================================================ */}
-      <div className="md:hidden">
-        <AnimatePresence mode="wait" initial={false}>
-          {isWargaDashboard ? (
-            /* ========================================================== */
-            /* A. KHUSUS DASBOR WARGA: KONTINER HIJAU MELENGKUNG (HERO)   */
-            /* ========================================================== */
+      <div className="md:hidden relative z-30 w-full">
+        {/* 2A. SIBLING 1: PERSISTENT STICKY APP BAR BACKGROUND BASE (z-10) */}
+        <div
+          className={`sticky top-0 z-10 w-full h-[60px] sm:h-16 pointer-events-none transition-colors duration-300 ${
+            isWargaDashboard && isScrolled
+              ? "bg-[#1D443F]/95 backdrop-blur-md border-b border-[#38746D]/30 shadow-md"
+              : "bg-white border-b border-slate-100 shadow-2xs"
+          }`}
+        />
+
+        {/* 2B. SIBLING 2: DYNAMIC GREEN HERO SURFACE (z-20) */}
+        {/* Mulai dari ujung paling atas layar (top: 0), memanjang ke bawah menutup app bar */}
+        {/* Ketika berpindah halaman, memendek ke atas ke ujung layar (height: 0) tanpa kedipan */}
+        <motion.div
+          initial={false}
+          animate={{
+            height: isWargaDashboard ? 285 : 0,
+          }}
+          transition={{
+            duration: 0.38,
+            ease: [0.32, 0.72, 0, 1] as const,
+          }}
+          className={`w-full overflow-hidden absolute top-0 left-0 right-0 z-20 rounded-b-[36px] transition-[box-shadow] duration-300 ${
+            isWargaDashboard ? "shadow-lg pointer-events-auto" : "shadow-none pointer-events-none"
+          }`}
+        >
+          <div className="w-full h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pt-[64px] pb-4 relative overflow-hidden flex flex-col justify-start">
+            {/* Ornamen Geometri Abstrak Identik 100% dengan Halaman Auth/Login */}
+            <AuthBackgroundDecor />
+
             <motion.div
-              key="mobile-dashboard-hero-container"
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 1 }}
-              exit={{ y: "-100%", opacity: 0 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-full h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pt-4 pb-4 rounded-b-[36px] shadow-lg relative z-20 overflow-hidden flex flex-col justify-between"
+              animate={{ y: isWargaDashboard ? 0 : -60 }}
+              transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
+              className="relative z-10 w-full flex flex-col justify-start mt-2"
             >
-              {/* Ornamen Geometri Abstrak Identik 100% dengan Halaman Auth/Login */}
-              <AuthBackgroundDecor />
-
-              {/* Konten Hero Dashboard Baru (Enter Phase 1): Masuk bersamaan dari arah bawah ke atas */}
-              <motion.div
-                initial={{ y: 30, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.25, ease: "easeOut" }}
-                className="relative z-10 w-full h-full flex flex-col justify-between"
-              >
-                {/* Bagian Atas: Header Logo & Search/Avatar + Baris Lokasi */}
-                <div className="shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <LogoDermayu
-                        variant="light"
-                        width={36}
-                        height={36}
-                        className="w-9 h-9 object-contain shrink-0"
-                        priority
-                      />
-                      <span className="text-xl font-black tracking-wider text-white">
-                        DERMAYU
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      {/* Tombol Search Putih Solid Sesuai Tema Aplikasi */}
-                      {!isSearchOpen ? (
-                        <motion.button
-                          layoutId="mobile-search-pill"
-                          type="button"
-                          onClick={() => setIsSearchOpen(true)}
-                          className="w-9 h-9 rounded-full bg-white text-[#1D443F] shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
-                          aria-label="Pencarian Cepat"
-                        >
-                          <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
-                        </motion.button>
-                      ) : (
-                        <div className="w-9 h-9" />
-                      )}
-
-                      {/* Tombol Notifikasi Bell di Antara Search dan Profil */}
-                      <div className="relative" ref={mobileNotifRef}>
-                        <button
-                          type="button"
-                          onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
-                          className="w-9 h-9 rounded-full bg-white text-[#1D443F] shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer relative"
-                          aria-label="Notifikasi Siaga"
-                        >
-                          <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
-                          {unreadCount > 0 && (
-                            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
-                          )}
-                        </button>
-
-                        {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
-                      </div>
-
-                      {/* Avatar Profil Inisial + Dropdown Menu */}
-                      <div className="relative" ref={mobileDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setDropdownOpen(!dropdownOpen)}
-                          className="flex items-center justify-center p-0.5 rounded-full cursor-pointer transition active:scale-95"
-                          aria-expanded={dropdownOpen}
-                          aria-label="Menu Pengguna"
-                        >
-                          <div className="w-9 h-9 rounded-full bg-[#EEF5F3] border border-[#38746D]/30 flex items-center justify-center text-sm font-bold text-[#38746D] shrink-0 shadow-xs">
-                            {initial}
-                          </div>
-                        </button>
-
-                        {dropdownOpen && renderUserDropdownMenu()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dropdown Lokasi Warga dengan Jarak Seimbang ke Atas & Bawah */}
-                  <div className="flex items-center gap-1.5 text-xs text-white/90 mt-3.5">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                    <span className="text-white/70 text-[11px]">Lokasi Anda:</span>
-                    <div className="flex items-center gap-1 font-bold text-white text-xs cursor-pointer hover:text-emerald-200">
-                      <span>Kandanghaur, Indramayu</span>
-                      <ChevronDown className="w-3.5 h-3.5 text-white/80" />
-                    </div>
-                  </div>
+              {/* Dropdown Lokasi Warga */}
+              <div className="flex items-center gap-1.5 text-xs text-white/90 mb-4">
+                <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="text-white/70 text-[11px]">Lokasi Anda:</span>
+                <div className="flex items-center gap-1 font-bold text-white text-xs cursor-pointer hover:text-emerald-200">
+                  <span>Kandanghaur, Indramayu</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-white/80" />
                 </div>
+              </div>
 
-                {/* Bagian Hero Content: Berjarak Simetris dari Baris Lokasi dan Posisi Lebih Pas Mendekati Batas Bawah */}
-                <div className="flex-1 flex items-center justify-between gap-2.5 mt-auto pt-3 pb-1">
-                  <div className="flex-1 min-w-0 pr-1">
-                    <h2 className="text-[17px] sm:text-lg font-black tracking-tight text-white leading-tight uppercase">
-                      TANGGAP BENCANA, SATU SENTUHAN!
-                    </h2>
-                    <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-1.5 leading-snug line-clamp-2">
-                      Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu.
-                    </p>
+              {/* Bagian Hero Content: Berjarak Simetris */}
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex-1 min-w-0 pr-1">
+                  <h2 className="text-[17px] sm:text-lg font-black tracking-tight text-white leading-tight uppercase">
+                    TANGGAP BENCANA, SATU SENTUHAN!
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-2 leading-relaxed line-clamp-2">
+                    Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu.
+                  </p>
+                  <div className="flex items-center gap-2 mt-4.5">
+                    {/* 1. Tombol Rute (Lingkaran dengan Ikon ForkedRouteIcon dari Navbar) */}
                     <Link
                       href="/warga/evakuasi"
-                      className="inline-flex items-center gap-1.5 mt-3.5 px-4.5 py-2.5 rounded-full bg-white text-[#1D443F] text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer"
+                      className="w-9.5 h-9.5 rounded-full bg-white text-[#1D443F] shadow-md hover:bg-emerald-50 flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer"
+                      aria-label="Cek Rute Evakuasi"
+                      title="Cek Rute Evakuasi"
                     >
-                      <span>Cek Rute Evakuasi</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <ForkedRouteIcon className="w-5 h-5 text-[#1D443F]" />
+                    </Link>
+
+                    {/* 2. Tombol Lapor (Ikon BeaconAlertIcon dari Navbar di Kiri & Tanpa Panah Kanan) */}
+                    <Link
+                      href="/warga/lapor"
+                      className="h-9.5 inline-flex items-center gap-1.5 px-3.5 sm:px-4 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                    >
+                      <BeaconAlertIcon className="w-4 h-4 shrink-0 text-[#1D443F]" />
+                      <span>Lapor Bencana</span>
                     </Link>
                   </div>
-
-                  {/* Gambar Hero Murni Tanpa Glassmorphism / Background Box */}
-                  <div className="w-32 h-32 sm:w-36 sm:h-36 relative shrink-0 flex items-center justify-center">
-                    <img
-                      src="/hero-dashboard-dermayu.png"
-                      alt="Tanggap Bencana DERMAYU"
-                      className="w-full h-full object-contain drop-shadow-md"
-                    />
-                  </div>
                 </div>
-              </motion.div>
+
+                {/* Gambar Hero 3D Parallax & Floating Animation */}
+                <Hero3DImage className="w-34 h-34 sm:w-38 sm:h-38" />
+              </div>
             </motion.div>
-          ) : (
-            /* ========================================================== */
-            /* B. HALAMAN FITUR LAIN: APP BAR PUTIH LOGO & PROFIL        */
-            /* ========================================================== */
-            <motion.div
-              key="mobile-feature-header-clean"
-              initial={{ y: -15, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -60, opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="bg-white border-b border-slate-100 text-slate-800 h-16 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs"
+          </div>
+        </motion.div>
+
+        {/* 2C. SIBLING 3: STICKY TOP APP BAR CONTROLS (z-30) */}
+        {/* Berada di layer atas (z-30), transparan sehingga memperlihatkan green hero di bawahnya */}
+        <header className="sticky top-0 z-30 w-full h-[60px] sm:h-16 -mt-[60px] sm:-mt-16 px-4 flex items-center justify-between bg-transparent pointer-events-auto">
+          {/* Brand Logo & Title */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link
+              href="/"
+              className="flex items-center gap-2 hover:opacity-85 transition-opacity"
+              title="Beranda DERMAYU"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 hover:opacity-85 transition-opacity"
-                  title="Beranda DERMAYU"
+              <div className="relative w-8.5 h-8.5 shrink-0">
+                <div
+                  className={`absolute inset-0 transition-opacity duration-300 ${
+                    isWargaDashboard ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <LogoDermayu
+                    variant="light"
+                    width={34}
+                    height={34}
+                    className="w-8.5 h-8.5 object-contain"
+                    priority
+                  />
+                </div>
+                <div
+                  className={`absolute inset-0 transition-opacity duration-300 ${
+                    isWargaDashboard ? "opacity-0" : "opacity-100"
+                  }`}
                 >
                   <LogoDermayu
                     variant="dark"
-                    width={32}
-                    height={32}
-                    className="w-8 h-8 object-contain shrink-0"
+                    width={34}
+                    height={34}
+                    className="w-8.5 h-8.5 object-contain"
+                    priority
                   />
-                  <span className="text-lg font-extrabold tracking-tight text-[#1D443F]">
-                    DERMAYU
-                  </span>
-                </Link>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Tombol Search Cepat Halaman Fitur */}
-                <button
-                  type="button"
-                  onClick={() => setIsSearchOpen(true)}
-                  className="w-9 h-9 rounded-full bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
-                  aria-label="Pencarian Cepat"
-                >
-                  <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
-                </button>
-
-                {/* Tombol Notifikasi Bell Halaman Fitur */}
-                <div className="relative" ref={mobileCleanNotifRef}>
-                  <button
-                    type="button"
-                    onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
-                    className="w-9 h-9 rounded-full bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer relative"
-                    aria-label="Notifikasi Siaga"
-                  >
-                    <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
-                    )}
-                  </button>
-
-                  {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
-                </div>
-
-                {/* Avatar Inisial di Mobile Header Halaman Fitur Lain */}
-                <div className="relative" ref={mobileCleanDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center justify-center p-0.5 rounded-full cursor-pointer transition active:scale-95"
-                  aria-expanded={dropdownOpen}
-                  aria-label="Menu Pengguna"
-                >
-                  <div className="w-9 h-9 rounded-full bg-[#EEF5F3] border border-[#38746D]/20 flex items-center justify-center text-sm font-bold text-[#38746D] shrink-0 shadow-xs">
-                    {initial}
-                  </div>
-                </button>
-
-                {dropdownOpen && renderUserDropdownMenu()}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <span
+                className={`text-xl font-black tracking-wider transition-colors duration-300 ${
+                  isWargaDashboard ? "text-white" : "text-[#1D443F]"
+                }`}
+              >
+                DERMAYU
+              </span>
+            </Link>
+          </div>
+
+          {/* Action Buttons: Search, Notifikasi Bell, Profil Avatar */}
+          <div className="flex items-center gap-2.5">
+            {/* Tombol Search Cepat */}
+            {!isSearchOpen ? (
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(true)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer ${
+                  isWargaDashboard
+                    ? "bg-white text-[#1D443F] shadow-sm hover:bg-slate-100"
+                    : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 hover:bg-slate-100"
+                }`}
+                aria-label="Pencarian Cepat"
+              >
+                <Search className="w-4 h-4 text-[#1D443F] stroke-[2.5]" />
+              </button>
+            ) : (
+              <div className="w-9 h-9" />
+            )}
+
+            {/* Tombol Notifikasi Bell */}
+            <div className="relative" ref={mobileNotifRef}>
+              <button
+                type="button"
+                onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer relative ${
+                  isWargaDashboard
+                    ? "bg-white text-[#1D443F] shadow-sm hover:bg-slate-100"
+                    : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 hover:bg-slate-100"
+                }`}
+                aria-label="Notifikasi Siaga"
+              >
+                <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
+                )}
+              </button>
+
+              {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
+            </div>
+
+            {/* Avatar Profil Inisial + Dropdown Menu */}
+            <div className="relative" ref={mobileDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center justify-center p-0.5 rounded-full cursor-pointer transition active:scale-95"
+                aria-expanded={dropdownOpen}
+                aria-label="Menu Pengguna"
+              >
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-[#38746D] shrink-0 shadow-xs transition-all duration-300 ${
+                    isWargaDashboard
+                      ? "bg-[#EEF5F3] border border-white/30"
+                      : "bg-[#EEF5F3] border border-[#38746D]/20"
+                  }`}
+                >
+                  {initial}
+                </div>
+              </button>
+
+              {dropdownOpen && renderUserDropdownMenu()}
+            </div>
+          </div>
+        </header>
+
+        {/* 2D. SIBLING 4: SPACER DALAM FLOW DOKUMEN AGAR KONTEN BAWAH MELUNCUR HALUS */}
+        <motion.div
+          initial={false}
+          animate={{ height: isWargaDashboard ? 225 : 0 }}
+          transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
+          className="w-full pointer-events-none"
+        />
       </div>
 
       {/* 3. Fullscreen Search Overlay Mobile dengan Saran Kata Kunci & Live Results */}

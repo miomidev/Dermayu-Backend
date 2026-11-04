@@ -163,7 +163,9 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
   useEffect(() => {
     if (prevPathnameRef.current !== pathname) {
       prevPathnameRef.current = pathname;
-      setIsRegisterMode(pathname.includes("register"));
+      const isReg = pathname.includes("register");
+      setAuthDirection(isReg ? 1 : -1);
+      setIsRegisterMode(isReg);
     }
     // Pastikan status exit auth selalu reset ke false saat berada di halaman auth
     setIsLoggingIn(false);
@@ -186,6 +188,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       }
 
       const isReg = path.includes("register");
+      setAuthDirection(isReg ? 1 : -1);
       prevPathnameRef.current = path;
       setIsRegisterMode(isReg);
     };
@@ -195,14 +198,86 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
   const isRegister = isRegisterMode;
 
+  const [authDirection, setAuthDirection] = useState<1 | -1>(1);
+
   const toggleMode = (targetMode?: "login" | "register") => {
     const nextState = targetMode !== undefined ? targetMode === "register" : !isRegisterMode;
+    setAuthDirection(nextState ? 1 : -1);
     const nextPath = nextState ? "/register" : "/login";
     prevPathnameRef.current = nextPath;
     setIsRegisterMode(nextState);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", nextPath);
     }
+  };
+
+  const mobileFormContainerVariants = {
+    initial: (dir: number = 1) => ({
+      opacity: 0,
+      x: (typeof dir === "number" ? dir : 1) * 45,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.35,
+        ease: [0.16, 1, 0.3, 1] as const,
+        staggerChildren: 0.07,
+        delayChildren: 0.05,
+      },
+    },
+    exit: (dir: number = 1) => ({
+      opacity: 0,
+      x: -(typeof dir === "number" ? dir : 1) * 40,
+      transition: {
+        duration: 0.22,
+        ease: [0.32, 0.72, 0, 1] as const,
+      },
+    }),
+  };
+
+  const mobileFormItemVariants = {
+    initial: (dir: number = 1) => ({
+      opacity: 0,
+      x: (typeof dir === "number" ? dir : 1) * 16,
+      y: 6,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      transition: {
+        duration: 0.32,
+        ease: [0.16, 1, 0.3, 1] as const,
+      },
+    },
+    exit: {
+      opacity: 0,
+      transition: { duration: 0.15 },
+    },
+  };
+
+  const mobileTitleVariants = {
+    initial: (dir: number = 1) => ({
+      opacity: 0,
+      x: (typeof dir === "number" ? dir : 1) * 25,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.28,
+        ease: [0.16, 1, 0.3, 1] as const,
+      },
+    },
+    exit: (dir: number = 1) => ({
+      opacity: 0,
+      x: -(typeof dir === "number" ? dir : 1) * 25,
+      transition: {
+        duration: 0.2,
+        ease: [0.32, 0.72, 0, 1] as const,
+      },
+    }),
   };
 
   // Variasi animasi stagger untuk item formulir desktop
@@ -243,6 +318,9 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       role: string;
       district?: string;
     }) => {
+      try {
+        sessionStorage.setItem("dermayu_from_auth", "true");
+      } catch {}
       setIsLoggingIn(true);
       const session = saveUserSession(userObj);
       touchDashboardActivity();
@@ -451,6 +529,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
       // Ubah state form ke mode Login secara internal dengan animasi geser panel yang sama
       prevPathnameRef.current = "/login";
+      setAuthDirection(-1);
       setIsRegisterMode(false);
       if (typeof window !== "undefined") {
         window.history.replaceState(null, "", "/login");
@@ -483,22 +562,11 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           {/* Ornamen Geometri Abstrak Identik dengan Dashboard */}
           <AuthBackgroundDecor />
 
-          {/* Tombol Kembali ke Beranda Mobile (Pojok Kiri Atas) */}
-          <Link
-            href="/"
-            className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 hover:bg-black/35 text-white/90 text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer"
-            aria-label="Kembali ke Beranda"
-            title="Kembali ke Beranda"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Beranda</span>
-          </Link>
-
           {/* Brand Logo & Keterangan (Exit Phase 2: Meluncur ke atas dengan delay 0.1s) */}
           <motion.div
             animate={isLoggingIn ? { y: -40, opacity: 0 } : { y: 0, opacity: 1 }}
             transition={{ duration: 0.35, delay: isLoggingIn ? 0.1 : 0, ease: "easeOut" }}
-            className="flex flex-col items-center text-center z-10"
+            className="flex flex-col items-center text-center z-10 w-full px-4"
           >
             <LogoDermayu
               variant="light"
@@ -507,14 +575,26 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               priority
               className="w-12 h-12 object-contain mb-2 drop-shadow-sm"
             />
-            <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
-            </h1>
-            <p className="text-xs text-[#D1E5E2] max-w-xs mt-1 leading-relaxed opacity-95">
-              {isRegister
-                ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
-                : "Masuk untuk akses pantauan rute evakuasi dan pelaporan terpadu."}
-            </p>
+            <AnimatePresence mode="wait" custom={authDirection} initial={false}>
+              <motion.div
+                key={isRegister ? "mobile-auth-title-reg" : "mobile-auth-title-login"}
+                custom={authDirection}
+                variants={mobileTitleVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="flex flex-col items-center text-center w-full"
+              >
+                <h1 className="text-2xl font-extrabold tracking-tight text-white">
+                  {isRegister ? "Buat Akun DERMAYU" : "Masuk Akun DERMAYU"}
+                </h1>
+                <p className="text-xs text-[#D1E5E2] max-w-xs mt-1 leading-relaxed opacity-95">
+                  {isRegister
+                    ? "Bergabung bersama tim relawan dan warga siaga banjir Indramayu."
+                    : "Masuk untuk akses pantauan rute evakuasi dan pelaporan terpadu."}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </motion.div>
         </motion.div>
 
@@ -532,40 +612,34 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 ? { duration: 0.45, ease: [0.32, 0.72, 0, 1] }
                 : { duration: 0.65, delay: 0.15, ease: [0.16, 1, 0.3, 1] as const }
             }
-            className="w-full max-w-md mx-auto bg-white rounded-[26px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 flex flex-col"
+            className="w-full max-w-md mx-auto bg-white rounded-[26px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
           >
-            {/* Error & Success Messages */}
-            {!isRegister && loginError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>{loginError}</span>
-              </div>
-            )}
-
-            {isRegister && regError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>{regError}</span>
-              </div>
-            )}
-
-            {isRegister && regSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span className="font-semibold">{regSuccess}</span>
-              </div>
-            )}
-
-            {/* FORM LOGIN MOBILE */}
-            {!isRegister ? (
-              <>
-                <motion.form
-                  onSubmit={handleLogin}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
-                  className="space-y-4 text-left"
+            <AnimatePresence mode="wait" custom={authDirection} initial={false}>
+              {!isRegister ? (
+                <motion.div
+                  key="mobile-auth-login"
+                  custom={authDirection}
+                  variants={mobileFormContainerVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="w-full flex flex-col"
                 >
+                  {/* Error Message */}
+                  {loginError && (
+                    <motion.div
+                      variants={mobileFormItemVariants}
+                      className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2"
+                    >
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <span>{loginError}</span>
+                    </motion.div>
+                  )}
+                  <motion.form
+                    variants={mobileFormItemVariants}
+                    onSubmit={handleLogin}
+                    className="space-y-4 text-left"
+                  >
                   <div>
                     <label className="block text-xs font-semibold text-[#132422] mb-1.5">
                       Email atau Nomor HP
@@ -578,7 +652,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                         type="text"
                         value={loginIdentifier}
                         onChange={(e) => setLoginIdentifier(e.target.value)}
-                        placeholder="superadmin@dermayu.id atau 0812..."
+                        placeholder="nama@email.com atau 0812..."
                         required
                         className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                       />
@@ -608,7 +682,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                         type={showLoginPassword ? "text" : "password"}
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                        placeholder="Masukkan kata sandi"
                         required
                         className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                       />
@@ -634,9 +708,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
                 {/* Switcher Teks (Belum punya akun? Daftar sekarang) */}
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                  variants={mobileFormItemVariants}
                   className="text-center pt-2.5 text-xs text-[#4B635F]"
                 >
                   <p>
@@ -652,22 +724,93 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 </motion.div>
 
                 {/* Divider & Tombol Sosial Bulat */}
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.42, ease: [0.16, 1, 0.3, 1] as const }}
-                >
+                <motion.div variants={mobileFormItemVariants}>
                   <SocialAuthButtons isRegister={false} />
                 </motion.div>
-              </>
+
+                {/* Akun Demo Cepat (Khusus Mode Login di Mobile) */}
+                <motion.div
+                  variants={mobileFormItemVariants}
+                  className="pt-2 border-t border-[#E8F1EE] text-left"
+                >
+                  <div className="flex items-center space-x-1.5 text-xs text-[#4B635F] mb-2 font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Akun Demo Cepat (Klik untuk Isi):</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFill("superadmin@dermayu.id", "AdminDermayu2026!")}
+                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                    >
+                      <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
+                        <span>Superadmin</span>
+                      </div>
+                      <div className="text-[10px] text-[#4B635F] truncate">superadmin@dermayu.id</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFill("petugas@dermayu.id", "AdminDermayu2026!")}
+                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                    >
+                      <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
+                        <span>Petugas</span>
+                      </div>
+                      <div className="text-[10px] text-[#4B635F] truncate">petugas@dermayu.id</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFill("warga@dermayu.id", "WargaDermayu2026!")}
+                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                    >
+                      <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
+                        <span>Warga</span>
+                      </div>
+                      <div className="text-[10px] text-[#4B635F] truncate">warga@dermayu.id</div>
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
             ) : (
               /* FORM REGISTER MOBILE */
-              <>
+              <motion.div
+                key="mobile-auth-register"
+                custom={authDirection}
+                variants={mobileFormContainerVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full flex flex-col"
+              >
+                {/* Error & Success Messages */}
+                {regError && (
+                  <motion.div
+                    variants={mobileFormItemVariants}
+                    className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{regError}</span>
+                  </motion.div>
+                )}
+
+                {regSuccess && (
+                  <motion.div
+                    variants={mobileFormItemVariants}
+                    className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="font-semibold">{regSuccess}</span>
+                  </motion.div>
+                )}
+
                 <motion.form
+                  variants={mobileFormItemVariants}
                   onSubmit={handleRegister}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
                   className="space-y-3 text-left"
                 >
                 <div>
@@ -823,9 +966,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
                 {/* Switcher Teks Register */}
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.32, ease: [0.16, 1, 0.3, 1] as const }}
+                  variants={mobileFormItemVariants}
                   className="text-center pt-2.5 text-xs text-[#4B635F]"
                 >
                   <p>
@@ -841,67 +982,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 </motion.div>
 
                 {/* Divider & Tombol Sosial Bulat */}
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.42, ease: [0.16, 1, 0.3, 1] as const }}
-                >
+                <motion.div variants={mobileFormItemVariants}>
                   <SocialAuthButtons isRegister={true} />
                 </motion.div>
-              </>
-            )}
-
-            {/* Akun Demo Cepat (Khusus Mode Login di Mobile) */}
-            {!isRegister && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.52, ease: [0.16, 1, 0.3, 1] as const }}
-                className="pt-2 border-t border-[#E8F1EE] text-left"
-              >
-                <div className="flex items-center space-x-1.5 text-xs text-[#4B635F] mb-2 font-medium">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Akun Demo Cepat (Klik untuk Isi):</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("superadmin@dermayu.id", "AdminDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Superadmin</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">superadmin@dermayu.id</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("petugas@dermayu.id", "AdminDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Petugas</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">petugas@dermayu.id</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("warga@dermayu.id", "WargaDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Warga</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">warga@dermayu.id</div>
-                  </button>
-                </div>
               </motion.div>
             )}
+          </AnimatePresence>
           </motion.div>
         </div>
       </div>
@@ -1215,7 +1301,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     type="text"
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
-                    placeholder="superadmin@dermayu.id atau 0812..."
+                    placeholder="nama@email.com atau 0812..."
                     required
                     className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-4 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />
@@ -1246,7 +1332,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     type={showLoginPassword ? "text" : "password"}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                    placeholder="Masukkan kata sandi"
                     required
                     className="w-full h-12 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl pl-10 pr-11 text-sm text-[#132422] placeholder:text-gray-400 outline-none focus:border-[#38746D] transition-colors"
                   />

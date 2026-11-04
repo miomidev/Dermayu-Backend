@@ -154,7 +154,7 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] flex flex-col md:flex-row antialiased overflow-x-hidden w-full max-w-full">
+    <div className="min-h-screen bg-[#F8FAF9] flex flex-col md:flex-row antialiased overflow-x-clip md:overflow-x-visible w-full max-w-full">
       {/* 1. SIDEBAR HIJAU DEEP TEAL */}
       <AppSidebar
         role={role}
@@ -166,7 +166,7 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
 
       {/* 2. AREA KONTEN UTAMA DENGAN PERSISTENT TOP HEADER */}
       <div
-        className={`flex-1 flex flex-col min-w-0 min-h-screen w-full max-w-full overflow-x-hidden transition-[margin] duration-300 ease-in-out ${
+        className={`flex-1 flex flex-col min-w-0 min-h-screen w-full max-w-full overflow-x-clip md:overflow-x-visible transition-[margin] duration-300 ease-in-out ${
           desktopCollapsed ? "md:ml-20" : "md:ml-64"
         }`}
       >
@@ -178,7 +178,7 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
 
         {/* Content Canvas (Hanya bagian ini yang berganti saat navigasi) */}
         <main
-          className={`flex-1 min-w-0 w-full max-w-full overflow-x-hidden flex flex-col ${
+          className={`flex-1 min-w-0 w-full max-w-full flex flex-col ${
             pathname === "/warga/evakuasi"
               ? "p-0 pb-0 md:p-6 lg:p-8 md:pb-8"
               : "p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-8"

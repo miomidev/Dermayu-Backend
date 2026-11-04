@@ -411,7 +411,7 @@ export function AppHeader({
       {/* 1. DESKTOP / LAYAR LEBAR HEADER (>= md)                      */}
       {/* Tetap Normal: Background Putih, Judul Halaman, Menu Dropdown */}
       {/* ============================================================ */}
-      <header className="hidden md:flex sticky top-0 h-16 bg-white border-b border-[#D5E4E0] px-6 lg:px-8 items-center justify-between z-20 shrink-0">
+      <header className="hidden md:flex sticky top-0 h-16 bg-white/95 backdrop-blur-md border-b border-[#D5E4E0] px-6 lg:px-8 items-center justify-between z-30 shrink-0 shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <h1 className="text-base lg:text-lg font-bold text-[#132422] truncate">
             {currentTitle}

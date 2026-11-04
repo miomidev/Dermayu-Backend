@@ -4,8 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
-  Droplets,
-  Activity,
   PhoneCall,
 } from "lucide-react";
 import { ForkedRouteIcon, BeaconAlertIcon } from "@/components/ui/Icons";
@@ -27,62 +25,61 @@ interface ThemeConfig {
   badgeText: string;
   badgeBorder: string;
   pulseColor: string;
-  debit: string;
-  radar: string;
+  summary: string;
   illustration: "bell_amber" | "bell_rose" | "shield";
 }
 
 const SIAGA_CONFIGS: Record<SiagaLevel, ThemeConfig> = {
   NORMAL: {
-    containerBg: "bg-[#F4FBF7]",
-    borderColor: "border-emerald-200",
-    titleColor: "text-emerald-950",
+    containerBg: "bg-white",
+    borderColor: "border-[#38746D]/20 sm:border-[#E8F1EE]",
+    titleColor: "text-slate-900",
     badgeLabel: "NORMAL (Aman)",
-    badgeBg: "bg-emerald-100",
-    badgeText: "text-emerald-800",
-    badgeBorder: "border-emerald-300",
-    pulseColor: "bg-emerald-500",
-    debit: "120 m³/s",
-    radar: "+15 cm",
+    badgeBg: "bg-[#EEF5F3]",
+    badgeText: "text-[#1D443F]",
+    badgeBorder: "border-[#38746D]/20",
+    pulseColor: "bg-[#38746D]",
+    summary:
+      "Debit air Rentang stabil (120 m³/s) dan pasang muara normal (+15 cm). Aktivitas warga dapat berjalan aman.",
     illustration: "shield",
   },
   SIAGA_3: {
-    containerBg: "bg-[#FFFBF0]",
-    borderColor: "border-amber-200",
-    titleColor: "text-amber-950",
+    containerBg: "bg-white",
+    borderColor: "border-amber-200 sm:border-[#E8F1EE]",
+    titleColor: "text-slate-900",
     badgeLabel: "SIAGA III (Siaga Sungai)",
-    badgeBg: "bg-amber-100",
-    badgeText: "text-amber-900",
-    badgeBorder: "border-amber-300",
+    badgeBg: "bg-amber-50",
+    badgeText: "text-amber-800",
+    badgeBorder: "border-amber-200",
     pulseColor: "bg-amber-500",
-    debit: "220 m³/s",
-    radar: "+35 cm",
+    summary:
+      "Debit air meningkat (240 m³/s) dan pasang laut naik (+45 cm). Warga pesisir diimbau waspada potensi genangan.",
     illustration: "bell_amber",
   },
   SIAGA_2: {
-    containerBg: "bg-[#FFF8F0]",
-    borderColor: "border-[#F5D5B8]",
-    titleColor: "text-[#3D1A0A]",
+    containerBg: "bg-white",
+    borderColor: "border-[#F5D5B8] sm:border-[#E8F1EE]",
+    titleColor: "text-slate-900",
     badgeLabel: "SIAGA II (Waspada Rob)",
-    badgeBg: "bg-[#FFE8CC]",
-    badgeText: "text-[#9A3412]",
+    badgeBg: "bg-[#FFF4E6]",
+    badgeText: "text-[#B45309]",
     badgeBorder: "border-[#FDBA74]",
     pulseColor: "bg-amber-500",
-    debit: "310 m³/s",
-    radar: "+65 cm",
+    summary:
+      "Debit tinggi (310 m³/s) dan rob pasang naik (+65 cm). Warga diimbau amankan barang berharga dan cek rute evakuasi.",
     illustration: "bell_amber",
   },
   SIAGA_1: {
-    containerBg: "bg-[#FFF1F2]",
-    borderColor: "border-rose-300",
-    titleColor: "text-rose-950",
+    containerBg: "bg-white",
+    borderColor: "border-rose-200 sm:border-[#E8F1EE]",
+    titleColor: "text-slate-900",
     badgeLabel: "SIAGA I (Darurat Banjir)",
-    badgeBg: "bg-rose-100",
-    badgeText: "text-rose-900",
-    badgeBorder: "border-rose-300",
+    badgeBg: "bg-rose-50",
+    badgeText: "text-rose-800",
+    badgeBorder: "border-rose-200",
     pulseColor: "bg-rose-500",
-    debit: "680 m³/s",
-    radar: "+145 cm",
+    summary:
+      "Luapan air kritis (>480 m³/s) dan rob tinggi (>+90 cm). Segera evakuasi mandiri menuju posko pengungsian terdekat.",
     illustration: "bell_rose",
   },
 };
@@ -102,7 +99,7 @@ function RingingBell3D({ color = "amber" }: { color?: "amber" | "rose" }) {
     <motion.div
       animate={{ rotate: [-5, 5, -5], y: [-1, 1, -1] }}
       transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-      className="relative w-15 h-15 sm:w-20 sm:h-20 shrink-0 select-none pointer-events-none flex items-center justify-center"
+      className="relative w-13 h-13 sm:w-16 sm:h-16 shrink-0 select-none pointer-events-none flex items-center justify-center"
     >
       <svg viewBox="0 0 84 84" fill="none" className="w-full h-full drop-shadow-sm">
         <defs>
@@ -205,27 +202,28 @@ function RingingBell3D({ color = "amber" }: { color?: "amber" | "rose" }) {
 
 /**
  * Perisai Aman 3D untuk Status Normal (Aman)
+ * Menggunakan palet Dermayu Teal (#38746D, #EEF5F3) agar serasi dengan card Fitur Tanggap Banjir
  */
 function ShieldSafeIllustration() {
   return (
     <motion.div
       animate={{ y: [-2, 2, -2], rotate: [-1, 1, -1] }}
       transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-      className="relative w-15 h-15 sm:w-20 sm:h-20 shrink-0 select-none pointer-events-none flex items-center justify-center"
+      className="relative w-13 h-13 sm:w-16 sm:h-16 shrink-0 select-none pointer-events-none flex items-center justify-center"
     >
       <svg viewBox="0 0 84 84" fill="none" className="w-full h-full drop-shadow-sm">
         <defs>
-          {/* Emerald 3D Gradient */}
+          {/* Dermayu Teal 3D Gradient */}
           <linearGradient id="shieldGrad" x1="20%" y1="10%" x2="85%" y2="90%">
-            <stop offset="0%" stopColor="#34D399" />
-            <stop offset="45%" stopColor="#10B981" />
-            <stop offset="100%" stopColor="#047857" />
+            <stop offset="0%" stopColor="#4A8F86" />
+            <stop offset="50%" stopColor="#38746D" />
+            <stop offset="100%" stopColor="#1D443F" />
           </linearGradient>
 
-          {/* Halo Ring Gradient */}
+          {/* Halo Ring Gradient Soft Teal */}
           <radialGradient id="shieldHalo" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#A7F3D0" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#A7F3D0" stopOpacity="0" />
+            <stop offset="0%" stopColor="#EEF5F3" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#EEF5F3" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -237,10 +235,10 @@ function ShieldSafeIllustration() {
           cx="42"
           cy="42"
           r="31"
-          stroke="#059669"
+          stroke="#38746D"
           strokeWidth="1.5"
           strokeDasharray="4 4"
-          opacity="0.25"
+          opacity="0.2"
         />
 
         {/* 3D Shield Base Path */}
@@ -252,9 +250,9 @@ function ShieldSafeIllustration() {
         {/* Inner Shield Bevel / Border Halus */}
         <path
           d="M42 19 C51.5 19 59.5 23.5 59.5 33.5 C59.5 47.5 48 58.5 42 62.5 C36 58.5 24.5 47.5 24.5 33.5 C24.5 23.5 32.5 19 42 19 Z"
-          stroke="#A7F3D0"
+          stroke="#A4DDD6"
           strokeWidth="1.5"
-          opacity="0.5"
+          opacity="0.45"
           fill="none"
         />
 
@@ -262,7 +260,7 @@ function ShieldSafeIllustration() {
         <path
           d="M26 31 C26 23 32 19 40 18 C33 21 28 27 28 36 C28 44 33 50 38 54 C33 51 26 44 26 31 Z"
           fill="#FFFFFF"
-          opacity="0.45"
+          opacity="0.35"
         />
 
         {/* Bold White Checkmark di Tengah */}
@@ -275,8 +273,8 @@ function ShieldSafeIllustration() {
         />
 
         {/* Partikel Kilau / Sparkle */}
-        <circle cx="63" cy="22" r="2.2" fill="#34D399" opacity="0.9" />
-        <circle cx="21" cy="54" r="1.6" fill="#34D399" opacity="0.8" />
+        <circle cx="63" cy="22" r="2.2" fill="#38746D" opacity="0.6" />
+        <circle cx="21" cy="54" r="1.6" fill="#38746D" opacity="0.5" />
       </svg>
     </motion.div>
   );
@@ -306,50 +304,39 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
 
   return (
     <section
-      className={`rounded-2xl sm:rounded-3xl p-3 sm:p-4 border shadow-xs relative overflow-hidden transition-all duration-300 ${config.containerBg} ${config.borderColor} ${className}`}
+      className={`rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 border shadow-2xs relative overflow-hidden transition-all duration-300 ${config.containerBg} ${config.borderColor} ${className}`}
     >
       {/* ============================================================ */}
-      {/* 1. BAGIAN ATAS: TEKS INFORMASI (KIRI) & ILUSTRASI (KANAN)    */}
+      {/* 1. HEADER KARTU: JUDUL WILAYAH (KIRI) & STATUS SIAGA (KANAN) */}
+      {/* Diposisikan space-between agar status siaga di pojok kanan    */}
       {/* ============================================================ */}
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-          {/* Baris 1: Judul Wilayah */}
-          <h3 className={`text-xs sm:text-sm font-black tracking-tight leading-snug truncate ${config.titleColor}`}>
-            Status Siaga Banjir {district}
-          </h3>
+      <div className="flex items-center justify-between gap-2">
+        {/* Baris 1: Judul Wilayah */}
+        <h3 className={`text-xs sm:text-sm font-black tracking-tight leading-snug truncate ${config.titleColor}`}>
+          Status Siaga Banjir {district}
+        </h3>
 
-          {/* Baris 2: Badge Status Siaga (Tinggi & Ukuran Selaras Tombol Hero, Klik untuk beralih mode preview) */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setLevel((prev) => (prev === "NORMAL" ? "SIAGA_2" : "NORMAL"))}
-              title="Klik untuk beralih antara status Normal dan Siaga"
-              className={`h-8 sm:h-9.5 inline-flex items-center gap-1.5 px-3 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-black border shadow-2xs cursor-pointer active:scale-95 transition-all select-none ${config.badgeBg} ${config.badgeText} ${config.badgeBorder}`}
-            >
-              <span className={`w-2.5 h-2.5 rounded-full ${config.pulseColor} animate-pulse shrink-0`} />
-              <span>{config.badgeLabel}</span>
-            </button>
-          </div>
+        {/* Badge Status Siaga (Pojok Kanan dengan space-between) */}
+        <button
+          type="button"
+          onClick={() => setLevel((prev) => (prev === "NORMAL" ? "SIAGA_2" : "NORMAL"))}
+          title="Klik untuk beralih antara status Normal dan Siaga"
+          className={`h-7 sm:h-8 inline-flex items-center gap-1.5 px-2.5 sm:px-3 rounded-full text-[10.5px] sm:text-xs font-black border shadow-2xs cursor-pointer active:scale-95 transition-all select-none shrink-0 ${config.badgeBg} ${config.badgeText} ${config.badgeBorder}`}
+        >
+          <span className={`w-2 h-2 rounded-full ${config.pulseColor} animate-pulse shrink-0`} />
+          <span>{config.badgeLabel}</span>
+        </button>
+      </div>
 
-          {/* Baris 3: Metrik Telemetri (Wajib 1 Baris) */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 text-[10px] sm:text-[11.5px] text-slate-600 whitespace-nowrap overflow-hidden">
-            <span className="inline-flex items-center gap-1 shrink-0 font-medium">
-              <Droplets className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-              <span>
-                Debit Rentang: <strong className="text-slate-900 font-bold">{config.debit}</strong>
-              </span>
-            </span>
-            <span className="text-slate-300 shrink-0">•</span>
-            <span className="inline-flex items-center gap-1 shrink-0 font-medium">
-              <Activity className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-              <span>
-                Radar Muara: <strong className="text-slate-900 font-bold">{config.radar}</strong>
-              </span>
-            </span>
-          </div>
-        </div>
+      {/* ============================================================ */}
+      {/* 2. BODY KARTU: RINGKASAN INFORMATIF (KIRI) & ILUSTRASI (KANAN)*/}
+      {/* ============================================================ */}
+      <div className="flex items-center justify-between gap-2.5 pt-2 sm:pt-2.5">
+        <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed flex-1 min-w-0">
+          {config.summary}
+        </p>
 
-        {/* Ilustrasi Status 3D (Kanan Atas) */}
+        {/* Ilustrasi Status 3D (Kanan) */}
         <div className="shrink-0 flex items-center justify-center pl-1">
           {config.illustration === "bell_amber" && <RingingBell3D color="amber" />}
           {config.illustration === "bell_rose" && <RingingBell3D color="rose" />}
@@ -360,7 +347,7 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
       {/* ============================================================ */}
       {/* 2. BAGIAN BAWAH: TOMBOL AKSI BERDAMPINGAN (1 BARIS PENUH)    */}
       {/* ============================================================ */}
-      <div className="pt-2.5 sm:pt-3">
+      <div className="pt-3 sm:pt-3.5">
         {isEmergency ? (
           <div className="flex items-center gap-2 w-full">
             {/* Tombol Utama: Rute Posko Terdekat (Tinggi h-9.5, Font-black, Ikon Rute Navbar) */}
@@ -368,7 +355,7 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
               href="/warga/posko"
               replace
               scroll={false}
-              className="h-9.5 flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 rounded-full bg-[#1D443F] hover:bg-[#153430] text-white text-[11px] sm:text-xs font-black shadow-md active:scale-95 transition-all truncate"
+              className="h-9.5 flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] sm:text-xs font-black shadow-md active:scale-95 transition-all truncate"
             >
               <ForkedRouteIcon className="w-4 h-4 text-white shrink-0" />
               <span className="truncate">Rute Posko Terdekat</span>
@@ -390,7 +377,7 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
               href="/warga/aduan"
               replace
               scroll={false}
-              className="h-9.5 w-full inline-flex items-center justify-center gap-1.5 px-4 rounded-full bg-[#1D443F] hover:bg-[#153430] text-white text-[11px] sm:text-xs font-black shadow-md active:scale-95 transition-all"
+              className="h-9.5 w-full inline-flex items-center justify-center gap-1.5 px-4 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] sm:text-xs font-black shadow-md active:scale-95 transition-all"
             >
               <BeaconAlertIcon className="w-4 h-4 text-white shrink-0" />
               <span>Pantau Laporan Banjir</span>

@@ -24,12 +24,12 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
 
   React.useEffect(() => {
     const checkNavVisibility = () => {
-      setIsForceHidden(document.body.classList.contains('hide-mobile-nav'));
+      setIsForceHidden(document.body.classList.contains("hide-mobile-nav"));
     };
     checkNavVisibility();
 
     const observer = new MutationObserver(checkNavVisibility);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
 
@@ -139,6 +139,8 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                replace
+                scroll={false}
                 className="relative -top-3 flex flex-col items-center justify-center group cursor-pointer"
               >
                 <div
@@ -163,11 +165,13 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
             );
           }
 
-          // 2. Regular Tab Navigation Items (Beranda, Rute, Posko, Akun)
+          // 2. Regular Tab Navigation Items (Beranda, Rute, Posko, Komunitas)
           return (
             <Link
               key={item.href}
               href={item.href}
+              replace
+              scroll={false}
               className={`flex flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95 cursor-pointer ${
                 isActive
                   ? "text-[#0E3D2D]"

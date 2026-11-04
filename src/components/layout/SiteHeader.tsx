@@ -107,6 +107,9 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
       initial={{ opacity: 0, y: -25 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}
       className="sticky top-0 z-50 border-b border-[#E8F1EE] bg-white/95 backdrop-blur-md"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 w-full">

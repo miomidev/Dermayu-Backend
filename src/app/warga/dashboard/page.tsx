@@ -1,9 +1,5 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { WargaDashboardContent } from "@/components/dashboard/WargaDashboardContent";
-
-export const viewport: Viewport = {
-  themeColor: "#38746D",
-};
 
 export const metadata: Metadata = {
   title: "Dashboard Warga | DERMAYU",

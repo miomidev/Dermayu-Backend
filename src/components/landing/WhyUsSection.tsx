@@ -32,7 +32,7 @@ export function WhyUsSection() {
       aria-label="Why Us Section"
       className="bg-white py-16 sm:py-20 lg:py-24 border-t border-[#E8F1EE] scroll-mt-20"
     >
-      <div className="max-w-6xl mx-auto px-6 sm:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header Serasi dengan FeaturesSection */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -52,8 +52,8 @@ export function WhyUsSection() {
           </p>
         </motion.div>
 
-        {/* 4 Column Value Proposition Grid dengan Nomor Angka Style Gambar 2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* 2 Kolom Value Proposition Grid (2x2) */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:gap-7 max-w-4xl mx-auto">
           {cards.map((c, idx) => (
             <motion.div
               key={idx}
@@ -66,26 +66,26 @@ export function WhyUsSection() {
                 ease: [0.16, 1, 0.3, 1],
               }}
               whileHover={{ y: -5 }}
-              className="relative overflow-hidden rounded-3xl border border-[#D5E4E0] hover:border-[#38746D] bg-[#EEF5F3]/70 p-7 sm:p-8 flex flex-col justify-between text-left transition-all duration-300 shadow-2xs hover:shadow-lg group cursor-pointer min-h-[250px] sm:min-h-[270px]"
+              className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#D5E4E0] hover:border-[#38746D] bg-[#EEF5F3]/70 p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between text-left transition-all duration-300 shadow-2xs hover:shadow-lg group cursor-pointer min-h-[160px] sm:min-h-[200px] lg:min-h-[220px]"
             >
               {/* Layer Motion Fill: Mengisi warna Deep Teal dari Bawah ke Atas saat Hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#1D443F] to-[#2E6A63] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] z-0 pointer-events-none" />
 
               {/* Konten Kartu di Atas Layer Fill */}
               <div className="relative z-10 flex flex-col h-full justify-between">
-                {/* Nomor Urut 01, 02, 03, 04 di Pojok Kanan Atas Sesuai Referensi Gambar */}
-                <div className="flex justify-end items-start mb-6 sm:mb-8">
-                  <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#38746D] group-hover:text-[#A4C6C1] transition-colors duration-300 font-sans">
+                {/* Nomor Urut 01, 02, 03, 04 di Pojok Kanan Atas */}
+                <div className="flex justify-end items-start mb-2 sm:mb-4 lg:mb-5">
+                  <span className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#38746D] group-hover:text-[#A4C6C1] transition-colors duration-300 font-sans">
                     {c.num}
                   </span>
                 </div>
 
                 {/* Judul & Deskripsi */}
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-[#132422] group-hover:text-white transition-colors duration-300 leading-snug mb-2.5">
+                  <h3 className="text-xs sm:text-base lg:text-lg font-bold text-[#132422] group-hover:text-white transition-colors duration-300 leading-snug mb-1 sm:mb-2">
                     {c.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-[#4B635F] leading-relaxed group-hover:text-[#EEF5F3] transition-colors duration-300">
+                  <p className="text-[10px] sm:text-xs lg:text-sm text-[#4B635F] leading-relaxed group-hover:text-[#EEF5F3] transition-colors duration-300">
                     {c.desc}
                   </p>
                 </div>

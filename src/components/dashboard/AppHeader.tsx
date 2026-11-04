@@ -357,6 +357,8 @@ export function AppHeader({
         {/* 1. Profil Saya */}
         <Link
           href={profileHref}
+          replace
+          scroll={false}
           onClick={() => setDropdownOpen(false)}
           className="flex items-center justify-between px-3 py-2 rounded-xl text-[#132422] font-semibold hover:bg-[#EEF5F3] hover:text-[#1D443F] transition-colors"
         >
@@ -563,7 +565,11 @@ export function AppHeader({
       <div className="md:hidden relative z-30 w-full">
         {/* 2A. SIBLING 1: PERSISTENT STICKY APP BAR BACKGROUND BASE (z-10) */}
         <div
-          className={`sticky top-0 z-10 w-full h-[60px] sm:h-16 pointer-events-none transition-colors duration-300 ${
+          style={{
+            height: "calc(60px + env(safe-area-inset-top, 0px))",
+            paddingTop: "env(safe-area-inset-top, 0px)",
+          }}
+          className={`sticky top-0 z-10 w-full pointer-events-none transition-colors duration-300 ${
             isWargaDashboard && isScrolled
               ? "bg-[#1D443F]/95 backdrop-blur-md border-b border-[#38746D]/30 shadow-md"
               : "bg-white border-b border-slate-100 shadow-2xs"
@@ -576,7 +582,7 @@ export function AppHeader({
         <motion.div
           initial={false}
           animate={{
-            height: isWargaDashboard ? 285 : 0,
+            height: isWargaDashboard ? "calc(285px + env(safe-area-inset-top, 0px))" : 0,
           }}
           transition={{
             duration: 0.38,
@@ -586,7 +592,13 @@ export function AppHeader({
             isWargaDashboard ? "shadow-lg pointer-events-auto" : "shadow-none pointer-events-none"
           }`}
         >
-          <div className="w-full h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pt-[64px] pb-4 relative overflow-hidden flex flex-col justify-start">
+          <div
+            style={{
+              minHeight: "calc(285px + env(safe-area-inset-top, 0px))",
+              paddingTop: "calc(60px + env(safe-area-inset-top, 0px))",
+            }}
+            className="w-full bg-gradient-to-b from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white px-5 pb-4 relative overflow-hidden flex flex-col justify-start"
+          >
             {/* Ornamen Geometri Abstrak Identik 100% dengan Halaman Auth/Login */}
             <AuthBackgroundDecor />
 
@@ -618,6 +630,8 @@ export function AppHeader({
                     {/* 1. Tombol Rute (Lingkaran dengan Ikon ForkedRouteIcon dari Navbar) */}
                     <Link
                       href="/warga/evakuasi"
+                      replace
+                      scroll={false}
                       className="w-9.5 h-9.5 rounded-full bg-white text-[#1D443F] shadow-md hover:bg-emerald-50 flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer"
                       aria-label="Cek Rute Evakuasi"
                       title="Cek Rute Evakuasi"
@@ -628,6 +642,8 @@ export function AppHeader({
                     {/* 2. Tombol Lapor (Ikon BeaconAlertIcon dari Navbar di Kiri & Tanpa Panah Kanan) */}
                     <Link
                       href="/warga/lapor"
+                      replace
+                      scroll={false}
                       className="h-9.5 inline-flex items-center gap-1.5 px-3.5 sm:px-4 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     >
                       <BeaconAlertIcon className="w-4 h-4 shrink-0 text-[#1D443F]" />
@@ -645,7 +661,14 @@ export function AppHeader({
 
         {/* 2C. SIBLING 3: STICKY TOP APP BAR CONTROLS (z-30) */}
         {/* Berada di layer atas (z-30), transparan sehingga memperlihatkan green hero di bawahnya */}
-        <header className="sticky top-0 z-30 w-full h-[60px] sm:h-16 -mt-[60px] sm:-mt-16 px-4 flex items-center justify-between bg-transparent pointer-events-auto">
+        <header
+          style={{
+            height: "calc(60px + env(safe-area-inset-top, 0px))",
+            marginTop: "calc(-1 * (60px + env(safe-area-inset-top, 0px)))",
+            paddingTop: "env(safe-area-inset-top, 0px)",
+          }}
+          className="sticky top-0 z-30 w-full px-4 flex items-center justify-between bg-transparent pointer-events-auto"
+        >
           {/* Brand Logo & Title */}
           <div className="flex items-center gap-2.5 min-w-0">
             <Link

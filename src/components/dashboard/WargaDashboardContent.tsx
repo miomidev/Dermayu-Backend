@@ -77,6 +77,8 @@ export function WargaDashboardContent() {
           </h2>
           <Link
             href="/warga/evakuasi"
+            replace
+            scroll={false}
             className="text-xs font-bold text-[#155E45] hover:underline flex items-center gap-0.5"
           >
             <span>Lihat Semua</span>
@@ -88,6 +90,8 @@ export function WargaDashboardContent() {
           {/* Card 1: Lapor Banjir */}
           <Link
             href="/warga/lapor"
+            replace
+            scroll={false}
             className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-rose-200 hover:shadow-sm transition-all group active:scale-[0.98]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -109,6 +113,8 @@ export function WargaDashboardContent() {
           {/* Card 2: Rute Evakuasi */}
           <Link
             href="/warga/evakuasi"
+            replace
+            scroll={false}
             className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-emerald-200 hover:shadow-sm transition-all group active:scale-[0.98]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -130,6 +136,8 @@ export function WargaDashboardContent() {
           {/* Card 3: Posko & Logistik */}
           <Link
             href="/warga/posko"
+            replace
+            scroll={false}
             className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-teal-200 hover:shadow-sm transition-all group active:scale-[0.98]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -151,6 +159,8 @@ export function WargaDashboardContent() {
           {/* Card 4: Darurat 112 */}
           <Link
             href="/warga/kontak"
+            replace
+            scroll={false}
             className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-amber-200 hover:shadow-sm transition-all group active:scale-[0.98]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -181,6 +191,8 @@ export function WargaDashboardContent() {
           </h2>
           <Link
             href="/warga/aduan"
+            replace
+            scroll={false}
             className="text-xs font-bold text-[#155E45] hover:underline flex items-center gap-0.5"
           >
             <span>Lihat Semua</span>
@@ -228,6 +240,8 @@ export function WargaDashboardContent() {
                 </span>
                 <Link
                   href="/warga/aduan"
+                  replace
+                  scroll={false}
                   className="text-xs font-bold text-[#155E45] hover:underline"
                 >
                   Rincian &gt;
@@ -275,6 +289,8 @@ export function WargaDashboardContent() {
                 </span>
                 <Link
                   href="/warga/aduan"
+                  replace
+                  scroll={false}
                   className="text-xs font-bold text-[#155E45] hover:underline"
                 >
                   Rincian &gt;

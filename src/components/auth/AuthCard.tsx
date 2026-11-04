@@ -328,7 +328,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
       // Berikan jeda 480ms agar transisi exit mobile (form turun & header morph) tuntas
       setTimeout(() => {
-        router.push(targetDashboard);
+        router.replace(targetDashboard);
         // Reset kembali state exit setelah navigasi terpicu agar halaman login tidak blank saat logout
         setTimeout(() => {
           setIsLoggingIn(false);
@@ -557,7 +557,11 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
               : { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, opacity: 1, y: 0 }
           }
           transition={{ duration: isLoggingIn ? 0.4 : 0.55, ease: [0.16, 1, 0.3, 1] as const }}
-          className="fixed top-0 left-0 right-0 h-[285px] bg-gradient-to-br from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start pt-9 px-6 text-center z-0 overflow-hidden"
+          style={{
+            height: "calc(285px + env(safe-area-inset-top, 0px))",
+            paddingTop: "calc(28px + env(safe-area-inset-top, 0px))",
+          }}
+          className="fixed top-0 left-0 right-0 bg-gradient-to-b from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white flex flex-col items-center justify-start px-6 text-center z-0 overflow-hidden"
         >
           {/* Ornamen Geometri Abstrak Identik dengan Dashboard */}
           <AuthBackgroundDecor />
@@ -599,7 +603,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         </motion.div>
 
         {/* 2. Scrollable Container untuk Form Melayang (Floating Card Tanpa Strip & Header Ganda) */}
-        <div className="relative z-10 w-full min-h-screen flex flex-col justify-start pt-[205px] pb-10 px-4 sm:px-6">
+        <div
+          style={{
+            paddingTop: "calc(205px + env(safe-area-inset-top, 0px))",
+          }}
+          className="relative z-10 w-full min-h-screen flex flex-col justify-start pb-10 px-4 sm:px-6"
+        >
           <motion.div
             initial={{ opacity: 0, y: 65, scale: 0.97 }}
             animate={

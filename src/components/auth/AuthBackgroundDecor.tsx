@@ -74,7 +74,7 @@ export function AuthBackgroundDecor({ className = "" }: { className?: string }) 
           animation: "dermayuSpinSlow 22s linear infinite",
           willChange: "transform",
         }}
-        className="absolute top-1/4 right-10 w-16 h-16 sm:w-18 sm:h-18 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-2xs pointer-events-none shadow-xs"
+        className="absolute top-1/4 right-10 w-16 h-16 sm:w-18 sm:h-18 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-2xs pointer-events-none shadow-xs"
       />
 
       {/* Belah Ketupat 2 (Bawah Kanan) - Putaran Berlawanan Jarum Jam */}

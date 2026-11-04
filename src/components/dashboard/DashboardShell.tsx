@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { AppHeader } from "@/components/dashboard/AppHeader";
 import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
+import { PwaBackHandler } from "@/components/ui/PwaBackHandler";
 import {
   getActiveSession,
   touchDashboardActivity,
@@ -189,6 +190,9 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
 
       {/* 3. NAVBAR MOBILE DI BAWAH (MD:HIDDEN) */}
       <MobileBottomNav role={role} />
+
+      {/* 4. UX BACK BUTTON INTERCEPTOR KHUSUS PWA MOBILE */}
+      <PwaBackHandler role={role} />
     </div>
   );
 }

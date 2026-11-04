@@ -21,7 +21,7 @@ export function Hero3DImage({
   className = "w-34 h-34 sm:w-38 sm:h-38",
   imgClassName = "w-full h-full object-contain drop-shadow-md",
   src = "/hero-dashboard-dermayu.png",
-  alt = "Tanggap Bencana DERMAYU",
+  alt = "Tanggap Banjir DERMAYU",
   rotationMode = "sway",
 }: Hero3DImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);

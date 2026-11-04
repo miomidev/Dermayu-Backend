@@ -15,6 +15,7 @@ import {
   Save,
   CheckCircle2,
   Compass,
+  Pencil,
 } from "lucide-react";
 import { getActiveSession, saveUserSession, type UserSession } from "@/utils/authSession";
 
@@ -100,43 +101,59 @@ export default function WargaProfilePage() {
           </motion.div>
         )}
 
-        {/* 1. HERO CARD PROFIL DENGAN AKSEN GEO-TECH */}
-        <div className="bg-white border border-[#D5E4E0] rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-[#1D443F] via-[#38746D] to-[#88BDB6]" />
-
-          <div className="flex items-center gap-5">
-            <div className="w-18 h-18 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/30 flex items-center justify-center text-2xl font-black text-[#1D443F] shadow-inner shrink-0">
+        {/* 1. HERO CARD PROFIL TERPUSAT (MATCHING GAMBAR 2) */}
+        <div className="bg-white border border-[#D5E4E0] rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden flex flex-col items-center text-center">
+          {/* Avatar Inisial Bulat Sempurna (Centered) */}
+          <div className="relative">
+            <div className="w-22 h-22 sm:w-24 sm:h-24 rounded-full bg-[#EEF5F3] border-2 border-[#38746D]/20 flex items-center justify-center text-3xl sm:text-4xl font-extrabold text-[#1D443F] shadow-sm shrink-0">
               {initialLetter}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-xl font-bold text-[#132422]">{fullName}</h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Akun Warga Terverifikasi
-                </span>
-              </div>
-              <p className="text-xs text-[#4B635F] mt-1">{email} • Terdaftar di Sistem Siaga Bencana</p>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
-                Kecamatan {district}, Desa {village}
-              </p>
             </div>
           </div>
 
-          <div className="sm:self-center px-4 py-2.5 rounded-2xl bg-[#F8FAF9] border border-[#E8F1EE] text-left shrink-0">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-[#718783]">
-              Status Kesiapsiagaan
+          {/* Nama Lengkap */}
+          <h2 className="text-xl sm:text-2xl font-bold text-[#132422] mt-3.5 tracking-tight">
+            {fullName}
+          </h2>
+
+          {/* Email */}
+          <p className="text-xs sm:text-sm text-[#4B635F] mt-1 font-medium">
+            {email}
+          </p>
+
+          {/* Info Badge & Lokasi */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5 text-xs text-gray-500">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Akun Warga Terverifikasi
             </span>
-            <span className="text-xs font-bold text-[#1D443F] flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Siaga Wilayah Pantura
+            <span className="text-gray-300">•</span>
+            <span className="inline-flex items-center gap-1 text-gray-500">
+              <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
+              Kecamatan {district}, Desa {village}
             </span>
+          </div>
+
+          {/* Tombol Edit Profile Pill Hijau Deep Teal Sesuai Tema DERMAYU */}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => {
+                const formEl = document.getElementById("form-profil-warga");
+                formEl?.scrollIntoView({ behavior: "smooth" });
+                const firstInput = formEl?.querySelector("input");
+                firstInput?.focus();
+              }}
+              className="h-9 px-4.5 sm:px-5 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#38746D] hover:bg-[#2E6A63] active:bg-[#1D443F] text-white text-xs font-bold shadow-sm shadow-[#38746D]/20 transition-all active:scale-95 cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5 stroke-[2.2]" />
+              <span>Edit Profile</span>
+            </button>
           </div>
         </div>
 
         {/* 2. FORMULIR DATA PROFIL & DOMISILI */}
         <motion.form
+          id="form-profil-warga"
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}

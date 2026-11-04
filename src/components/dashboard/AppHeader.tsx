@@ -621,7 +621,7 @@ export function AppHeader({
               <div className="flex items-center justify-between gap-2.5">
                 <div className="flex-1 min-w-0 pr-1">
                   <h2 className="text-[17px] sm:text-lg font-black tracking-tight text-white leading-tight uppercase">
-                    TANGGAP BENCANA, SATU SENTUHAN!
+                    TANGGAP BANJIR, SATU SENTUHAN!
                   </h2>
                   <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-2 leading-relaxed line-clamp-2">
                     Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu.
@@ -647,7 +647,7 @@ export function AppHeader({
                       className="h-9.5 inline-flex items-center gap-1.5 px-3.5 sm:px-4 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     >
                       <BeaconAlertIcon className="w-4 h-4 shrink-0 text-[#1D443F]" />
-                      <span>Lapor Bencana</span>
+                      <span>Laporkan Banjir</span>
                     </Link>
                   </div>
                 </div>

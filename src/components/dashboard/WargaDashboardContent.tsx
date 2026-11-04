@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ForkedRouteIcon, PoskoShelterIcon } from "@/components/ui/Icons";
 import { Hero3DImage } from "@/components/dashboard/Hero3DImage";
+import { StatusSiagaCard } from "@/components/dashboard/StatusSiagaCard";
 import { motion } from "motion/react";
 import {
   Megaphone,
@@ -14,6 +15,7 @@ import {
   Droplets,
   Activity,
   ArrowRight,
+  Users,
 } from "lucide-react";
 
 export function WargaDashboardContent() {
@@ -29,7 +31,7 @@ export function WargaDashboardContent() {
               <span>Pusat Kesiapsiagaan Warga Indramayu</span>
             </div>
             <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight leading-snug">
-              Tanggap Bencana, Satu Sentuhan!
+              Tanggap Banjir, Satu Sentuhan!
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100/90 mt-2 leading-relaxed">
               Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu menghadapi potensi banjir rob pesisir dan luapan DAS Cimanuk.
@@ -65,15 +67,20 @@ export function WargaDashboardContent() {
         initial={{ y: 15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="space-y-5"
+        className="space-y-4 sm:space-y-5"
       >
-      {/* ============================================================ */}
-      {/* 2. GRID "FITUR TANGGAP DARURAT" (2X2 DI MOBILE)             */}
-      {/* ============================================================ */}
+        {/* ============================================================ */}
+        {/* 2. STATUS SIAGA & TELEMETRI AIR (CARD BANNER REF GAMBAR 2)  */}
+        {/* ============================================================ */}
+        <StatusSiagaCard />
+
+        {/* ============================================================ */}
+        {/* 3. GRID "FITUR TANGGAP BANJIR"                               */}
+        {/* ============================================================ */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between px-0.5">
           <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
-            Fitur Tanggap Darurat
+            Fitur Tanggap Banjir
           </h2>
           <Link
             href="/warga/evakuasi"
@@ -86,28 +93,38 @@ export function WargaDashboardContent() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
           {/* Card 1: Lapor Banjir */}
           <Link
             href="/warga/lapor"
             replace
             scroll={false}
-            className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-rose-200 hover:shadow-sm transition-all group active:scale-[0.98]"
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 border border-rose-100/80 group-hover:scale-105 transition-transform">
-                <Megaphone className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  Lapor Banjir
-                </h3>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">
-                  Foto &amp; GPS Otomatis
-                </p>
-              </div>
+            {/* Pattern Ornament Top-Right (Belah Ketupat: Gap Pas, Ukuran Pas, Sembunyi Sedikit di Sudut Kanan Atas) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="32.25" y="3.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 11)" />
+              <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
+              <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
+              <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas (Warna Hover Aktif Langsung Aktif di Mobile) */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <Megaphone className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Lapor Banjir
+              </h3>
+            </div>
           </Link>
 
           {/* Card 2: Rute Evakuasi */}
@@ -115,22 +132,31 @@ export function WargaDashboardContent() {
             href="/warga/evakuasi"
             replace
             scroll={false}
-            className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-emerald-200 hover:shadow-sm transition-all group active:scale-[0.98]"
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#155E45] flex items-center justify-center shrink-0 border border-emerald-100/80 group-hover:scale-105 transition-transform">
-                <ForkedRouteIcon className="w-5 h-5 text-[#155E45]" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  Rute Aman
-                </h3>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">
-                  Peta Genangan Real-time
-                </p>
-              </div>
+            {/* Pattern Ornament Top-Right (1 Lingkaran Tebal & 1 Lingkaran Sedang) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="53" cy="11" r="15" strokeWidth="8" />
+              <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <ForkedRouteIcon className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Rute Aman
+              </h3>
+            </div>
           </Link>
 
           {/* Card 3: Posko & Logistik */}
@@ -138,45 +164,97 @@ export function WargaDashboardContent() {
             href="/warga/posko"
             replace
             scroll={false}
-            className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-teal-200 hover:shadow-sm transition-all group active:scale-[0.98]"
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 border border-teal-100/80 group-hover:scale-105 transition-transform">
-                <PoskoShelterIcon className="w-5 h-5 text-teal-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  Posko Pengungsi
-                </h3>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">
-                  Kapasitas &amp; Logistik
-                </p>
-              </div>
+            {/* Pattern Ornament Top-Right (Belah Ketupat) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="32.25" y="3.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 11)" />
+              <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
+              <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
+              <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <PoskoShelterIcon className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Posko Pengungsi
+              </h3>
+            </div>
           </Link>
 
-          {/* Card 4: Darurat 112 */}
+          {/* Card 4: Komunitas Warga */}
+          <Link
+            href="/warga/komunitas"
+            replace
+            scroll={false}
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
+          >
+            {/* Pattern Ornament Top-Right (1 Lingkaran Tebal & 1 Lingkaran Sedang) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="53" cy="11" r="15" strokeWidth="8" />
+              <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
+            </div>
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Komunitas Warga
+              </h3>
+            </div>
+          </Link>
+
+          {/* Card 5: Darurat 112 */}
           <Link
             href="/warga/kontak"
             replace
             scroll={false}
-            className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between hover:border-amber-200 hover:shadow-sm transition-all group active:scale-[0.98]"
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100/80 group-hover:scale-105 transition-transform">
-                <PhoneCall className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  Darurat 112
-                </h3>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">
-                  Pusdalops BPBD
-                </p>
-              </div>
+            {/* Pattern Ornament Top-Right (Belah Ketupat) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="32.25" y="3.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 11)" />
+              <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
+              <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
+              <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <PhoneCall className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Darurat 112
+              </h3>
+            </div>
           </Link>
         </div>
       </section>
@@ -298,30 +376,6 @@ export function WargaDashboardContent() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* 4. TELEMETRI AIR & STATUS WILAYAH (DESKTOP WIDGET)           */}
-      {/* ============================================================ */}
-      <section className="bg-white md:bg-[#F8FAF9] border border-[#D5E4E0] rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <span className="font-bold text-[#1D443F]">Status Siaga Indramayu:</span>
-          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-semibold border border-amber-300 text-[11px]">
-            SIAGA II (Waspada Rob)
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-[#4B635F] text-[11px] sm:text-xs flex-wrap">
-          <span className="flex items-center gap-1.5">
-            <Droplets className="w-3.5 h-3.5 text-[#38746D]" />
-            Debit Rentang: <strong className="text-[#132422]">310 m³/s</strong>
-          </span>
-          <span className="text-[#A4C6C1]">•</span>
-          <span className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-[#38746D]" />
-            Radar Muara: <strong className="text-[#132422]">+65 cm</strong>
-          </span>
         </div>
       </section>
       </motion.div>

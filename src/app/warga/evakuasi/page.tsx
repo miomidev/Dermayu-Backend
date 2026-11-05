@@ -131,6 +131,8 @@ export default function WargaEvakuasiPage() {
   const [reportSubmittedSuccess, setReportSubmittedSuccess] = useState(false);
 
   // Complaints / Reports
+  const STORAGE_KEY = "dermayu_user_reports";
+
   const [complaints, setComplaints] = useState<ComplaintTicket[]>([
     {
       id: "1",
@@ -173,6 +175,69 @@ export default function WargaEvakuasiPage() {
       lng: 108.135,
     },
   ]);
+
+  // Sinkronisasi data laporan dari LocalStorage (/warga/lapor) secara real-time
+  const syncReportsFromStorage = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const loadedTickets: ComplaintTicket[] = parsed.map((t: any, idx: number) => {
+            const catCode = (t.categoryCode || "FLOOD") as ReportCategoryCode;
+            const sevLevel = (t.severity || (t.status === "PENANGANAN" ? "CRITICAL" : "HIGH")) as SeverityLevel;
+            const statusMapped: ReportStatusCode =
+              t.status === "PENANGANAN"
+                ? "ASSIGNED"
+                : t.status === "DIVERIFIKASI"
+                ? "VERIFIED"
+                : "SUBMITTED";
+
+            return {
+              id: t.id || `ticket-${idx}`,
+              ticketCode: t.id || `DMY-TKT-${idx}`,
+              category: catCode,
+              categoryLabel: t.category || "Banjir / Rob Pesisir",
+              title: t.title,
+              location: t.location,
+              severity: sevLevel,
+              waterLevelText: t.waterLevel || "Genangan Air",
+              status: statusMapped,
+              createdAt: t.time || "Baru saja",
+              note: t.statusNote || t.notes || "Laporan masuk antrean tim siaga Posko BPBD.",
+              photos: Array.isArray(t.photos) ? t.photos : [],
+              urgentNeeds: Array.isArray(t.urgentNeeds) ? t.urgentNeeds : ["Evakuasi Warga"],
+              aiScore: t.aiConfidence
+                ? { label: "flood", confidence: t.aiConfidence }
+                : undefined,
+              lat: t.gps?.lat ?? (-6.3475 + (idx % 3) * 0.005),
+              lng: t.gps?.lng ?? (108.1189 + (idx % 3) * 0.005),
+            };
+          });
+
+          setComplaints(loadedTickets);
+        }
+      }
+    } catch (err) {
+      console.warn("Gagal membaca laporan dari storage:", err);
+    }
+  };
+
+  useEffect(() => {
+    syncReportsFromStorage();
+
+    const handleStorageChange = () => {
+      syncReportsFromStorage();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("dermayu_reports_updated", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("dermayu_reports_updated", handleStorageChange);
+    };
+  }, []);
 
   // Community Reports (Laporan warga sekitar)
   const [communityReports] = useState<ComplaintTicket[]>([
@@ -664,6 +729,36 @@ export default function WargaEvakuasiPage() {
     setComplaints([newTicket, ...complaints]);
     setReportSubmittedSuccess(true);
 
+    // Sinkronisasi juga ke LocalStorage agar tiket ini muncul di tab 'Riwayat Aduan' pada /warga/lapor
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const existing = saved ? JSON.parse(saved) : [];
+      const reportForLapor = {
+        id: ticketCode,
+        category: categoryLabels[reportCategory],
+        categoryCode: reportCategory,
+        title: reportTitle,
+        location: reportLocation,
+        time: "Hari ini, baru saja",
+        status: "DITERIMA",
+        statusNote: "Laporan masuk via Peta Spasial Siaga BPBD. Menunggu verifikasi petugas.",
+        photos: reportPhotos,
+        severity: reportSeverity,
+        waterLevel: reportCategory === "FLOOD" ? waterLevelLabels[reportWaterLevel] : undefined,
+        urgentNeeds: reportUrgentNeeds,
+        notes: reportNotes,
+        gps: {
+          lat: newTicket.lat,
+          lng: newTicket.lng,
+        },
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([reportForLapor, ...existing]));
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("dermayu_reports_updated"));
+    } catch (e) {
+      console.warn("Gagal simpan aduan ke storage:", e);
+    }
+
     setTimeout(() => {
       setReportSubmittedSuccess(false);
       setShowReportModal(false);
@@ -684,11 +779,20 @@ export default function WargaEvakuasiPage() {
       category: c.categoryLabel,
       severity: c.severity,
       waterLevelText: c.waterLevelText,
-      status: c.status === "ASSIGNED" ? "Petugas Ditugaskan" : "Terverifikasi",
+      status:
+        c.status === "ASSIGNED"
+          ? "Petugas Ditugaskan"
+          : c.status === "VERIFIED"
+          ? "Terverifikasi"
+          : "Menunggu Verifikasi",
       location: c.location,
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
       timeAgo: c.createdAt,
+      photos: c.photos,
+      note: c.note,
+      aiScore: c.aiScore,
+      urgentNeeds: c.urgentNeeds,
     })),
     ...communityReports.map((c) => ({
       id: c.id,
@@ -702,6 +806,9 @@ export default function WargaEvakuasiPage() {
       lat: c.lat || -6.2842,
       lng: c.lng || 108.2635,
       timeAgo: c.createdAt,
+      photos: c.photos,
+      note: c.note,
+      urgentNeeds: c.urgentNeeds,
     })),
   ];
 
@@ -729,6 +836,8 @@ export default function WargaEvakuasiPage() {
           reports={mapReportPoints}
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
+          onOpenReport={() => setShowReportModal(true)}
+          onOpenContacts={() => setShowContactsModal(true)}
         />
       </div>
 

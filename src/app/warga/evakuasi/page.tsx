@@ -17,7 +17,6 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
-import { EvakuasiBottomSheet } from "@/components/dashboard/EvakuasiBottomSheet";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -84,6 +83,7 @@ interface ShelterItem {
   id: string;
   name: string;
   location: string;
+  district?: string;
   distance: string;
   capacityTotal: number;
   capacityFilled: number;
@@ -219,6 +219,7 @@ export default function WargaEvakuasiPage() {
       id: "sh-1",
       name: "Balai Desa Eretan Wetan",
       location: "Jl. Raya Pantura No. 45, Kandanghaur",
+      district: "Eretan",
       distance: "850 m (±4 menit jalan darat)",
       capacityTotal: 250,
       capacityFilled: 185,
@@ -233,6 +234,7 @@ export default function WargaEvakuasiPage() {
       id: "sh-2",
       name: "SDN 1 Ilir Kandanghaur",
       location: "Jl. Nelayan Blok Ilir, Kandanghaur",
+      district: "Kandanghaur",
       distance: "1.4 km (±7 menit)",
       capacityTotal: 150,
       capacityFilled: 140,
@@ -247,6 +249,7 @@ export default function WargaEvakuasiPage() {
       id: "sh-3",
       name: "Masjid Jami' Baiturrahim Losarang",
       location: "Jl. Raya Losarang No. 102",
+      district: "Losarang",
       distance: "3.2 km (±12 menit kendaraan)",
       capacityTotal: 400,
       capacityFilled: 120,
@@ -256,6 +259,141 @@ export default function WargaEvakuasiPage() {
       status: "TERSEDIA",
       lat: -6.388,
       lng: 108.152,
+    },
+    {
+      id: "sh-4",
+      name: "GOR Mini Kandanghaur",
+      location: "Jl. Olahraga Blok Barat No. 12, Kandanghaur",
+      district: "Kandanghaur",
+      distance: "1.8 km (±8 menit)",
+      capacityTotal: 500,
+      capacityFilled: 310,
+      facilities: ["Aula Terbuka Luas", "Sanitasi MCK (8 Unit)", "Tenda Pleton BNPB"],
+      contactPerson: "Ibu Ratna (Tagana)",
+      contactPhone: "0821-4433-2100",
+      status: "TERSEDIA",
+      lat: -6.352,
+      lng: 108.128,
+    },
+    {
+      id: "sh-5",
+      name: "Balai Desa Eretan Kulon",
+      location: "Jl. Muara Nelayan No. 08, Eretan Kulon",
+      district: "Eretan",
+      distance: "2.1 km (±9 menit)",
+      capacityTotal: 220,
+      capacityFilled: 110,
+      facilities: ["Dapur Umum", "Air Bersih PDAM", "Posko Bidan Siaga"],
+      contactPerson: "Bpk. Dedi (Kuwu)",
+      contactPhone: "0813-2211-9988",
+      status: "TERSEDIA",
+      lat: -6.338,
+      lng: 108.112,
+    },
+    {
+      id: "sh-6",
+      name: "SMP Negeri 1 Cantigi",
+      location: "Jl. Ki Hajar Dewantara No. 04, Cantigi",
+      district: "Cantigi",
+      distance: "4.8 km (±15 menit)",
+      capacityTotal: 200,
+      capacityFilled: 190,
+      facilities: ["Ruang Kelas Tidur", "Dokter Siaga", "Air Bersih"],
+      contactPerson: "Pak Hendra (Satlak Cantigi)",
+      contactPhone: "0852-7711-9022",
+      status: "HAMPIR_PENUH",
+      lat: -6.2842,
+      lng: 108.2635,
+    },
+    {
+      id: "sh-7",
+      name: "Balai Desa Cangkring Cantigi",
+      location: "Jl. Tanggul Sungai Cantigi No. 15",
+      district: "Cantigi",
+      distance: "5.3 km (±18 menit)",
+      capacityTotal: 180,
+      capacityFilled: 60,
+      facilities: ["Dapur Warga", "Ruang Balita", "Genset Cadangan"],
+      contactPerson: "Bpk. Tarkim (Kuwu)",
+      contactPhone: "0877-3344-5511",
+      status: "TERSEDIA",
+      lat: -6.291,
+      lng: 108.258,
+    },
+    {
+      id: "sh-8",
+      name: "Aula Kantor Kecamatan Losarang",
+      location: "Jl. Raya Pantura Losarang KM 68",
+      district: "Losarang",
+      distance: "4.5 km (±14 menit)",
+      capacityTotal: 350,
+      capacityFilled: 140,
+      facilities: ["Posko Logistik PMI", "Ambulans Siaga 24 Jam", "Dapur Umum Kemensos"],
+      contactPerson: "Drs. H. Suwandi (Camat)",
+      contactPhone: "0812-3344-5566",
+      status: "TERSEDIA",
+      lat: -6.402,
+      lng: 108.165,
+    },
+    {
+      id: "sh-9",
+      name: "Balai Desa Pasekan",
+      location: "Jl. Raya Pasekan No. 18, Pasekan",
+      district: "Pasekan",
+      distance: "6.2 km (±20 menit)",
+      capacityTotal: 200,
+      capacityFilled: 85,
+      facilities: ["Dapur Warga Mandiri", "Bidan Desa Siaga", "Ruang Balita & Anak"],
+      contactPerson: "Pak Carma (Satgas Desa)",
+      contactPhone: "0877-2233-4411",
+      status: "TERSEDIA",
+      lat: -6.315,
+      lng: 108.295,
+    },
+    {
+      id: "sh-10",
+      name: "Gedung Serbaguna Polindra Lohbener",
+      location: "Jl. Raya Lohbener No. 08, Lohbener",
+      district: "Lohbener",
+      distance: "7.5 km (±22 menit)",
+      capacityTotal: 600,
+      capacityFilled: 250,
+      facilities: ["Aula Terbuka", "Toilet Banyak", "Logistik Makanan", "Listrik Terpusat"],
+      contactPerson: "H. Sukirno (Koordinator)",
+      contactPhone: "0819-8877-6655",
+      status: "TERSEDIA",
+      lat: -6.388,
+      lng: 108.275,
+    },
+    {
+      id: "sh-11",
+      name: "GOR Singalodra Indramayu",
+      location: "Jl. MT Haryono No. 01, Sindang / Kota",
+      district: "Indramayu Kota",
+      distance: "9.2 km (±26 menit)",
+      capacityTotal: 800,
+      capacityFilled: 320,
+      facilities: ["Pusat Komando Utama BPBD", "Dapur Umum Terpadu", "Rumah Sakit Lapangan"],
+      contactPerson: "Drs. Dadang (BPBD)",
+      contactPhone: "0811-2345-6789",
+      status: "TERSEDIA",
+      lat: -6.326,
+      lng: 108.324,
+    },
+    {
+      id: "sh-12",
+      name: "Balai Desa Dermayu Sindang",
+      location: "Jl. Mayor Dasuki No. 22, Sindang",
+      district: "Sindang",
+      distance: "8.7 km (±24 menit)",
+      capacityTotal: 250,
+      capacityFilled: 110,
+      facilities: ["Serambi Posko", "Dapur Tagana", "Logistik Sembako"],
+      contactPerson: "Bpk. Waryono (Kuwu)",
+      contactPhone: "0813-6677-8899",
+      status: "TERSEDIA",
+      lat: -6.338,
+      lng: 108.310,
     },
   ];
 
@@ -477,6 +615,7 @@ export default function WargaEvakuasiPage() {
     id: s.id,
     name: s.name,
     location: s.location,
+    district: s.district,
     distance: s.distance,
     capacityTotal: s.capacityTotal,
     capacityFilled: s.capacityFilled,
@@ -496,19 +635,6 @@ export default function WargaEvakuasiPage() {
           reports={mapReportPoints}
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
-        />
-
-        {/* BOTTOM SHEET SLIDER INTERAKTIF ALA GOOGLE MAPS (MOBILE ONLY) */}
-        <EvakuasiBottomSheet
-          shelters={mapShelterPoints}
-          reports={mapReportPoints}
-          telemetry={telemetryPoints}
-          onSelectReport={(r) => {
-            const matched = complaints.find((c) => c.id === r.id);
-            if (matched) {
-              // focus on report
-            }
-          }}
         />
       </div>
 

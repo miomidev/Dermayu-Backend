@@ -1,0 +1,312 @@
+{
+  "type": "FeatureCollection",
+  "name": "Infrastruktur_Pengendali_Air_Kabupaten_Indramayu",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-001",
+        "nama_infrastruktur": "Bendung Rentang (Pusat Kendali Cimanuk)",
+        "tipe_bangunan": "Bendung Gerak Radial Utama",
+        "das_sungai": "DAS Cimanuk",
+        "kecamatan": "Kec. Kertasmaya",
+        "lokasi_detail": "Panongan, Jatitujuh - Kertasmaya (Pusat Bendung Rentang Cimanuk)",
+        "latitude": -6.6626,
+        "longitude": 108.2209,
+        "status_siaga": "Siaga II (Kritis)",
+        "debit_saat_ini_m3s": 820,
+        "kapasitas_desain_m3s": 1200,
+        "persentase_kapasitas": 68.3,
+        "tma_elevasi_mdpl": 22.85,
+        "elevasi_bibir_tanggul_mdpl": 23.5,
+        "operasional_pintu": "6 dari 8 Pintu Radial Dibuka Penuh ke Hilir",
+        "arah_aliran": "Saluran Induk Barat (Cipelang), Saluran Induk Timur (Sindupraja), Cimanuk Hilir",
+        "potensi_dampak_hilir": "Desa Tulungagung, Sukawera, Pilangsari, Sindang, Indramayu Kota (Est. tiba 4-6 jam)",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung (Kementerian PUPR)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2209,
+          -6.6626
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-002",
+        "nama_infrastruktur": "Bendung Bangkir (Pembagi Aliran Cimanuk Lama)",
+        "tipe_bangunan": "Bendung Pembagi Aliran",
+        "das_sungai": "DAS Cimanuk",
+        "kecamatan": "Kec. Lohbener",
+        "lokasi_detail": "Desa Rambatan Wetan, Lohbener (Samping Jembatan & Pasar Bangkir)",
+        "latitude": -6.3856,
+        "longitude": 108.2928,
+        "status_siaga": "Siaga III (Waspada)",
+        "debit_saat_ini_m3s": 185,
+        "kapasitas_desain_m3s": 450,
+        "persentase_kapasitas": 41.1,
+        "tma_elevasi_mdpl": 7.2,
+        "elevasi_bibir_tanggul_mdpl": 8.5,
+        "operasional_pintu": "4 Pintu Gerak Siaga Diatur Membagi Aliran",
+        "arah_aliran": "Cimanuk Lama, Saluran Irigasi Bangkir-Tukdana",
+        "potensi_dampak_hilir": "Permukiman Bantaran Sindang & Paoman",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2928,
+          -6.3856
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-003",
+        "nama_infrastruktur": "Pintu Air Saluran Induk Barat (Cipelang)",
+        "tipe_bangunan": "Pintu Air Induk Irigasi & Pembuang",
+        "das_sungai": "DAS Cimanuk",
+        "kecamatan": "Kec. Kertasmaya",
+        "lokasi_detail": "Komplek Bendung Rentang Barat (Intake Saluran Induk Cipelang)",
+        "latitude": -6.662,
+        "longitude": 108.219,
+        "status_siaga": "Normal",
+        "debit_saat_ini_m3s": 32,
+        "kapasitas_desain_m3s": 65,
+        "persentase_kapasitas": 49.2,
+        "tma_elevasi_mdpl": 22.1,
+        "elevasi_bibir_tanggul_mdpl": 23.5,
+        "operasional_pintu": "Pintu Otomatis Dialirkan ke Daerah Irigasi Barat",
+        "arah_aliran": "Kecamatan Terisi, Losarang, Kandanghaur",
+        "potensi_dampak_hilir": "Suplesi sawah tadah hujan & buangan Losarang",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung / Dinas PUPR"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.219,
+          -6.662
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-004",
+        "nama_infrastruktur": "Pintu Air Saluran Induk Timur (Sindupraja)",
+        "tipe_bangunan": "Pintu Air Induk Irigasi & Pembuang",
+        "das_sungai": "DAS Cimanuk",
+        "kecamatan": "Kec. Kertasmaya",
+        "lokasi_detail": "Komplek Bendung Rentang Timur (Intake Saluran Induk Sindupraja)",
+        "latitude": -6.663,
+        "longitude": 108.223,
+        "status_siaga": "Siaga III (Waspada)",
+        "debit_saat_ini_m3s": 48,
+        "kapasitas_desain_m3s": 80,
+        "persentase_kapasitas": 60,
+        "tma_elevasi_mdpl": 22.35,
+        "elevasi_bibir_tanggul_mdpl": 23.5,
+        "operasional_pintu": "3 Pintu Dibuka untuk Menampung Limpasan Cimanuk",
+        "arah_aliran": "Kecamatan Jatibarang, Sliyeg, Karangampel",
+        "potensi_dampak_hilir": "Genangan sawah cekungan Sliyeg & Widasari",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.223,
+          -6.663
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-005",
+        "nama_infrastruktur": "Stasiun Pompa Polder Karangsong",
+        "tipe_bangunan": "Stasiun Pompa Banjir Polder Pesisir",
+        "das_sungai": "Muara Cimanuk / Pesisir Laut Jawa",
+        "kecamatan": "Kec. Indramayu",
+        "lokasi_detail": "Muara Sungai Prajagumiwang & Pelabuhan Perikanan Karangsong",
+        "latitude": -6.312,
+        "longitude": 108.365,
+        "status_siaga": "Siaga II (Kritis - Rob Pasang)",
+        "debit_saat_ini_m3s": 6,
+        "kapasitas_desain_m3s": 6,
+        "persentase_kapasitas": 100,
+        "tma_elevasi_mdpl": 0.85,
+        "elevasi_bibir_tanggul_mdpl": 1.4,
+        "operasional_pintu": "4 Unit Pompa Submersible Aktif Penuh (6.000 liter/s)",
+        "arah_aliran": "Dibuang langsung ke laut lepas Laut Jawa",
+        "potensi_dampak_hilir": "Kawasan Permukiman Nelayan Karangsong & TPI",
+        "instansi_pengelola": "Dinas PUPR Kabupaten Indramayu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.365,
+          -6.312
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-006",
+        "nama_infrastruktur": "Pintu Air Muara Kali Ciputih (Penahan Pasang Rob)",
+        "tipe_bangunan": "Pintu Air Muara Klep Gravitasi",
+        "das_sungai": "DAS Ciputih",
+        "kecamatan": "Kec. Kandanghaur",
+        "lokasi_detail": "Desa Eretan Wetan Pantura",
+        "latitude": -6.3468,
+        "longitude": 108.1215,
+        "status_siaga": "Siaga II (Kritis - Rob Purnama)",
+        "debit_saat_ini_m3s": 14.5,
+        "kapasitas_desain_m3s": 25,
+        "persentase_kapasitas": 58,
+        "tma_elevasi_mdpl": 1.1,
+        "elevasi_bibir_tanggul_mdpl": 1.5,
+        "operasional_pintu": "Pintu Klep Menutup Otomatis saat Pasang, Pintu Angkat Siaga",
+        "arah_aliran": "Muara Pesisir Eretan",
+        "potensi_dampak_hilir": "Jalur Nasional Pantura & Dusun Muara Eretan",
+        "instansi_pengelola": "Dinas PUPR Kab. Indramayu & BPBD"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1215,
+          -6.3468
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-007",
+        "nama_infrastruktur": "Bendung Karet Kali Perawan (Inflatable Rubber Dam)",
+        "tipe_bangunan": "Bendung Karet Pengendali Intrusi & Rob",
+        "das_sungai": "DAS Kali Perawan",
+        "kecamatan": "Kec. Losarang",
+        "lokasi_detail": "Desa Cemara Kulon / Santing",
+        "latitude": -6.3512,
+        "longitude": 108.1485,
+        "status_siaga": "Siaga II (Aktif Mengembang)",
+        "debit_saat_ini_m3s": 18,
+        "kapasitas_desain_m3s": 35,
+        "persentase_kapasitas": 51.4,
+        "tma_elevasi_mdpl": 1.3,
+        "elevasi_bibir_tanggul_mdpl": 2,
+        "operasional_pintu": "Karet Dipompa Udara Penuh Menahan Intrusi Air Laut",
+        "arah_aliran": "Aliran Ditahan untuk Mencegah Rob Masuk ke Hulu Pantura",
+        "potensi_dampak_hilir": "Kawasan Tambak Losarang & Desa Cemara",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1485,
+          -6.3512
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-008",
+        "nama_infrastruktur": "Pintu Air Pengatur Limpasan Kali Cipanas",
+        "tipe_bangunan": "Pintu Air Pengendali Saluran Pembuang",
+        "das_sungai": "DAS Cipanas",
+        "kecamatan": "Kec. Losarang",
+        "lokasi_detail": "Blok Puntang / Santing",
+        "latitude": -6.4015,
+        "longitude": 108.1512,
+        "status_siaga": "Siaga II (Kritis)",
+        "debit_saat_ini_m3s": 42,
+        "kapasitas_desain_m3s": 60,
+        "persentase_kapasitas": 70,
+        "tma_elevasi_mdpl": 8.4,
+        "elevasi_bibir_tanggul_mdpl": 9.2,
+        "operasional_pintu": "Pintu Air Pembuang Dibuka Maksimal",
+        "arah_aliran": "Saluran Pembuang Losarang menuju Muara Laut Jawa",
+        "potensi_dampak_hilir": "Desa Puntang, Desa Krimun, Jalur Pantura Losarang",
+        "instansi_pengelola": "BBWS Cimanuk Cisanggarung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1512,
+          -6.4015
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-009",
+        "nama_infrastruktur": "Stasiun Pompa Pengendali Banjir Singaraja",
+        "tipe_bangunan": "Stasiun Pompa Drainase Perkotaan",
+        "das_sungai": "Saluran Pembuang Kota Indramayu",
+        "kecamatan": "Kec. Indramayu",
+        "lokasi_detail": "Kelurahan Singaraja / Singajaya",
+        "latitude": -6.3382,
+        "longitude": 108.3345,
+        "status_siaga": "Siaga III (Waspada)",
+        "debit_saat_ini_m3s": 2,
+        "kapasitas_desain_m3s": 2,
+        "persentase_kapasitas": 100,
+        "tma_elevasi_mdpl": 1.5,
+        "elevasi_bibir_tanggul_mdpl": 2.2,
+        "operasional_pintu": "2 Unit Pompa Beroperasi Menguras Drainase Perkotaan",
+        "arah_aliran": "Dibuang ke Saluran Pembuang Singaraja",
+        "potensi_dampak_hilir": "Pusat Pemerintahan & Perumahan Kota Indramayu",
+        "instansi_pengelola": "Dinas PUPR Kabupaten Indramayu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3345,
+          -6.3382
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "INFRA-AIR-010",
+        "nama_infrastruktur": "Pintu Air Saluran Pembuang Cipunegara (Bugel)",
+        "tipe_bangunan": "Pintu Air Muara Pengendali Limpasan",
+        "das_sungai": "DAS Cipunegara",
+        "kecamatan": "Kec. Sukra",
+        "lokasi_detail": "Desa Bugel / Sukra Perbatasan Subang",
+        "latitude": -6.2995,
+        "longitude": 107.9621,
+        "status_siaga": "Normal",
+        "debit_saat_ini_m3s": 24,
+        "kapasitas_desain_m3s": 75,
+        "persentase_kapasitas": 32,
+        "tma_elevasi_mdpl": 2.1,
+        "elevasi_bibir_tanggul_mdpl": 3.5,
+        "operasional_pintu": "2 Pintu Sorong Siaga Terbuka Sebagian",
+        "arah_aliran": "Muara Cipunegara Laut Jawa",
+        "potensi_dampak_hilir": "Kawasan Pesisir Sukra & Haurgeulis Barat",
+        "instansi_pengelola": "BBWS Citarum / BBWS Cimanuk Cisanggarung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9621,
+          -6.2995
+        ]
+      }
+    }
+  ]
+}

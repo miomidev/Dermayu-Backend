@@ -1,0 +1,1012 @@
+{
+  "type": "FeatureCollection",
+  "name": "Titik Rawan Banjir Kabupaten Indramayu (BPBD & DIBI BNPB)",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-001",
+        "nama_titik": "Desa Eretan Wetan (Dusun Muara)",
+        "desa": "Eretan Wetan",
+        "kecamatan": "Kec. Kandanghaur",
+        "latitude": -6.3475,
+        "longitude": 108.1182,
+        "kategori_banjir": "Banjir Rob Pesisir & Pasang Laut",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Pasang air laut (rob) Laut Jawa dan pendangkalan muara sungai",
+        "frekuensi_kejadian": "Rutin Bulanan (Fase Bulan Purnama/Perigee)",
+        "estimasi_ketinggian_air_cm": "40 - 120 cm",
+        "status_wilayah": "Kawasan Permukiman Padat Nelayan & Jalur Pantura",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1182,
+          -6.3475
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-002",
+        "nama_titik": "Desa Eretan Kulon",
+        "desa": "Eretan Kulon",
+        "kecamatan": "Kec. Kandanghaur",
+        "latitude": -6.3458,
+        "longitude": 108.1065,
+        "kategori_banjir": "Banjir Rob Pesisir & Pasang Laut",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Gelombang pasang rob air laut dan limpasan Kali Ciputih",
+        "frekuensi_kejadian": "Rutin Bulanan",
+        "estimasi_ketinggian_air_cm": "30 - 100 cm",
+        "status_wilayah": "Permukiman Pesisir & Kawasan TPI",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1065,
+          -6.3458
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-003",
+        "nama_titik": "Desa Kertawinangun (Blok Kalimenir)",
+        "desa": "Kertawinangun",
+        "kecamatan": "Kec. Kandanghaur",
+        "latitude": -6.3582,
+        "longitude": 108.1294,
+        "kategori_banjir": "Banjir Rob & Luapan Sungai",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Pertemuan pasang air laut dan aliran buangan Sungai Kalimenir",
+        "frekuensi_kejadian": "2 - 4 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "30 - 80 cm",
+        "status_wilayah": "Permukiman Warga & Area Tambak",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1294,
+          -6.3582
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-004",
+        "nama_titik": "Desa Ilir",
+        "desa": "Ilir",
+        "kecamatan": "Kec. Kandanghaur",
+        "latitude": -6.3421,
+        "longitude": 108.1345,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Pasang air laut merendam jalan desa dan tambak budidaya",
+        "frekuensi_kejadian": "Musiman saat gelombang tinggi",
+        "estimasi_ketinggian_air_cm": "25 - 60 cm",
+        "status_wilayah": "Tambak & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1345,
+          -6.3421
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-005",
+        "nama_titik": "Desa Puntang (Bantaran Cipanas)",
+        "desa": "Puntang",
+        "kecamatan": "Kec. Losarang",
+        "latitude": -6.3985,
+        "longitude": 108.1642,
+        "kategori_banjir": "Luapan Sungai Cipanas",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Debit tinggi Sungai Cipanas dan tanggul rawan jebol",
+        "frekuensi_kejadian": "Setiap Musim Hujan Lebat (1 - 3 Kali per Tahun)",
+        "estimasi_ketinggian_air_cm": "50 - 150 cm",
+        "status_wilayah": "Permukiman & Lahan Pertanian Sawah",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1642,
+          -6.3985
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-006",
+        "nama_titik": "Desa Krimun (Lintasan Pantura Losarang)",
+        "desa": "Krimun",
+        "kecamatan": "Kec. Losarang",
+        "latitude": -6.3882,
+        "longitude": 108.1519,
+        "kategori_banjir": "Luapan Sungai & Genangan Jalan",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan Sungai Cipanas merendam sawah dan badan jalan arteri Pantura",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "40 - 90 cm",
+        "status_wilayah": "Jalur Arteri Nasional Pantura & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1519,
+          -6.3882
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-007",
+        "nama_titik": "Desa Cemara Kulon",
+        "desa": "Cemara Kulon",
+        "kecamatan": "Kec. Losarang",
+        "latitude": -6.3312,
+        "longitude": 108.1725,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Kenaikan muka air laut pasang merendam kawasan tambak dan pesisir",
+        "frekuensi_kejadian": "Siklus Pasang Rob Laut",
+        "estimasi_ketinggian_air_cm": "30 - 70 cm",
+        "status_wilayah": "Area Tambak & Permukiman Pesisir",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1725,
+          -6.3312
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-008",
+        "nama_titik": "Desa Santing",
+        "desa": "Santing",
+        "kecamatan": "Kec. Losarang",
+        "latitude": -6.4025,
+        "longitude": 108.1491,
+        "kategori_banjir": "Luapan Sungai Cipanas",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan air sungai ke saluran irigasi pembuang desa",
+        "frekuensi_kejadian": "Tahunan saat puncak musim hujan",
+        "estimasi_ketinggian_air_cm": "30 - 75 cm",
+        "status_wilayah": "Lahan Pertanian & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1491,
+          -6.4025
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-009",
+        "nama_titik": "Desa Tulungagung (Tanggul Kritis Cimanuk)",
+        "desa": "Tulungagung",
+        "kecamatan": "Kec. Kertasmaya",
+        "latitude": -6.5385,
+        "longitude": 108.3378,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Debit kiriman ekstrem DAS Cimanuk dari hulu, tanggul amblas/kritis",
+        "frekuensi_kejadian": "Tahunan saat debit Bendung Rentang Siaga 1",
+        "estimasi_ketinggian_air_cm": "60 - 180 cm",
+        "status_wilayah": "Tanggul Pemukiman Kritis & Kawasan Padat",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3378,
+          -6.5385
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-010",
+        "nama_titik": "Desa Kertasmaya",
+        "desa": "Kertasmaya",
+        "kecamatan": "Kec. Kertasmaya",
+        "latitude": -6.5312,
+        "longitude": 108.3441,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan debit kiriman air Sungai Cimanuk merendam pemukiman",
+        "frekuensi_kejadian": "Tahunan saat musim hujan tinggi",
+        "estimasi_ketinggian_air_cm": "40 - 120 cm",
+        "status_wilayah": "Pusat Kecamatan & Permukiman Warga",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3441,
+          -6.5312
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-011",
+        "nama_titik": "Desa Sukawera",
+        "desa": "Sukawera",
+        "kecamatan": "Kec. Kertasmaya",
+        "latitude": -6.5245,
+        "longitude": 108.3496,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan air sungai Cimanuk dan erosi bibir tebing tanggul",
+        "frekuensi_kejadian": "Tahunan",
+        "estimasi_ketinggian_air_cm": "30 - 90 cm",
+        "status_wilayah": "Bantaran Sungai & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3496,
+          -6.5245
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-012",
+        "nama_titik": "Desa Gunungsari (Tikungan Sungai Cimanuk)",
+        "desa": "Gunungsari",
+        "kecamatan": "Kec. Sukagumiwang",
+        "latitude": -6.5741,
+        "longitude": 108.3815,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Titik meander tajam Sungai Cimanuk menghantam dinding tanggul pemukiman",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "50 - 160 cm",
+        "status_wilayah": "Tanggul Sangat Rawan Erosi & Perumahan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3815,
+          -6.5741
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-013",
+        "nama_titik": "Desa Tersana",
+        "desa": "Tersana",
+        "kecamatan": "Kec. Sukagumiwang",
+        "latitude": -6.5684,
+        "longitude": 108.3752,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan air sungai Cimanuk menggenangi persawahan dan pemukiman",
+        "frekuensi_kejadian": "Tahunan",
+        "estimasi_ketinggian_air_cm": "30 - 110 cm",
+        "status_wilayah": "Sawah Irigasi & Permukiman Warga",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3752,
+          -6.5684
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-014",
+        "nama_titik": "Desa Bondan",
+        "desa": "Bondan",
+        "kecamatan": "Kec. Sukagumiwang",
+        "latitude": -6.5812,
+        "longitude": 108.391,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan air sungai saat pintu air huluan dibuka debit puncak",
+        "frekuensi_kejadian": "1 Kali per Musim Hujan",
+        "estimasi_ketinggian_air_cm": "30 - 80 cm",
+        "status_wilayah": "Permukiman & Lahan Sawah",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.391,
+          -6.5812
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-015",
+        "nama_titik": "Desa Pilangsari (Tanggul Kritis Cimanuk)",
+        "desa": "Pilangsari",
+        "kecamatan": "Kec. Jatibarang",
+        "latitude": -6.4824,
+        "longitude": 108.3211,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Tanggul Pilangsari memiliki histori jebol saat banjir besar Cimanuk",
+        "frekuensi_kejadian": "Saat banjir bandang kiriman hulu",
+        "estimasi_ketinggian_air_cm": "50 - 170 cm",
+        "status_wilayah": "Tanggul Strategis & Kawasan Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3211,
+          -6.4824
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-016",
+        "nama_titik": "Desa Jatibarang Baru (Bantaran Rel Stasiun)",
+        "desa": "Jatibarang Baru",
+        "kecamatan": "Kec. Jatibarang",
+        "latitude": -6.4715,
+        "longitude": 108.3142,
+        "kategori_banjir": "Genangan Drainase & Luapan Saluran",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Kapasitas drainase perkotaan tidak memadai saat hujan lebat",
+        "frekuensi_kejadian": "2 - 3 Kali per Musim Hujan",
+        "estimasi_ketinggian_air_cm": "20 - 60 cm",
+        "status_wilayah": "Pusat Perdagangan Kota & Stasiun KA",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3142,
+          -6.4715
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-017",
+        "nama_titik": "Kelurahan Karangsong (Pelabuhan Nelayan & TPI)",
+        "desa": "Karangsong",
+        "kecamatan": "Kec. Indramayu",
+        "latitude": -6.3198,
+        "longitude": 108.3562,
+        "kategori_banjir": "Banjir Rob & Pasang Laut",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan pasang laut dermaga TPI & muara Kali Prajagumiwang",
+        "frekuensi_kejadian": "Setiap Bulan (Fase Rob Purnama)",
+        "estimasi_ketinggian_air_cm": "35 - 90 cm",
+        "status_wilayah": "Sentra Industri Perikanan & Pemukiman Nelayan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3562,
+          -6.3198
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-018",
+        "nama_titik": "Desa Pabean Udik",
+        "desa": "Pabean Udik",
+        "kecamatan": "Kec. Indramayu",
+        "latitude": -6.3105,
+        "longitude": 108.3375,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Elevasi daratan rendah di garis pantai utara Indramayu tergenang rob",
+        "frekuensi_kejadian": "Rutin Bulanan",
+        "estimasi_ketinggian_air_cm": "30 - 80 cm",
+        "status_wilayah": "Permukiman Pesisir & Area Tambak",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3375,
+          -6.3105
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-019",
+        "nama_titik": "Kelurahan Paoman (Bantaran Kali Cimanuk Lama)",
+        "desa": "Paoman",
+        "kecamatan": "Kec. Indramayu",
+        "latitude": -6.3265,
+        "longitude": 108.3289,
+        "kategori_banjir": "Genangan Drainase & Limpasan Kali",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Limpasan Kali Cimanuk Lama dan antrean drainase perkotaan",
+        "frekuensi_kejadian": "1 - 2 Kali per Musim Hujan",
+        "estimasi_ketinggian_air_cm": "20 - 55 cm",
+        "status_wilayah": "Kawasan Pemukiman & Sentra Batik Paoman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3289,
+          -6.3265
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-020",
+        "nama_titik": "Desa Cantigi Kulon (Muara Sungai Cimanuk)",
+        "desa": "Cantigi Kulon",
+        "kecamatan": "Kec. Cantigi",
+        "latitude": -6.3015,
+        "longitude": 108.2618,
+        "kategori_banjir": "Banjir Rob & Limpasan Muara Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Pertemuan gelombang pasang air laut dan aliran buangan muara Cimanuk",
+        "frekuensi_kejadian": "Setiap Siklus Pasang Maksimum",
+        "estimasi_ketinggian_air_cm": "40 - 130 cm",
+        "status_wilayah": "Permukiman Pinggir Muara & Kawasan Nelayan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2618,
+          -6.3015
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-021",
+        "nama_titik": "Desa Cangkring",
+        "desa": "Cangkring",
+        "kecamatan": "Kec. Cantigi",
+        "latitude": -6.3156,
+        "longitude": 108.2742,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan air laut menggenangi area tambak dan jalan desa",
+        "frekuensi_kejadian": "Rutin saat pasang tinggi",
+        "estimasi_ketinggian_air_cm": "30 - 75 cm",
+        "status_wilayah": "Area Budidaya Tambak Bandeng & Rumah Warga",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2742,
+          -6.3156
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-022",
+        "nama_titik": "Desa Pagirikan",
+        "desa": "Pagirikan",
+        "kecamatan": "Kec. Pasekan",
+        "latitude": -6.2932,
+        "longitude": 108.2891,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Air pasang laut merangsek melalui percabangan muara sungai",
+        "frekuensi_kejadian": "Rutin saat fase bulan purnama",
+        "estimasi_ketinggian_air_cm": "30 - 85 cm",
+        "status_wilayah": "Permukiman Pesisir",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2891,
+          -6.2932
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-023",
+        "nama_titik": "Desa Totoran",
+        "desa": "Totoran",
+        "kecamatan": "Kec. Pasekan",
+        "latitude": -6.2845,
+        "longitude": 108.2954,
+        "kategori_banjir": "Banjir Rob & Abrasi",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Pasang air laut terbuka pantai utara merendam jalan utama desa",
+        "frekuensi_kejadian": "Musiman saat rob tinggi",
+        "estimasi_ketinggian_air_cm": "25 - 70 cm",
+        "status_wilayah": "Kawasan Pesisir Pantai",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2954,
+          -6.2845
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-024",
+        "nama_titik": "Desa Dadap (Pesisir Pantai Nelayan)",
+        "desa": "Dadap",
+        "kecamatan": "Kec. Juntinyuat",
+        "latitude": -6.4421,
+        "longitude": 108.4912,
+        "kategori_banjir": "Banjir Rob & Abrasi Pantai",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Hempasan ombak pasang laut dan rusaknya sebagian breakwater penahan ombak",
+        "frekuensi_kejadian": "Setiap Gelombang Pasang Laut Tinggi",
+        "estimasi_ketinggian_air_cm": "40 - 110 cm",
+        "status_wilayah": "Permukiman Padat Nelayan & Dermaga TPI",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.4912,
+          -6.4421
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-025",
+        "nama_titik": "Desa Glayem",
+        "desa": "Glayem",
+        "kecamatan": "Kec. Juntinyuat",
+        "latitude": -6.4251,
+        "longitude": 108.4721,
+        "kategori_banjir": "Banjir Rob & Gelombang Pasang",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan air laut di kawasan wisata pantai dan pemukiman sekitar",
+        "frekuensi_kejadian": "Musiman saat rob pasang",
+        "estimasi_ketinggian_air_cm": "30 - 70 cm",
+        "status_wilayah": "Objek Wisata Pantai & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.4721,
+          -6.4251
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-026",
+        "nama_titik": "Desa Krangkeng (Pesisir Perbatasan Cirebon)",
+        "desa": "Krangkeng",
+        "kecamatan": "Kec. Krangkeng",
+        "latitude": -6.5372,
+        "longitude": 108.5315,
+        "kategori_banjir": "Banjir Rob Pesisir",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan pasang air laut merendam jalan perkampungan dan tambak warga",
+        "frekuensi_kejadian": "Rutin saat pasang purnama",
+        "estimasi_ketinggian_air_cm": "30 - 85 cm",
+        "status_wilayah": "Permukiman Perbatasan & Tambak Garam/Ikan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.5315,
+          -6.5372
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-027",
+        "nama_titik": "Desa Luwunggesik",
+        "desa": "Luwunggesik",
+        "kecamatan": "Kec. Krangkeng",
+        "latitude": -6.5482,
+        "longitude": 108.5142,
+        "kategori_banjir": "Luapan Saluran Irigasi & Rob",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Saluran pembuang tersumbat saat hujan lebat bersamaan dengan air laut pasang",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "25 - 65 cm",
+        "status_wilayah": "Lahan Pertanian & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.5142,
+          -6.5482
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-028",
+        "nama_titik": "Desa Terusan (Bantaran Cimanuk)",
+        "desa": "Terusan",
+        "kecamatan": "Kec. Sindang",
+        "latitude": -6.3564,
+        "longitude": 108.3112,
+        "kategori_banjir": "Luapan Sungai Cimanuk",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan air sungai Cimanuk saat pintu air bendung rentang dibuka penuh",
+        "frekuensi_kejadian": "Tahunan saat debit puncak",
+        "estimasi_ketinggian_air_cm": "40 - 110 cm",
+        "status_wilayah": "Permukiman Padat & Pinggir Tanggul",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3112,
+          -6.3564
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-029",
+        "nama_titik": "Desa Babadan",
+        "desa": "Babadan",
+        "kecamatan": "Kec. Sindang",
+        "latitude": -6.3421,
+        "longitude": 108.3054,
+        "kategori_banjir": "Luapan Sungai & Genangan",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Aliran balik (backwater) muara tertahan pasang air laut",
+        "frekuensi_kejadian": "Tahunan",
+        "estimasi_ketinggian_air_cm": "30 - 80 cm",
+        "status_wilayah": "Permukiman Warga",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3054,
+          -6.3421
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-030",
+        "nama_titik": "Desa Rambatan Kulon (DAS Cimanuk Lama)",
+        "desa": "Rambatan Kulon",
+        "kecamatan": "Kec. Lohbener",
+        "latitude": -6.4021,
+        "longitude": 108.2815,
+        "kategori_banjir": "Luapan Sungai Cimanuk Lama",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Penyempitan dan sedimentasi saluran pembuang Cimanuk Lama",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "30 - 90 cm",
+        "status_wilayah": "Kawasan Permukiman & Persawahan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2815,
+          -6.4021
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-031",
+        "nama_titik": "Desa Sindangkerta",
+        "desa": "Sindangkerta",
+        "kecamatan": "Kec. Lohbener",
+        "latitude": -6.3862,
+        "longitude": 108.2721,
+        "kategori_banjir": "Genangan Air Hujan & Irigasi",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Laju resapan rendah dan saluran irigasi sekunder meluap",
+        "frekuensi_kejadian": "Saat hujan ekstrem",
+        "estimasi_ketinggian_air_cm": "20 - 50 cm",
+        "status_wilayah": "Permukiman & Persawahan",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2721,
+          -6.3862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-032",
+        "nama_titik": "Desa Kertanegara (DAS Cipunegara)",
+        "desa": "Kertanegara",
+        "kecamatan": "Kec. Haurgeulis",
+        "latitude": -6.4712,
+        "longitude": 107.9485,
+        "kategori_banjir": "Luapan Sungai Cipunegara",
+        "tingkat_kerawanan": "Tinggi (Zona Merah)",
+        "penyebab_utama": "Limpasan debit banjir Sungai Cipunegara batas Subang-Indramayu",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun saat hujan lebat",
+        "estimasi_ketinggian_air_cm": "40 - 120 cm",
+        "status_wilayah": "Permukiman Warga & Area Pertanian",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9485,
+          -6.4712
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-033",
+        "nama_titik": "Desa Haurkolot",
+        "desa": "Haurkolot",
+        "kecamatan": "Kec. Haurgeulis",
+        "latitude": -6.4589,
+        "longitude": 107.9351,
+        "kategori_banjir": "Luapan Saluran Pembuang Alam",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Luapan kali alam kiriman air dari lereng selatan",
+        "frekuensi_kejadian": "Tahunan",
+        "estimasi_ketinggian_air_cm": "30 - 85 cm",
+        "status_wilayah": "Permukiman & Jalur Transportasi Lokal",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9351,
+          -6.4589
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-034",
+        "nama_titik": "Desa Kopyah",
+        "desa": "Kopyah",
+        "kecamatan": "Kec. Anjatan",
+        "latitude": -6.3712,
+        "longitude": 108.0185,
+        "kategori_banjir": "Luapan Saluran Irigasi Pembuang",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Penyempitan dan sedimentasi saluran pembuang sekunder irigasi",
+        "frekuensi_kejadian": "1 Kali per Musim Hujan",
+        "estimasi_ketinggian_air_cm": "25 - 65 cm",
+        "status_wilayah": "Kawasan Pertanian Padi & Rumah Warga",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.0185,
+          -6.3712
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-035",
+        "nama_titik": "Desa Bangkaloa Ilir",
+        "desa": "Bangkaloa Ilir",
+        "kecamatan": "Kec. Widasari",
+        "latitude": -6.4568,
+        "longitude": 108.2834,
+        "kategori_banjir": "Genangan Air Sawah & Drainase",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Limpasan genangan sawah dan drainase desa lambat mengalir",
+        "frekuensi_kejadian": "Saat hujan ekstrem terus-menerus",
+        "estimasi_ketinggian_air_cm": "20 - 60 cm",
+        "status_wilayah": "Permukiman & Jalan Desa",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2834,
+          -6.4568
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-036",
+        "nama_titik": "Desa Gadel",
+        "desa": "Gadel",
+        "kecamatan": "Kec. Tukdana",
+        "latitude": -6.5241,
+        "longitude": 108.2715,
+        "kategori_banjir": "Luapan Saluran Irigasi Induk",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Limpasan debit saluran irigasi induk saat curah hujan tinggi terus-menerus",
+        "frekuensi_kejadian": "1 - 2 Kali per Tahun",
+        "estimasi_ketinggian_air_cm": "30 - 80 cm",
+        "status_wilayah": "Kawasan Persawahan Produktif",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.2715,
+          -6.5241
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-037",
+        "nama_titik": "Desa Balongan (Pesisir Teluk Balongan)",
+        "desa": "Balongan",
+        "kecamatan": "Kec. Balongan",
+        "latitude": -6.3752,
+        "longitude": 108.3842,
+        "kategori_banjir": "Banjir Rob & Pasang Laut",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Pasang air laut merendam pesisir pantai dan jalan perkampungan",
+        "frekuensi_kejadian": "Musiman saat pasang purnama",
+        "estimasi_ketinggian_air_cm": "25 - 65 cm",
+        "status_wilayah": "Kawasan Pesisir & Lingkar Industri",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.3842,
+          -6.3752
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-038",
+        "nama_titik": "Desa Sukra",
+        "desa": "Sukra",
+        "kecamatan": "Kec. Sukra",
+        "latitude": -6.2975,
+        "longitude": 107.9512,
+        "kategori_banjir": "Banjir Rob & Limpasan Muara",
+        "tingkat_kerawanan": "Sedang (Zona Kuning)",
+        "penyebab_utama": "Pasang laut Laut Jawa perbatasan Subang merendam tambak & jalan",
+        "frekuensi_kejadian": "Rutin saat rob",
+        "estimasi_ketinggian_air_cm": "30 - 75 cm",
+        "status_wilayah": "Kawasan Tambak & Pesisir Pantura Barat",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9512,
+          -6.2975
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-039",
+        "nama_titik": "Desa Patrol",
+        "desa": "Patrol",
+        "kecamatan": "Kec. Patrol",
+        "latitude": -6.3152,
+        "longitude": 108.0125,
+        "kategori_banjir": "Luapan Saluran Pembuang & Pantura",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Limpasan saluran irigasi pembuang saat hujan lebat",
+        "frekuensi_kejadian": "1 Kali per Musim Hujan",
+        "estimasi_ketinggian_air_cm": "20 - 55 cm",
+        "status_wilayah": "Jalur Pantura & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.0125,
+          -6.3152
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id_titik_banjir": "RAWAN-IM-040",
+        "nama_titik": "Desa Cikedung",
+        "desa": "Cikedung",
+        "kecamatan": "Kec. Cikedung",
+        "latitude": -6.5124,
+        "longitude": 108.1721,
+        "kategori_banjir": "Luapan Sungai Alam & Hujan Deras",
+        "tingkat_kerawanan": "Waspada (Zona Oranye)",
+        "penyebab_utama": "Aliran air kiriman dari perbukitan selatan merendam dataran rendah desa",
+        "frekuensi_kejadian": "Saat hujan ekstrem",
+        "estimasi_ketinggian_air_cm": "20 - 50 cm",
+        "status_wilayah": "Kawasan Pertanian & Permukiman",
+        "sumber_acuan": "Dokumen KRB BPBD Indramayu & DIBI BNPB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.1721,
+          -6.5124
+        ]
+      }
+    }
+  ]
+}

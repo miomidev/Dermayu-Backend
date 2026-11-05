@@ -33,7 +33,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Warga Bottom Nav Items (Tepat 5 Menu: Beranda -> Rute -> Lapor (FAB) -> Posko -> Akun)
+  // Warga Bottom Nav Items (Sama rata & seimbang: Beranda -> Rute -> Lapor -> Posko -> Komunitas)
   const wargaNavItems = [
     {
       label: "Beranda",
@@ -51,7 +51,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
       label: "Lapor",
       href: "/warga/lapor",
       icon: BeaconAlertIcon,
-      isCenter: true,
+      isCenter: false,
     },
     {
       label: "Posko",
@@ -133,7 +133,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
           const isActive = isItemActive(item.href);
           const Icon = item.icon;
 
-          // 1. Center Floating Action Button (FAB)
+          // 1. Center Floating Action Button (FAB) jika diaktifkan (misal pada role petugas)
           if (item.isCenter) {
             return (
               <Link
@@ -165,7 +165,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
             );
           }
 
-          // 2. Regular Tab Navigation Items (Beranda, Rute, Posko, Komunitas)
+          // 2. Regular Tab Navigation Items (Sama rata & seimbang)
           return (
             <Link
               key={item.href}

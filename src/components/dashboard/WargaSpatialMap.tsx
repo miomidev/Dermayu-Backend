@@ -142,10 +142,38 @@ interface WargaSpatialMapProps {
   className?: string;
 }
 
+// ============================================================================
+// HELPER PERHITUNGAN JARAK SPASIAL & FORMATTING TERDEKAT (HAVERSINE)
+// ============================================================================
+function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
 
+function formatDistanceText(meters: number): string {
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatEtaText(meters: number): string {
+  const km = meters / 1000;
+  const mins = Math.max(3, Math.round(km * 3.5));
+  return `±${mins} mnt`;
+}
 
 // Generator Custom Marker Pin Teardrop Google Maps Style
-type PinType = "posko" | "genangan" | "kritis" | "sensor";
+type PinType = "posko" | "genangan" | "kritis" | "sensor" | "infra" | "rawan";
 
 const createPinIcon = (type: PinType) => {
   const config = {
@@ -164,6 +192,14 @@ const createPinIcon = (type: PinType) => {
     sensor: {
       bg: "bg-sky-600",
       icon: <Activity className="w-4 h-4 text-white" strokeWidth={2.5} />,
+    },
+    infra: {
+      bg: "bg-cyan-600",
+      icon: <Building2 className="w-4 h-4 text-white" strokeWidth={2.5} />,
+    },
+    rawan: {
+      bg: "bg-purple-600",
+      icon: <AlertTriangle className="w-4 h-4 text-white" strokeWidth={2.5} />,
     },
   }[type];
 
@@ -425,6 +461,212 @@ export default function WargaSpatialMap({
     }
   };
 
+  // User GPS Coordinates & Dynamic Proximity States
+  const [userCoords, setUserCoords] = useState<[number, number]>([-6.3475, 108.1189]);
+  const [isGpsLocked, setIsGpsLocked] = useState(false);
+  const [shelterLimit, setShelterLimit] = useState<number>(5);
+  const initialGpsFittedRef = useRef(false);
+
+  // Helper pasang marker GPS pengguna dengan efek pulsa radar hijau DERMAYU (#2D6A4F)
+  const updateUserMarkerOnMap = (lat: number, lng: number, accuracy?: number) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const userIconHtml = `
+      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;">
+        <span style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(45, 106, 79, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="width: 18px; height: 18px; border-radius: 9999px; background: #2D6A4F; border: 3px solid #ffffff; box-shadow: 0 3px 10px rgba(0,0,0,0.35);"></div>
+      </div>
+    `;
+    const userIcon = L.divIcon({
+      html: userIconHtml,
+      className: "custom-user-pulsing-marker",
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([lat, lng]);
+    } else {
+      userMarkerRef.current = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 })
+        .bindPopup(
+          `<div style="font-family: inherit; font-size: 12px; font-weight: 700; color: #1D443F; padding: 2px;">
+            📍 Posisi Anda Saat Ini (GPS Otomatis)
+            <div style="font-size: 10px; font-weight: normal; color: #64748B; margin-top: 2px;">
+              Akurasi: &plusmn;${Math.round(accuracy || 15)} meter
+            </div>
+          </div>`
+        )
+        .addTo(map);
+    }
+
+    if (userAccuracyCircleRef.current) {
+      userAccuracyCircleRef.current.setLatLng([lat, lng]);
+      userAccuracyCircleRef.current.setRadius(accuracy || 30);
+    } else {
+      userAccuracyCircleRef.current = L.circle([lat, lng], {
+        radius: accuracy || 30,
+        color: "#2D6A4F",
+        fillColor: "#2D6A4F",
+        fillOpacity: 0.12,
+        weight: 1.5,
+        dashArray: "3, 5",
+      }).addTo(map);
+    }
+  };
+
+  // Deteksi GPS otomatis saat pertama kali halaman/peta dibuka
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setUserCoords([latitude, longitude]);
+          setIsGpsLocked(true);
+          updateUserMarkerOnMap(latitude, longitude, accuracy);
+          if (mapInstanceRef.current && !initialGpsFittedRef.current) {
+            initialGpsFittedRef.current = true;
+            mapInstanceRef.current.flyTo([latitude, longitude], 14, { duration: 1.2 });
+          }
+        },
+        (err) => {
+          console.warn("GPS otomatis belum aktif atau izin ditolak:", err.message);
+          updateUserMarkerOnMap(-6.3475, 108.1189, 50);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    } else {
+      updateUserMarkerOnMap(-6.3475, 108.1189, 50);
+    }
+  }, []);
+
+  // Kalkulasi jarak real-time dari posisi GPS pengguna ke seluruh posko sekolah
+  const processedShelters = useMemo(() => {
+    const [uLat, uLng] = userCoords;
+    return shelters.map((sh) => {
+      const distMeters = calculateDistanceInMeters(uLat, uLng, sh.lat, sh.lng);
+      const distStr = formatDistanceText(distMeters);
+      const etaStr = formatEtaText(distMeters);
+      return {
+        ...sh,
+        distMeters,
+        distance: `${distStr} (${etaStr})`,
+        displayDistance: distStr,
+        displayEta: etaStr,
+      };
+    });
+  }, [shelters, userCoords]);
+
+  // Urutan Posko Terdekat & Hasil Filter Dinamis (Search, Kategori, Wilayah)
+  const displayedShelters = useMemo(() => {
+    let list = [...processedShelters];
+
+    // 1. Text Search query (fuzzy match name, location, district, facilities)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((sh) => {
+        const matchName = sh.name.toLowerCase().includes(q);
+        const matchLoc = sh.location.toLowerCase().includes(q);
+        const matchDist = (sh.district || "").toLowerCase().includes(q);
+        const matchFacilities = (sh.facilities || []).some((f) => f.toLowerCase().includes(q));
+        return matchName || matchLoc || matchDist || matchFacilities;
+      });
+    }
+
+    // 2. Chip Filter Kategori & Wilayah
+    if (activeFilterChip === "medis") {
+      list = list.filter((sh) => {
+        const meta = SHELTER_METADATA[sh.id];
+        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
+        return (
+          text.includes("medis") ||
+          text.includes("kesehatan") ||
+          text.includes("pmi") ||
+          text.includes("dokter") ||
+          text.includes("bidan") ||
+          text.includes("obat") ||
+          text.includes("ambulans")
+        );
+      });
+    } else if (activeFilterChip === "dapur") {
+      list = list.filter((sh) => {
+        const meta = SHELTER_METADATA[sh.id];
+        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
+        return (
+          text.includes("dapur") ||
+          text.includes("makanan") ||
+          text.includes("sembako") ||
+          text.includes("logistik") ||
+          text.includes("beras") ||
+          text.includes("air")
+        );
+      });
+    } else if (activeFilterChip === "gor") {
+      list = list.filter((sh) => {
+        const text = `${sh.name} ${sh.location}`.toLowerCase();
+        return (
+          text.includes("gor") ||
+          text.includes("gedung") ||
+          text.includes("aula") ||
+          text.includes("masjid") ||
+          text.includes("balai") ||
+          sh.capacityTotal >= 200 ||
+          SHELTER_METADATA[sh.id]?.rating === "Kapasitas Besar"
+        );
+      });
+    } else if (activeFilterChip !== "terdekat" && activeFilterChip !== "semua") {
+      // Wilayah / Kecamatan Filter
+      const d = activeFilterChip.toLowerCase();
+      list = list.filter((sh) => {
+        const shDist = (sh.district || "").toLowerCase();
+        const shLoc = sh.location.toLowerCase();
+        const shName = sh.name.toLowerCase();
+        return shDist.includes(d) || shLoc.includes(d) || shName.includes(d);
+      });
+    }
+
+    // Urutkan posko terdekat dari koordinat user (jarak terkecil ke terbesar)
+    return list.sort((a, b) => a.distMeters - b.distMeters);
+  }, [processedShelters, searchQuery, activeFilterChip]);
+
+  // Hanya ambil 3-5 posko sekolah terdekat untuk dirender di peta Leaflet (Zero DOM lag)
+  const mapVisibleShelters = useMemo(() => {
+    const top = displayedShelters.slice(0, shelterLimit);
+    if (activeShelterDetail && !top.some((s) => s.id === activeShelterDetail.id)) {
+      return [activeShelterDetail, ...top];
+    }
+    return top;
+  }, [displayedShelters, shelterLimit, activeShelterDetail]);
+
+  // Status tampilan default (3-5 posko terdekat) vs mode dinamis/ekspansi
+  const isDefaultView = activeFilterChip === "terdekat" && !showAllShelters && !searchQuery.trim();
+
+  // Judul dinamis untuk header Card Posko Evakuasi
+  const getCardHeaderTitle = () => {
+    if (searchQuery.trim()) {
+      return `Hasil Pencarian: "${searchQuery}"`;
+    }
+    if (activeFilterChip === "medis") {
+      return "Posko Medis";
+    }
+    if (activeFilterChip === "dapur") {
+      return "Dapur Umum";
+    }
+    if (activeFilterChip === "gor") {
+      return "GOR / Gedung Besar";
+    }
+    if (activeFilterChip === "semua") {
+      return "Semua Posko Evakuasi";
+    }
+    if (activeFilterChip !== "terdekat") {
+      return `Posko Wilayah ${activeFilterChip}`;
+    }
+    if (showAllShelters) {
+      return `Posko Terdekat Lainnya (${Math.min(10, displayedShelters.length)} Terdekat)`;
+    }
+    return `Posko Evakuasi Terdekat (${shelterLimit} Terdekat)`;
+  };
+
   const [selectedMarker, setSelectedMarker] = useState<
     | { type: "shelter"; data: MapShelterPoint }
     | { type: "report"; data: MapReportPoint }
@@ -614,6 +856,9 @@ export default function WargaSpatialMap({
     routesLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
+    // Pasang marker user segera setelah peta Leaflet siap
+    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+
     map.on("click", (e) => {
       if (isPickingWaypointRef.current) {
         handleMapClickForWaypointRef.current(e.latlng.lat, e.latlng.lng);
@@ -716,8 +961,9 @@ export default function WargaSpatialMap({
     }
 
     // 2. PLOT SHELTERS (POSKO PENGUNGSIAN)
+    // PERFORMA ULTRA-RESPONSIF: Hanya render 3-5 posko sekolah terdekat dari GPS agar Leaflet 100% cepat & bebas lag!
     if (activeLayer === "ALL" || activeLayer === "SHELTERS") {
-      shelters.forEach((sh) => {
+      mapVisibleShelters.forEach((sh) => {
         const sisaKapasitas = sh.capacityTotal - sh.capacityFilled;
         const isFull = sh.status === "PENUH";
         const color = isFull ? "#9CA3AF" : "#059669";
@@ -728,7 +974,7 @@ export default function WargaSpatialMap({
           <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
-                POSKO AMAN
+                POSKO TERDEKAT (GPS)
               </span>
               <span style="font-size: 10px; font-weight: 700; color: ${isFull ? "#DC2626" : "#059669"};">
                 ${sh.status}
@@ -827,8 +1073,7 @@ export default function WargaSpatialMap({
         telemetryLayerRef.current?.addLayer(marker);
       });
     }
-  }, [reports, shelters, telemetry, activeLayer, onSelectReport, onSelectShelter]);
-
+  }, [reports, mapVisibleShelters, telemetry, activeLayer, onSelectReport, onSelectShelter]);
 
   // Radar Glow Effect pada Marker Posko yang Aktif
   const showRadarGlow = (lat: number, lng: number) => {
@@ -1789,62 +2034,20 @@ export default function WargaSpatialMap({
       (pos) => {
         setLocating(false);
         const { latitude, longitude, accuracy } = pos.coords;
-        const map = mapInstanceRef.current;
-        if (!map) return;
+        setUserCoords([latitude, longitude]);
+        setIsGpsLocked(true);
+        updateUserMarkerOnMap(latitude, longitude, accuracy);
 
-        // Geser kamera langsung terpusat ke lokasi pengguna
-        map.flyTo([latitude, longitude], 16, { duration: 1.5 });
-
-        // Marker pulsa radar hijau tema DERMAYU (#2D6A4F)
-        const userIconHtml = `
-          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;">
-            <span style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(45, 106, 79, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-            <div style="width: 18px; height: 18px; border-radius: 9999px; background: #2D6A4F; border: 3px solid #ffffff; box-shadow: 0 3px 10px rgba(0,0,0,0.35);"></div>
-          </div>
-        `;
-        const userIcon = L.divIcon({
-          html: userIconHtml,
-          className: "custom-user-pulsing-marker",
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-        });
-
-        if (userMarkerRef.current) {
-          userMarkerRef.current.setLatLng([latitude, longitude]);
-        } else {
-          userMarkerRef.current = L.marker([latitude, longitude], { icon: userIcon, zIndexOffset: 1000 })
-            .bindPopup(
-              `<div style="font-family: inherit; font-size: 12px; font-weight: 700; color: #1D443F; padding: 2px;">
-                📍 Posisi Anda Saat Ini
-                <div style="font-size: 10px; font-weight: normal; color: #64748B; margin-top: 2px;">
-                  Akurasi GPS: &plusmn;${Math.round(accuracy || 10)} meter
-                </div>
-              </div>`
-            )
-            .addTo(map);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([latitude, longitude], 15, { duration: 1.2 });
         }
 
-        // Akurasi radius lingkaran transparan di sekitarnya
-        if (userAccuracyCircleRef.current) {
-          userAccuracyCircleRef.current.setLatLng([latitude, longitude]);
-          userAccuracyCircleRef.current.setRadius(accuracy || 30);
-        } else {
-          userAccuracyCircleRef.current = L.circle([latitude, longitude], {
-            radius: accuracy || 30,
-            color: "#2D6A4F",
-            fillColor: "#2D6A4F",
-            fillOpacity: 0.12,
-            weight: 1.5,
-            dashArray: "3, 5",
-          }).addTo(map);
-        }
-
-        setToastMessage("Lokasi GPS Anda berhasil ditemukan");
-        setTimeout(() => setToastMessage(null), 2500);
+        setToastMessage(`GPS Terkunci: Menampilkan ${shelterLimit} posko terdekat dari lokasi Anda`);
+        setTimeout(() => setToastMessage(null), 3000);
       },
       () => {
         setLocating(false);
-        setToastMessage("Izin akses lokasi ditolak oleh browser. Mohon izinkan akses GPS.");
+        setToastMessage("Izin akses lokasi ditolak oleh peramban. Menggunakan koordinat siaga.");
         setTimeout(() => setToastMessage(null), 4000);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -1917,114 +2120,6 @@ export default function WargaSpatialMap({
 
 
 
-
-  // Urutan Posko Terdekat & Hasil Filter Dinamis (Search, Kategori, Wilayah)
-  const displayedShelters = useMemo(() => {
-    let list = [...shelters];
-
-    // 1. Text Search query (fuzzy match name, location, district, facilities)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((sh) => {
-        const matchName = sh.name.toLowerCase().includes(q);
-        const matchLoc = sh.location.toLowerCase().includes(q);
-        const matchDist = (sh.district || "").toLowerCase().includes(q);
-        const matchFacilities = (sh.facilities || []).some((f) => f.toLowerCase().includes(q));
-        return matchName || matchLoc || matchDist || matchFacilities;
-      });
-    }
-
-    // 2. Chip Filter Kategori & Wilayah
-    if (activeFilterChip === "medis") {
-      list = list.filter((sh) => {
-        const meta = SHELTER_METADATA[sh.id];
-        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
-        return (
-          text.includes("medis") ||
-          text.includes("kesehatan") ||
-          text.includes("pmi") ||
-          text.includes("dokter") ||
-          text.includes("bidan") ||
-          text.includes("obat") ||
-          text.includes("ambulans")
-        );
-      });
-    } else if (activeFilterChip === "dapur") {
-      list = list.filter((sh) => {
-        const meta = SHELTER_METADATA[sh.id];
-        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
-        return (
-          text.includes("dapur") ||
-          text.includes("makanan") ||
-          text.includes("sembako") ||
-          text.includes("logistik") ||
-          text.includes("beras") ||
-          text.includes("air")
-        );
-      });
-    } else if (activeFilterChip === "gor") {
-      list = list.filter((sh) => {
-        const text = `${sh.name} ${sh.location}`.toLowerCase();
-        return (
-          text.includes("gor") ||
-          text.includes("gedung") ||
-          text.includes("aula") ||
-          text.includes("masjid") ||
-          text.includes("balai") ||
-          sh.capacityTotal >= 200 ||
-          SHELTER_METADATA[sh.id]?.rating === "Kapasitas Besar"
-        );
-      });
-    } else if (activeFilterChip !== "terdekat" && activeFilterChip !== "semua") {
-      // Wilayah / Kecamatan Filter
-      const d = activeFilterChip.toLowerCase();
-      list = list.filter((sh) => {
-        const shDist = (sh.district || "").toLowerCase();
-        const shLoc = sh.location.toLowerCase();
-        const shName = sh.name.toLowerCase();
-        return shDist.includes(d) || shLoc.includes(d) || shName.includes(d);
-      });
-    }
-
-    // Urutkan posko terdekat dari koordinat user
-    return list.sort((a, b) => {
-      const etaA = parseDurationInMinutes(SHELTER_METADATA[a.id]?.eta, a.distance);
-      const etaB = parseDurationInMinutes(SHELTER_METADATA[b.id]?.eta, b.distance);
-      if (etaA !== etaB) {
-        return etaA - etaB;
-      }
-      return parseDistanceInMeters(a.distance) - parseDistanceInMeters(b.distance);
-    });
-  }, [shelters, searchQuery, activeFilterChip]);
-
-  // Status tampilan default (3 posko terdekat) vs mode dinamis/ekspansi
-  const isDefaultView = activeFilterChip === "terdekat" && !showAllShelters && !searchQuery.trim();
-
-  // Judul dinamis untuk header Card Posko Evakuasi
-  const getCardHeaderTitle = () => {
-    if (searchQuery.trim()) {
-      return `Hasil Pencarian: "${searchQuery}"`;
-    }
-    if (activeFilterChip === "medis") {
-      return "Posko Medis";
-    }
-    if (activeFilterChip === "dapur") {
-      return "Dapur Umum";
-    }
-    if (activeFilterChip === "gor") {
-      return "GOR / Gedung Besar";
-    }
-    if (activeFilterChip === "semua") {
-      return "Semua Posko Evakuasi";
-    }
-    if (activeFilterChip !== "terdekat") {
-      return `Posko Wilayah ${activeFilterChip}`;
-    }
-    if (showAllShelters) {
-      return "Semua Posko Evakuasi";
-    }
-    return "Posko Evakuasi Terdekat";
-  };
 
   // Helper render kartu item posko (konsisten antara mode default & mode pencarian)
   const renderShelterCardItem = (sh: MapShelterPoint, index: number, showClosestBadge = false) => {
@@ -3274,13 +3369,61 @@ export default function WargaSpatialMap({
                               : getCardHeaderTitle()}
                       </h4>
                       {!isDetailActive && (
-                        <p className="text-[10px] text-[#4B635F] truncate">
-                          {displayedShelters.length} posko ditemukan
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full border ${
+                              isGpsLocked
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isGpsLocked ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                              }`}
+                            />
+                            {isGpsLocked ? "GPS Aktif" : "Eretan Hotspot"}
+                          </span>
+                          <p className="text-[10px] text-[#4B635F] truncate">
+                            {mapVisibleShelters.length} posko terdekat di peta
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {!isDetailActive && (
+                      <div className="flex items-center gap-1 bg-[#EEF5F3] p-0.5 rounded-lg border border-[#D5E4E0] shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShelterLimit(3);
+                          }}
+                          className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold transition cursor-pointer ${
+                            shelterLimit === 3
+                              ? "bg-[#2D6A4F] text-white shadow-2xs"
+                              : "text-[#4B635F] hover:text-[#132422]"
+                          }`}
+                        >
+                          3 Posko
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShelterLimit(5);
+                          }}
+                          className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold transition cursor-pointer ${
+                            shelterLimit === 5
+                              ? "bg-[#2D6A4F] text-white shadow-2xs"
+                              : "text-[#4B635F] hover:text-[#132422]"
+                          }`}
+                        >
+                          5 Posko
+                        </button>
+                      </div>
+                    )}
                     {(activeReportDetail || activeTelemetryDetail) && (
                       <span
                         className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0 ${
@@ -3360,8 +3503,8 @@ export default function WargaSpatialMap({
                         </div>
                       ) : isDefaultView ? (
                         <>
-                          {displayedShelters.slice(0, 3).map((sh, index) => renderShelterCardItem(sh, index, true))}
-                          {displayedShelters.length > 3 && (
+                          {displayedShelters.slice(0, shelterLimit).map((sh, index) => renderShelterCardItem(sh, index, true))}
+                          {displayedShelters.length > shelterLimit && (
                             <button
                               type="button"
                               onClick={() => {
@@ -3369,14 +3512,14 @@ export default function WargaSpatialMap({
                               }}
                               className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2.5 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                             >
-                              <span>Lihat Posko Lainnya ({displayedShelters.length} Posko Tersedia)</span>
+                              <span>Lihat Posko Terdekat Lainnya (Maksimal 10)</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </>
                       ) : (
                         <>
-                          {displayedShelters.map((sh, index) => renderShelterCardItem(sh, index, activeFilterChip === "terdekat"))}
+                          {displayedShelters.slice(0, showAllShelters ? 10 : shelterLimit).map((sh, index) => renderShelterCardItem(sh, index, activeFilterChip === "terdekat"))}
                           <button
                             type="button"
                             onClick={() => {
@@ -3386,7 +3529,7 @@ export default function WargaSpatialMap({
                             }}
                             className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                           >
-                            <span>Kembali ke 3 Posko Terdekat</span>
+                            <span>Kembali ke {shelterLimit} Posko Terdekat</span>
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
                         </>

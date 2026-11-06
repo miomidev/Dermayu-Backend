@@ -411,7 +411,7 @@ export function AppHeader({
       {/* 1. DESKTOP / LAYAR LEBAR HEADER (>= md)                      */}
       {/* Tetap Normal: Background Putih, Judul Halaman, Menu Dropdown */}
       {/* ============================================================ */}
-      <header className="hidden md:flex sticky top-0 h-16 bg-white/95 backdrop-blur-md border-b border-[#D5E4E0] px-6 lg:px-8 items-center justify-between z-30 shrink-0 shadow-2xs">
+      <header className="hidden md:flex sticky top-0 h-16 bg-white/95 backdrop-blur-md border-b border-[#D5E4E0] px-6 lg:px-8 items-center justify-between z-40 shrink-0 shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <h1 className="text-base lg:text-lg font-bold text-[#132422] truncate">
             {currentTitle}
@@ -562,7 +562,7 @@ export function AppHeader({
       {/* Hero memanjang dari ujung atas layar dan memendek ke atas    */}
       {/* Tanpa kedipan layar dan transisi warna app bar sealami fisis */}
       {/* ============================================================ */}
-      <div className="md:hidden relative z-30 w-full">
+      <div className="md:hidden relative z-40 w-full">
         {/* 2A. SIBLING 1: PERSISTENT STICKY APP BAR BACKGROUND BASE (z-10) */}
         <div
           style={{
@@ -659,15 +659,15 @@ export function AppHeader({
           </div>
         </motion.div>
 
-        {/* 2C. SIBLING 3: STICKY TOP APP BAR CONTROLS (z-30) */}
-        {/* Berada di layer atas (z-30), transparan sehingga memperlihatkan green hero di bawahnya */}
+        {/* 2C. SIBLING 3: STICKY TOP APP BAR CONTROLS (z-40) */}
+        {/* Berada di layer atas (z-40), transparan sehingga memperlihatkan green hero di bawahnya */}
         <header
           style={{
             height: "calc(60px + env(safe-area-inset-top, 0px))",
             marginTop: "calc(-1 * (60px + env(safe-area-inset-top, 0px)))",
             paddingTop: "env(safe-area-inset-top, 0px)",
           }}
-          className="sticky top-0 z-30 w-full px-4 flex items-center justify-between bg-transparent pointer-events-auto"
+          className="sticky top-0 z-40 w-full px-4 flex items-center justify-between bg-transparent pointer-events-auto"
         >
           {/* Brand Logo & Title */}
           <div className="flex items-center gap-2.5 min-w-0">

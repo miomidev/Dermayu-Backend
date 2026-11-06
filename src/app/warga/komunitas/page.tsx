@@ -12,8 +12,6 @@ import {
   Clock,
   Send,
   AlertTriangle,
-  ShieldCheck,
-  ShieldAlert,
   CheckCircle2,
   Waves,
   Building2,
@@ -21,6 +19,8 @@ import {
   ArrowLeft,
   Plus,
   X,
+  Search,
+  SlidersHorizontal,
   Image as ImageIcon,
   Video as VideoIcon,
   Trash2,
@@ -69,19 +69,19 @@ const CATEGORY_MAP: Record<
   { label: string; badgeClass: string }
 > = {
   ROB: {
-    label: "Info Genangan Rob",
+    label: "Genangan Rob",
     badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
   },
   LOGISTIK: {
-    label: "Kebutuhan Bantuan & Logistik",
+    label: "Logistik",
     badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
   },
   GOTONG_ROYONG: {
-    label: "Gotong Royong & Kerja Bakti",
+    label: "Gotong Royong",
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   RUTE: {
-    label: "Rute Aman Terupdate",
+    label: "Rute Aman",
     badgeClass: "bg-teal-50 text-teal-800 border-teal-200",
   },
 };
@@ -201,8 +201,13 @@ export default function WargaKomunitasPage() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Create Post Inline State (Menggantikan Modal Popup)
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
   const [modalCategory, setModalCategory] = useState<
     "ROB" | "LOGISTIK" | "GOTONG_ROYONG" | "RUTE"
   >("ROB");
@@ -223,6 +228,92 @@ export default function WargaKomunitasPage() {
   const session = getActiveSession();
   const currentUserName = session?.name || "Warga Indramayu";
   const currentUserDistrict = session?.district || "Kandanghaur - Eretan Wetan";
+
+  // Click outside listener untuk dropdown filter
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsFilterOpen(false);
+      }
+    };
+    if (isFilterOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isFilterOpen]);
+
+  // FAB State & IntersectionObserver
+  const topButtonRef = useRef<HTMLButtonElement>(null);
+  const [isTopButtonVisible, setIsTopButtonVisible] = useState(true);
+  const [isFabHidden, setIsFabHidden] = useState(false);
+  const [hiddenEdge, setHiddenEdge] = useState<"right" | "left">("right");
+  const dragBoundsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Jika di detail view atau sedang buat postingan inline, top button tidak dirender sehingga FAB selalu terpicu bila diaktifkan
+    if (selectedPostId || isCreatingPost) {
+      setIsTopButtonVisible(false);
+      return;
+    }
+
+    const el = topButtonRef.current;
+    if (!el) {
+      setIsTopButtonVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsTopButtonVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [selectedPostId, isCreatingPost]);
+
+  // FAB hanya muncul jika tidak sedang membuat post inline DAN (di tampilan Detail ATAU tombol atas sudah terscroll keluar layar)
+  const shouldShowFab =
+    !isCreatingPost && (selectedPostId !== null || !isTopButtonVisible);
+
+  const handleDragEnd = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: { point: { x: number; y: number } }
+  ) => {
+    if (typeof window === "undefined") return;
+    const screenWidth = window.innerWidth;
+    const dropX = info.point.x;
+
+    const distToRight = screenWidth - dropX;
+    const distToLeft = dropX;
+
+    // Jika digeser mendekati batas tepi kanan atau kiri layar (< 40px)
+    if (distToRight < 40) {
+      setHiddenEdge("right");
+      setIsFabHidden(true);
+    } else if (distToLeft < 40) {
+      setHiddenEdge("left");
+      setIsFabHidden(true);
+    } else {
+      setIsFabHidden(false);
+    }
+  };
+
+  const handleFabClick = () => {
+    if (isFabHidden) {
+      // Jika user melakukan tap pada tab kecil yang menempel di tepi layar, kembalikan ke bentuk penuh
+      setIsFabHidden(false);
+    } else {
+      setSelectedPostId(null);
+      setIsCreatingPost(true);
+    }
+  };
 
   // 1. Initial LocalStorage Load
   useEffect(() => {
@@ -363,12 +454,12 @@ export default function WargaKomunitasPage() {
     const updated = [newPost, ...posts];
     updateAndStorePosts(updated);
 
-    // Reset Modal
+    // Reset Form & Inline View
     setModalContent("");
     setModalWaterLevel("");
     setModalMedia([]);
     setIsSubmittingPost(false);
-    setIsModalOpen(false);
+    setIsCreatingPost(false);
 
     setToastMessage("Kabar warga berhasil dipublikasikan dan tersimpan!");
     setTimeout(() => setToastMessage(null), 3500);
@@ -400,41 +491,35 @@ export default function WargaKomunitasPage() {
     setCommentMedia([]);
   };
 
-  // Role Badge Helper
-  const renderAuthorBadge = (role?: "WARGA" | "APARAT" | "RELAWAN") => {
-    if (role === "APARAT") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-          <ShieldAlert className="w-3 h-3 text-amber-700" />
-          Pemerintah Desa / Pamong
-        </span>
-      );
-    }
-    if (role === "RELAWAN") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-900 border border-sky-300">
-          <ShieldCheck className="w-3 h-3 text-sky-700" />
-          Relawan Tagana / BPBD
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-        <ShieldCheck className="w-3 h-3 text-emerald-600" />
-        Warga Terverifikasi
-      </span>
-    );
+  // Helper Format Waktu Ringkas
+  const formatShortTime = (time: string) => {
+    return time
+      .replace(" yang lalu", " lalu")
+      .replace("menit", "mnt")
+      .replace("Jam", "jam");
   };
 
-  // Filter Posts
+  // Filter & Search Posts
+  const activeFilterCount =
+    (selectedCategory !== "ALL" ? 1 : 0) +
+    (selectedDistrict !== "ALL" ? 1 : 0);
+
   const filteredPosts = posts.filter((p) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      p.content.toLowerCase().includes(q) ||
+      p.authorName.toLowerCase().includes(q) ||
+      p.authorDistrict.toLowerCase().includes(q) ||
+      p.categoryLabel.toLowerCase().includes(q);
+
     const matchesCategory =
       selectedCategory === "ALL" || p.category === selectedCategory;
     const matchesDistrict =
       selectedDistrict === "ALL" ||
       (p.authorDistrict &&
         p.authorDistrict.toLowerCase().includes(selectedDistrict.toLowerCase()));
-    return matchesCategory && matchesDistrict;
+    return matchesSearch && matchesCategory && matchesDistrict;
   });
 
   // Current active post in detail view
@@ -466,36 +551,239 @@ export default function WargaKomunitasPage() {
         )}
       </AnimatePresence>
 
-      {/* HEADER KOMUNITAS WARGA SIAGA */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] text-[11px] font-bold border border-[#D5E4E0]">
-            <Users className="w-3.5 h-3.5 text-[#38746D]" />
-            <span>Kanal Informasi Warga Pantura</span>
+      {/* HEADER KOMUNITAS WARGA SIAGA (Hanya di Feed Utama, Sembunyikan di Detail & Mode Buat Kabar) */}
+      {!selectedPostId && !isCreatingPost && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] text-[11px] font-bold border border-[#D5E4E0]">
+              <Users className="w-3.5 h-3.5 text-[#38746D]" />
+              <span>Kanal Informasi Warga Pantura</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
+              Kabar Lapangan & Gotong Royong Warga
+            </h2>
           </div>
-          <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
-            Kabar Lapangan & Gotong Royong Warga
-          </h2>
-          <p className="text-xs text-gray-600 max-w-xl">
-            Informasi situasi air rob, ketersediaan jalur tembus, serta koordinasi bantuan antarwarga se-Kabupaten Indramayu.
-          </p>
+
+          <button
+            ref={topButtonRef}
+            type="button"
+            onClick={() => setIsCreatingPost(true)}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Buat Kabar Baru</span>
+          </button>
         </div>
+      )}
 
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Buat Kabar Baru</span>
-        </button>
-      </div>
-
-      {/* GRID UTAMA: KOLOM KIRI (FEED / DETAIL) + KOLOM KANAN (WIDGETS) */}
+      {/* GRID UTAMA: KOLOM KIRI (FEED / DETAIL / BUAT POST) + KOLOM KANAN (WIDGETS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* KOLOM KIRI (2 Kolom): In-Place Feed ATAU Detail View */}
+        {/* KOLOM KIRI (2 Kolom): In-Place Feed ATAU Detail View ATAU Buat Post Inline */}
         <div className="lg:col-span-2 space-y-5">
-          {selectedPostId && activePost ? (
+          {isCreatingPost ? (
+            /* ========================================================= */
+            /* 1. TAMPILAN INLINE BUAT KABAR WARGA (PENGGANTI MODAL)     */
+            /* ========================================================= */
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-5"
+            >
+              {/* Tombol Kembali ke Feed */}
+              <button
+                type="button"
+                onClick={() => setIsCreatingPost(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#D5E4E0] hover:bg-[#EEF5F3] text-xs font-bold text-[#1D443F] shadow-2xs transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali ke Kabar Warga</span>
+              </button>
+
+              {/* Card Form Buat Kabar Warga Inline */}
+              <div className="bg-white rounded-3xl border border-[#D5E4E0] shadow-xs p-6 sm:p-7 space-y-6">
+                {/* Header Form */}
+                <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                  <div className="w-10 h-10 rounded-2xl bg-[#EEF5F3] text-[#38746D] flex items-center justify-center shrink-0">
+                    <Plus className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-[#132422]">
+                      Buat Kabar Warga
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Bagikan informasi perkembangan situasi di lapangan untuk warga sekitar
+                    </p>
+                  </div>
+                </div>
+
+                {/* Form Input */}
+                <form onSubmit={handleCreatePost} className="space-y-5 text-xs sm:text-sm">
+                  {/* Identitas Pengirim */}
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#F8FAF9] border border-gray-100">
+                    <div className="w-9 h-9 rounded-2xl bg-[#1D443F] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                      {currentUserName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-[#132422] truncate">{currentUserName}</p>
+                      <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
+                        {currentUserDistrict}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pilih Kategori */}
+                  <div className="space-y-2">
+                    <label className="font-bold text-gray-700 block">Kategori Kabar:</label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {[
+                        { id: "ROB", label: "Info Genangan Rob" },
+                        { id: "GOTONG_ROYONG", label: "Gotong Royong" },
+                        { id: "RUTE", label: "Rute Terupdate" },
+                        { id: "LOGISTIK", label: "Butuh Logistik" },
+                      ].map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() =>
+                            setModalCategory(
+                              c.id as "ROB" | "LOGISTIK" | "GOTONG_ROYONG" | "RUTE"
+                            )
+                          }
+                          className={`p-3 rounded-2xl font-semibold border text-left transition-all cursor-pointer ${
+                            modalCategory === c.id
+                              ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F] shadow-2xs font-bold"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Ketinggian Air (Khusus Rob) */}
+                  {modalCategory === "ROB" && (
+                    <div className="space-y-1.5">
+                      <label className="font-bold text-gray-700 block">
+                        Estimasi Ketinggian Air (Opsional):
+                      </label>
+                      <input
+                        type="text"
+                        value={modalWaterLevel}
+                        onChange={(e) => setModalWaterLevel(e.target.value)}
+                        placeholder="Contoh: ± 30 cm (Semata Kaki / Setinggi Knalpot)"
+                        className="w-full px-4 py-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] text-xs sm:text-sm text-[#132422] focus:outline-hidden focus:border-[#38746D]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Textarea Konten */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-gray-700 block">Isi Kabar Warga:</label>
+                    <textarea
+                      value={modalContent}
+                      onChange={(e) => setModalContent(e.target.value)}
+                      placeholder="Tuliskan perkembangan situasi di jalan, RT/RW, tanggul, atau posko secara jelas..."
+                      rows={5}
+                      required
+                      className="w-full p-4 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] text-xs sm:text-sm text-[#132422] placeholder-gray-400 focus:outline-hidden focus:border-[#38746D] resize-none"
+                    />
+                  </div>
+
+                  {/* Multi-Upload Media (Foto / Video) */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-gray-700">
+                        Lampiran Foto / Rekaman Video:
+                      </label>
+                      <span className="text-[11px] text-gray-400">
+                        {modalMedia.length}/5 file
+                      </span>
+                    </div>
+
+                    <input
+                      ref={modalFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={handleModalFileSelect}
+                    />
+
+                    {/* Previews */}
+                    {modalMedia.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                        {modalMedia.map((m, idx) => (
+                          <div
+                            key={m.id}
+                            className="relative h-20 rounded-2xl border border-[#38746D]/30 overflow-hidden bg-gray-100 group"
+                          >
+                            {m.type === "video" ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-white text-[9px] p-1 text-center">
+                                <VideoIcon className="w-4 h-4 mb-0.5 text-teal-400" />
+                                Video
+                              </div>
+                            ) : (
+                              <img
+                                src={m.url}
+                                alt="thumb"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setModalMedia((prev) =>
+                                  prev.filter((_, i) => i !== idx)
+                                )
+                              }
+                              className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-rose-600 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tombol trigger upload */}
+                    {modalMedia.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => modalFileInputRef.current?.click()}
+                        className="w-full py-3 rounded-2xl border border-dashed border-[#88BDB6] bg-[#EEF5F3]/50 hover:bg-[#EEF5F3] text-[#1D443F] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <ImageIcon className="w-4 h-4 text-[#38746D]" />
+                        <span>Unggah Foto / Video Lapangan</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Footer Form Action */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingPost(false)}
+                      className="px-5 py-2.5 rounded-2xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!modalContent.trim() || isSubmittingPost}
+                      className="px-6 py-2.5 rounded-2xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 disabled:opacity-40 text-white font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{isSubmittingPost ? "Memproses..." : "Kirim Kabar Warga"}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          ) : selectedPostId && activePost ? (
             /* ========================================================= */
             /* 1. TAMPILAN DETAIL / DISKUSI IN-PLACE                    */
             /* ========================================================= */
@@ -524,15 +812,12 @@ export default function WargaKomunitasPage() {
                       {activePost.authorName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm sm:text-base font-bold text-[#132422]">
-                          {activePost.authorName}
-                        </h3>
-                        {renderAuthorBadge(activePost.authorRole)}
-                      </div>
-                      <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                      <h3 className="text-sm sm:text-base font-bold text-[#132422]">
+                        {activePost.authorName}
+                      </h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
-                        {activePost.authorDistrict} • {activePost.timeAgo}
+                        <span>{activePost.authorDistrict.split(",")[0].trim()} • {formatShortTime(activePost.timeAgo)}</span>
                       </p>
                     </div>
                   </div>
@@ -785,56 +1070,146 @@ export default function WargaKomunitasPage() {
             /* 2. TAMPILAN FEED POSTINGAN UTAMA (TANPA FORM INLINE)    */
             /* ========================================================= */
             <div className="space-y-5">
-              {/* Filter Bar (2 Baris: Kategori Topik & Wilayah Kecamatan) */}
-              <div className="space-y-2.5 bg-[#F8FAF9] p-3 rounded-2xl border border-[#D5E4E0]">
-                {/* Baris 1: Kategori Topik */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none touch-pan-x">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1">
-                    Topik:
-                  </span>
-                  {[
-                    { id: "ALL", label: "Semua Kabar" },
-                    { id: "ROB", label: "Genangan & Rob" },
-                    { id: "LOGISTIK", label: "Kebutuhan Logistik" },
-                    { id: "GOTONG_ROYONG", label: "Gotong Royong" },
-                    { id: "RUTE", label: "Rute Terupdate" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(tab.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                        selectedCategory === tab.id
-                          ? "bg-[#38746D] text-white shadow-2xs"
-                          : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+              {/* DUA KOMPONEN SEJAJAR: SEARCH BAR (KIRI) & TOMBOL FILTER DROPDOWN (KANAN) */}
+              <section
+                className={`relative ${isFilterOpen ? "z-20" : "z-0"}`}
+                ref={filterDropdownRef}
+              >
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  {/* Search Bar Panjang */}
+                  <div className="flex-1 bg-white rounded-full border border-[#D5E4E0] shadow-xs flex items-center px-4 h-12 gap-2.5 focus-within:border-[#38746D] transition-all">
+                    <Search className="w-4 h-4 text-gray-400 shrink-0 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari kabar, topik, atau wilayah..."
+                      className="w-full bg-transparent text-xs sm:text-sm text-[#132422] placeholder-gray-400 outline-none"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer shrink-0"
+                        title="Hapus pencarian"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tombol Filter */}
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen((prev) => !prev)}
+                    className={`h-12 w-12 sm:w-auto sm:px-4.5 rounded-full border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer shrink-0 shadow-xs ${
+                      isFilterOpen || activeFilterCount > 0
+                        ? "bg-[#38746D] text-white border-[#38746D]"
+                        : "bg-white hover:bg-[#F8FAF9] text-[#1D443F] border-[#D5E4E0]"
+                    }`}
+                    title="Filter Kabar Warga"
+                    aria-expanded={isFilterOpen}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" />
+                    <span className="hidden sm:inline">Filter</span>
+                    {activeFilterCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-white text-[#38746D] text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
 
-                {/* Baris 2: Filter Wilayah Kecamatan */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none touch-pan-x border-t border-gray-200/60 pt-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1">
-                    Wilayah:
-                  </span>
-                  {DISTRICT_FILTERS.map((df) => (
-                    <button
-                      key={df.id}
-                      type="button"
-                      onClick={() => setSelectedDistrict(df.id)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                        selectedDistrict === df.id
-                          ? "bg-[#38746D] text-white font-bold shadow-2xs"
-                          : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
-                      }`}
-                    >
-                      {df.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {/* Dropdown Menu Mengambang */}
+                {isFilterOpen && (
+                  <div className="absolute top-full right-0 w-full sm:w-[420px] mt-2.5 bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 z-30">
+                    {/* Header Dropdown */}
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-[#38746D]" />
+                        <h4 className="text-sm font-extrabold text-[#132422]">
+                          Filter Kabar Warga
+                        </h4>
+                      </div>
+                      {activeFilterCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory("ALL");
+                            setSelectedDistrict("ALL");
+                          }}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Bagian 1: Pilih Topik */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Pilih Topik:
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: "ALL", label: "Semua Topik" },
+                          { id: "ROB", label: "Genangan & Rob" },
+                          { id: "LOGISTIK", label: "Kebutuhan Logistik" },
+                          { id: "GOTONG_ROYONG", label: "Gotong Royong" },
+                          { id: "RUTE", label: "Rute Terupdate" },
+                        ].map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSelectedCategory(tab.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              selectedCategory === tab.id
+                                ? "bg-[#38746D] text-white shadow-2xs"
+                                : "bg-[#F8FAF9] text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bagian 2: Pilih Wilayah */}
+                    <div className="space-y-2 pt-2 border-t border-gray-100">
+                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Pilih Wilayah:
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DISTRICT_FILTERS.map((df) => (
+                          <button
+                            key={df.id}
+                            type="button"
+                            onClick={() => setSelectedDistrict(df.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              selectedDistrict === df.id
+                                ? "bg-[#38746D] text-white font-bold shadow-2xs"
+                                : "bg-[#F8FAF9] text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
+                            }`}
+                          >
+                            {df.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Footer Tombol Selesai */}
+                    <div className="pt-2 border-t border-gray-100 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setIsFilterOpen(false)}
+                        className="w-full sm:w-auto px-5 py-2 rounded-xl bg-[#38746D] text-white text-xs font-bold hover:bg-[#24544E] transition cursor-pointer"
+                      >
+                        Terapkan Filter
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
 
               {/* Feed List */}
               <div className="space-y-4">
@@ -850,7 +1225,9 @@ export default function WargaKomunitasPage() {
                       type="button"
                       onClick={() => {
                         setSelectedCategory("ALL");
-                        setIsModalOpen(true);
+                        setSelectedDistrict("ALL");
+                        setSearchQuery("");
+                        setIsCreatingPost(true);
                       }}
                       className="px-4 py-2 rounded-xl bg-[#38746D] text-white text-xs font-bold hover:bg-[#24544E] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                     >
@@ -877,15 +1254,12 @@ export default function WargaKomunitasPage() {
                             {post.authorName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors">
-                                {post.authorName}
-                              </h4>
-                              {renderAuthorBadge(post.authorRole)}
-                            </div>
-                            <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                            <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors">
+                              {post.authorName}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                               <MapPin className="w-3 h-3 text-[#38746D]" />
-                              {post.authorDistrict} • {post.timeAgo}
+                              <span>{post.authorDistrict.split(",")[0].trim()} • {formatShortTime(post.timeAgo)}</span>
                             </p>
                           </div>
                         </div>
@@ -1057,240 +1431,50 @@ export default function WargaKomunitasPage() {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-
-          {/* Widget 2: Aksi Pelaporan Resmi BPBD */}
-          <div className="p-6 rounded-3xl bg-linear-to-br from-[#EEF5F3] to-[#E0ECE8] border border-[#88BDB6]/40 shadow-xs space-y-3">
-            <div className="w-9 h-9 rounded-2xl bg-[#1D443F] text-white flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4 text-amber-300" />
-            </div>
-            <h4 className="text-sm font-bold text-[#132422]">Butuh Evakuasi Segera?</h4>
-            <p className="text-xs text-[#4B635F] leading-relaxed">
-              Jika keluarga Anda terisolir dan butuh perahu karet SAR resmi dari BPBD Indramayu, kirim laporan tiket darurat sekarang.
-            </p>
-            <div className="pt-2 flex flex-col gap-2">
-              <Link
-                href="/warga/lapor"
-                className="w-full py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2"
-              >
-                Buat Laporan Resmi BPBD
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-              <a
-                href="tel:112"
-                className="w-full py-2.5 rounded-full bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 text-xs font-bold border border-rose-200 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <PhoneCall className="w-3.5 h-3.5 text-rose-600" />
-                <span>Panggil Call Center 112</span>
-              </a>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* 3. MODAL DIALOG POP-UP: BUAT KABAR WARGA                 */}
-      {/* ========================================================= */}
+      {/* Area Batas Drag FAB (Safe Area di atas Mobile Bottom Navigation) */}
+      <div
+        ref={dragBoundsRef}
+        className="fixed inset-0 pointer-events-none z-30"
+        style={{ top: 75, bottom: 85, left: 10, right: 10 }}
+      />
+
+      {/* Floating Action Button (FAB) Draggable & Hideable */}
       <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
-            {/* Modal Card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.25 }}
-              className="bg-white rounded-3xl border border-[#D5E4E0] shadow-2xl max-w-lg w-full p-6 space-y-5 my-auto"
+        {shouldShowFab && (
+          <motion.div
+            drag
+            dragMomentum={false}
+            dragConstraints={dragBoundsRef}
+            onDragEnd={handleDragEnd}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{
+              scale: 1,
+              opacity: isFabHidden ? 0.5 : 1,
+              x: isFabHidden ? (hiddenEdge === "right" ? 36 : -36) : 0,
+            }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className={`fixed z-40 ${
+              hiddenEdge === "right" ? "right-5" : "left-5"
+            } bottom-24 pointer-events-auto touch-none select-none`}
+          >
+            <button
+              type="button"
+              onClick={handleFabClick}
+              aria-label="Buat Kabar Baru"
+              title={isFabHidden ? "Ketuk untuk membuka tombol" : "Buat Kabar Baru"}
+              className="w-14 h-14 rounded-full bg-[#38746D] hover:bg-[#24544E] active:scale-95 text-white shadow-xl flex items-center justify-center cursor-pointer transition-colors focus:outline-hidden focus:ring-4 focus:ring-[#38746D]/20 group relative overflow-hidden"
             >
-              {/* Header Modal */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#EEF5F3] text-[#38746D] flex items-center justify-center">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#132422]">
-                      Buat Kabar Warga
-                    </h3>
-                    <p className="text-[11px] text-gray-500">
-                      Informasi lapangan untuk warga Indramayu
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Form Input */}
-              <form onSubmit={handleCreatePost} className="space-y-4 text-xs">
-                {/* Identitas Pengirim */}
-                <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-[#F8FAF9] border border-gray-100">
-                  <div className="w-7 h-7 rounded-full bg-[#1D443F] text-white font-bold text-xs flex items-center justify-center shrink-0">
-                    {currentUserName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-[#132422] truncate">{currentUserName}</p>
-                    <p className="text-[10px] text-gray-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#38746D]" />
-                      {currentUserDistrict}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Pilih Kategori */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-gray-700">Kategori Kabar:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: "ROB", label: "Info Genangan Rob" },
-                      { id: "GOTONG_ROYONG", label: "Gotong Royong" },
-                      { id: "RUTE", label: "Rute Terupdate" },
-                      { id: "LOGISTIK", label: "Butuh Logistik" },
-                    ].map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() =>
-                          setModalCategory(
-                            c.id as "ROB" | "LOGISTIK" | "GOTONG_ROYONG" | "RUTE"
-                          )
-                        }
-                        className={`p-2.5 rounded-xl font-semibold border text-left transition-all cursor-pointer ${
-                          modalCategory === c.id
-                            ? "bg-[#EEF5F3] border-[#38746D] text-[#1D443F] shadow-2xs"
-                            : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Ketinggian Air (Khusus Rob) */}
-                {modalCategory === "ROB" && (
-                  <div className="space-y-1.5">
-                    <label className="font-bold text-gray-700">
-                      Estimasi Ketinggian Air (Opsional):
-                    </label>
-                    <input
-                      type="text"
-                      value={modalWaterLevel}
-                      onChange={(e) => setModalWaterLevel(e.target.value)}
-                      placeholder="Contoh: ± 30 cm (Semata Kaki / Setinggi Knalpot)"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAF9] border border-[#D5E4E0] text-xs text-[#132422] focus:outline-hidden focus:border-[#38746D]"
-                    />
-                  </div>
-                )}
-
-                {/* Textarea Konten */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-gray-700">Isi Kabar Warga:</label>
-                  <textarea
-                    value={modalContent}
-                    onChange={(e) => setModalContent(e.target.value)}
-                    placeholder="Tuliskan perkembangan situasi di jalan, RT/RW, tanggul, atau posko secara jelas..."
-                    rows={4}
-                    required
-                    className="w-full p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] text-xs text-[#132422] placeholder-gray-400 focus:outline-hidden focus:border-[#38746D] resize-none"
-                  />
-                </div>
-
-                {/* Multi-Upload Media (Foto / Video) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="font-bold text-gray-700">
-                      Lampiran Foto / Rekaman Video:
-                    </label>
-                    <span className="text-[10px] text-gray-400">
-                      {modalMedia.length}/5 file
-                    </span>
-                  </div>
-
-                  <input
-                    ref={modalFileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*"
-                    className="hidden"
-                    onChange={handleModalFileSelect}
-                  />
-
-                  {/* Previews */}
-                  {modalMedia.length > 0 && (
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                      {modalMedia.map((m, idx) => (
-                        <div
-                          key={m.id}
-                          className="relative h-18 rounded-xl border border-[#38746D]/30 overflow-hidden bg-gray-100 group"
-                        >
-                          {m.type === "video" ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-white text-[9px] p-1 text-center">
-                              <VideoIcon className="w-4 h-4 mb-0.5 text-teal-400" />
-                              Video
-                            </div>
-                          ) : (
-                            <img
-                              src={m.url}
-                              alt="thumb"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setModalMedia((prev) =>
-                                prev.filter((_, i) => i !== idx)
-                              )
-                            }
-                            className="absolute top-1 right-1 p-0.5 rounded-full bg-black/70 text-white hover:bg-rose-600 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tombol trigger upload */}
-                  {modalMedia.length < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => modalFileInputRef.current?.click()}
-                      className="w-full py-2.5 rounded-xl border border-dashed border-[#88BDB6] bg-[#EEF5F3]/50 hover:bg-[#EEF5F3] text-[#1D443F] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <ImageIcon className="w-4 h-4 text-[#38746D]" />
-                      <span>Unggah Foto / Video Lapangan</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Footer Modal Action */}
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!modalContent.trim() || isSubmittingPost}
-                    className="px-6 py-2.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 disabled:opacity-40 text-white font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmittingPost ? "Memproses..." : "Kirim Kabar Warga"}</span>
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+              <Plus
+                className={`w-6 h-6 stroke-[2.5] transition-transform ${
+                  isFabHidden ? "scale-90" : "group-hover:rotate-90 duration-200"
+                }`}
+              />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -5,6 +5,7 @@
  */
 
 export interface UserSession {
+  id?: string;
   name: string;
   fullName?: string;
   email: string;
@@ -62,6 +63,15 @@ export function getActiveSession(): UserSession | null {
     if (elapsed > TIMEOUT_MS) {
       clearUserSession();
       return null;
+    }
+
+    if (!session.id) {
+      session.id =
+        session.role === "petugas" || session.role === "OFFICER"
+          ? "petugas-01"
+          : session.role === "superadmin" || session.role === "SUPERADMIN"
+          ? "admin-01"
+          : "warga-01";
     }
 
     return session;
@@ -135,6 +145,7 @@ export function saveUserSession(user: {
   const now = Date.now();
 
   const session: UserSession = {
+    id: (user as any).id || (isSuperadmin ? "admin-01" : isOfficer ? "petugas-01" : "warga-01"),
     name: displayName,
     fullName: displayName,
     email: user.email,

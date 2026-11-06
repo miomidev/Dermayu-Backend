@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "motion/react";
+import { UserPlus, LogIn, ArrowRight } from "lucide-react";
 import { PwaInstallModal } from "@/components/ui/PwaInstallModal";
+import { useIsPwa } from "@/utils/useIsPwa";
+import { getActiveSession, getDashboardUrl, type UserSession } from "@/utils/authSession";
 
 export function HeroSection() {
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const isPwa = useIsPwa();
+  const [session, setSession] = useState<UserSession | null>(null);
 
   // Sinkronisasi pendengar event global jika tombol PWA di CtaBanner atau navbar diklik
   useEffect(() => {
@@ -14,6 +20,16 @@ export function HeroSection() {
     window.addEventListener("open-pwa-modal", handleOpen);
     return () => window.removeEventListener("open-pwa-modal", handleOpen);
   }, []);
+
+  // Cek active session
+  useEffect(() => {
+    setSession(getActiveSession());
+    const handleFocus = () => setSession(getActiveSession());
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  const dashboardHref = session ? getDashboardUrl(session.role) : "/warga/dashboard";
 
   return (
     <section
@@ -80,34 +96,68 @@ export function HeroSection() {
             transition={{ duration: 1.25, delay: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
             className="flex flex-wrap items-center gap-3 w-full sm:w-auto"
           >
-            {/* 1. Tombol Primer: Unduh .APK */}
-            <a
-              href="#unduh-apk"
-              onClick={(e) => {
-                e.preventDefault();
-                alert("File instalasi DERMAYU .APK sedang disiapkan untuk rilis publik Kabupaten Indramayu.");
-              }}
-              className="bg-[#38746D] text-white hover:bg-[#24544E] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 w-full sm:w-auto"
-            >
-              {/* Android SVG Icon */}
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9993.4486.9993 1.0003s-.4482 1.0003-.9993 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.411 13.8533 8.125 12 8.125c-1.8533 0-3.5902.286-5.1378.8247L4.84 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
-              </svg>
-              <span>Unduh .APK</span>
-            </a>
+            {isPwa ? (
+              session ? (
+                <Link
+                  href={dashboardHref}
+                  className="bg-[#38746D] text-white hover:bg-[#24544E] px-6 py-2.5 sm:px-7 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 w-full sm:w-auto"
+                >
+                  <span>Buka Dasbor</span>
+                  <ArrowRight className="w-4 h-4 shrink-0" />
+                </Link>
+              ) : (
+                <>
+                  {/* 1. Tombol Primer: Daftar */}
+                  <Link
+                    href="/register"
+                    className="bg-[#38746D] text-white hover:bg-[#24544E] px-6 py-2.5 sm:px-7 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 w-full sm:w-auto"
+                  >
+                    <UserPlus className="w-4 h-4 shrink-0" />
+                    <span>Daftar</span>
+                  </Link>
 
-            {/* 2. Tombol Sekunder: Pasang PWA untuk iOS */}
-            <button
-              type="button"
-              onClick={() => setShowInstallModal(true)}
-              className="bg-white text-[#2E6A63] border border-[#A4C6C1] hover:bg-[#EEF5F3] hover:border-[#38746D] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all duration-150 active:scale-95 cursor-pointer w-full sm:w-auto"
-            >
-              {/* Apple SVG Icon */}
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.89c.65-.8 1.09-1.92.97-3.04-.94.04-2.08.63-2.75 1.42-.59.68-1.11 1.78-.97 2.87 1.05.08 2.1-.45 2.75-1.25z"/>
-              </svg>
-              <span>Pasang PWA untuk iOS</span>
-            </button>
+                  {/* 2. Tombol Sekunder: Masuk */}
+                  <Link
+                    href="/login"
+                    className="bg-white text-[#2E6A63] border border-[#A4C6C1] hover:bg-[#EEF5F3] hover:border-[#38746D] px-6 py-2.5 sm:px-7 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all duration-150 active:scale-95 cursor-pointer w-full sm:w-auto"
+                  >
+                    <LogIn className="w-4 h-4 shrink-0" />
+                    <span>Masuk</span>
+                  </Link>
+                </>
+              )
+            ) : (
+              <>
+                {/* 1. Tombol Primer: Unduh .APK */}
+                <a
+                  href="#unduh-apk"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert("File instalasi DERMAYU .APK sedang disiapkan untuk rilis publik Kabupaten Indramayu.");
+                  }}
+                  className="bg-[#38746D] text-white hover:bg-[#24544E] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 w-full sm:w-auto"
+                >
+                  {/* Android SVG Icon */}
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9993.4486.9993 1.0003s-.4482 1.0003-.9993 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.411 13.8533 8.125 12 8.125c-1.8533 0-3.5902.286-5.1378.8247L4.84 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                  </svg>
+                  <span>Unduh .APK</span>
+                </a>
+
+                {/* 2. Tombol Sekunder: Pasang PWA untuk iOS */}
+                <button
+                  type="button"
+                  onClick={() => setShowInstallModal(true)}
+                  className="bg-white text-[#2E6A63] border border-[#A4C6C1] hover:bg-[#EEF5F3] hover:border-[#38746D] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all duration-150 active:scale-95 cursor-pointer w-full sm:w-auto"
+                >
+                  {/* Apple SVG Icon */}
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.89c.65-.8 1.09-1.92.97-3.04-.94.04-2.08.63-2.75 1.42-.59.68-1.11 1.78-.97 2.87 1.05.08 2.1-.45 2.75-1.25z"/>
+                  </svg>
+                  <span>Pasang PWA untuk iOS</span>
+                </button>
+              </>
+            )}
           </motion.div>
         </div>
 

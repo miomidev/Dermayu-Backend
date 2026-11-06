@@ -17,6 +17,8 @@ export interface PoskoItem {
   kontak: { pj: string; telp: string };
   foto: string;
   tier: 1 | 2 | 3 | 4 | 5;
+  petugasId?: string;
+  isActive?: boolean;
 }
 
 export interface FloodObstacle {

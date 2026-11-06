@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
 import { CURATED_POSKO_LIST, FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
+import { getWargaPosko } from "@/utils/poskoService";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -279,9 +280,9 @@ export default function WargaEvakuasiPage() {
     },
   ]);
 
-  // Shelters Data: 100 Data Posko Evakuasi Terkurasi Aman dari Genangan
+  // Shelters Data: 100 Data Posko Terkurasi (Hanya yang berstatus isActive = true)
   const [shelters] = useState<ShelterItem[]>(() =>
-    CURATED_POSKO_LIST.map((p) => ({
+    getWargaPosko().map((p) => ({
       id: p.id,
       name: p.nama,
       location: p.alamat,
@@ -570,7 +571,7 @@ export default function WargaEvakuasiPage() {
     })),
   ];
 
-  const mapShelterPoints: MapShelterPoint[] = CURATED_POSKO_LIST.map((p) => ({
+  const mapShelterPoints: MapShelterPoint[] = getWargaPosko().map((p) => ({
     id: p.id,
     name: p.nama,
     location: p.alamat,

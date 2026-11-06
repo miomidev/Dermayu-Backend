@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { CURATED_POSKO_LIST } from "@/data/curatedEvakuasiData";
+import { getWargaPosko, type PoskoRecord } from "@/utils/poskoService";
 import {
   Building2,
   MapPin,
   PhoneCall,
   Navigation,
-  CheckCircle2,
   Search,
   ExternalLink,
   ShieldCheck,
@@ -17,38 +16,42 @@ import {
   Baby,
   Zap,
   Compass,
-  AlertTriangle,
-  RefreshCw,
   X,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-
-interface ShelterItem {
-  id: string;
-  name: string;
-  location: string;
-  district: string;
-  distance: string;
-  elevation: string;
-  accessRoad: string;
-  capacityTotal: number;
-  capacityFilled: number;
-  facilities: string[];
-  contactPerson: string;
-  contactPhone: string;
-  status: "TERSEDIA" | "HAMPIR_PENUH" | "PENUH";
-  notes?: string;
-  lat: number;
-  lng: number;
-}
 
 export default function WargaPoskoPage() {
   const [search, setSearch] = useState("");
   const [filterDistrict, setFilterDistrict] = useState("SEMUA");
   const [filterStatus, setFilterStatus] = useState("SEMUA");
-  const [visibleCount, setVisibleCount] = useState(12);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // State Pagination Modern
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Data Posko (Aturan 4: Hanya posko aktif yang dimuat untuk warga)
+  const [shelters, setShelters] = useState<PoskoRecord[]>([]);
+
+  useEffect(() => {
+    // Muat posko aktif awal
+    setShelters(getWargaPosko());
+
+    // Dengarkan event sinkronisasi data posko real-time
+    const handleUpdate = () => {
+      setShelters(getWargaPosko());
+    };
+    window.addEventListener("dermayu_posko_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("dermayu_posko_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -69,27 +72,6 @@ export default function WargaPoskoPage() {
 
   const activeFilterCount = (filterDistrict !== "SEMUA" ? 1 : 0) + (filterStatus !== "SEMUA" ? 1 : 0);
 
-  const curatedItems: ShelterItem[] = CURATED_POSKO_LIST.map((p) => ({
-    id: p.id,
-    name: p.nama,
-    location: p.alamat,
-    district: p.kecamatan,
-    distance: "1.2 km",
-    elevation: "+2.5m dpl (Tinggi Bebas Genangan)",
-    accessRoad: "Jalan Poros Utama Bebas Banjir (Aspal)",
-    capacityTotal: p.kapasitas,
-    capacityFilled: p.terisi,
-    facilities: p.fasilitas,
-    contactPerson: p.kontak.pj,
-    contactPhone: p.kontak.telp,
-    status: p.status,
-    notes: `Posko ${p.kategori === "sekolah" ? "Sekolah" : p.kategori === "masjid" ? "Masjid Jami'" : p.kategori === "balai_desa" ? "Balai Desa / Kuwu" : "Gedung Serbaguna"} di dataran tinggi aman bebas banjir rob & luapan sungai.`,
-    lat: p.lat,
-    lng: p.lng,
-  }));
-
-  const [shelters] = useState<ShelterItem[]>(curatedItems);
-
   const DISTRICTS = [
     "SEMUA",
     "Kandanghaur",
@@ -104,65 +86,91 @@ export default function WargaPoskoPage() {
     "Karangampel",
   ];
 
-  const filtered = shelters.filter((sh) => {
-    const matchSearch =
-      sh.name.toLowerCase().includes(search.toLowerCase()) ||
-      sh.district.toLowerCase().includes(search.toLowerCase()) ||
-      sh.location.toLowerCase().includes(search.toLowerCase()) ||
-      sh.facilities.some((f) => f.toLowerCase().includes(search.toLowerCase()));
+  // Filter 100 data posko
+  const filtered = useMemo(() => {
+    return shelters.filter((sh) => {
+      const matchSearch =
+        sh.nama.toLowerCase().includes(search.toLowerCase()) ||
+        sh.kecamatan.toLowerCase().includes(search.toLowerCase()) ||
+        sh.alamat.toLowerCase().includes(search.toLowerCase()) ||
+        sh.fasilitas.some((f) => f.toLowerCase().includes(search.toLowerCase()));
 
-    const matchDistrict =
-      filterDistrict === "SEMUA" ||
-      sh.district.toLowerCase() === filterDistrict.toLowerCase();
+      const matchDistrict =
+        filterDistrict === "SEMUA" ||
+        sh.kecamatan.toLowerCase() === filterDistrict.toLowerCase();
 
-    const matchStatus = filterStatus === "SEMUA" || sh.status === filterStatus;
+      const matchStatus = filterStatus === "SEMUA" || sh.status === filterStatus;
 
-    return matchSearch && matchDistrict && matchStatus;
-  });
+      return matchSearch && matchDistrict && matchStatus;
+    });
+  }, [shelters, search, filterDistrict, filterStatus]);
 
+  // Reset page ke 1 jika filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterDistrict, filterStatus]);
 
-  const getFacilityBadge = (fac: string) => {
-    const lower = fac.toLowerCase();
-    if (lower.includes("dapur") || lower.includes("logistik") || lower.includes("air")) {
-      return {
-        icon: Utensils,
-        color: "bg-emerald-50 text-emerald-800 border-emerald-200",
-      };
+  // Kalkulasi Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  // Pastikan currentPage tidak melebihi totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
+  }, [currentPage, totalPages]);
+
+  // Algoritma Penomoran Halaman dengan Ellipsis Pintar
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 3) {
+      return [1, 2, 3, 4, "...", total];
+    }
+    if (current >= total - 2) {
+      return [1, "...", total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  };
+
+  // Pemotong teks fasilitas agar padat & fungsional
+  const formatFacilityName = (fac: string): string => {
+    const lower = fac.toLowerCase();
+    if (lower.includes("aula")) return "Aula";
+    if (lower.includes("dapur")) return "Dapur Umum";
+    if (lower.includes("toilet") || lower.includes("wc") || lower.includes("kamar mandi")) return "Toilet";
+    if (lower.includes("genset") || lower.includes("listrik")) return "Genset";
+    if (lower.includes("medis") || lower.includes("puskesmas") || lower.includes("dokter")) return "Pos Medis";
+    if (lower.includes("ambulans")) return "Ambulans";
+    if (lower.includes("laktasi") || lower.includes("bayi") || lower.includes("balita")) return "Ruang Anak";
+    if (lower.includes("logistik") || lower.includes("sembako")) return "Logistik";
+    if (lower.includes("air")) return "Air Bersih";
+    return fac.replace(/\s+\d+.*$/, "").replace(/\s+(luas|lengkap|siaga|darurat|kemensos)$/i, "");
+  };
+
+  const getFacilityIcon = (fac: string) => {
+    const lower = fac.toLowerCase();
+    if (lower.includes("dapur") || lower.includes("logistik") || lower.includes("air")) return Utensils;
     if (
       lower.includes("medis") ||
       lower.includes("puskesmas") ||
       lower.includes("dokter") ||
-      lower.includes("bidan") ||
       lower.includes("ambulans")
-    ) {
-      return {
-        icon: Stethoscope,
-        color: "bg-sky-50 text-sky-800 border-sky-200",
-      };
-    }
-    if (lower.includes("balita") || lower.includes("lansia") || lower.includes("anak")) {
-      return {
-        icon: Baby,
-        color: "bg-purple-50 text-purple-800 border-purple-200",
-      };
-    }
-    if (lower.includes("genset") || lower.includes("listrik")) {
-      return {
-        icon: Zap,
-        color: "bg-amber-50 text-amber-800 border-amber-200",
-      };
-    }
-    return {
-      icon: ShieldCheck,
-      color: "bg-[#F8FAF9] text-[#4B635F] border-[#D5E4E0]",
-    };
+    )
+      return Stethoscope;
+    if (lower.includes("balita") || lower.includes("lansia") || lower.includes("anak") || lower.includes("bayi"))
+      return Baby;
+    if (lower.includes("genset") || lower.includes("listrik")) return Zap;
+    return ShieldCheck;
   };
 
   return (
     <div className="space-y-6 text-left">
       {/* DUA CARD TERPISAH (FULL ROUNDED): CARD SEARCH (KIRI) & TOMBOL FILTER (KANAN) */}
-      <section className="relative z-30" ref={filterDropdownRef}>
+      <section className={`relative ${isFilterOpen ? "z-20" : "z-0"}`} ref={filterDropdownRef}>
         <div className="flex items-center gap-2.5 sm:gap-3">
           {/* Card 1: Input Search Bar (Full Rounded Card) */}
           <div className="flex-1 bg-white rounded-full border border-[#D5E4E0] shadow-xs flex items-center px-4 h-12 gap-2.5 focus-within:border-[#38746D] transition-all">
@@ -200,17 +208,12 @@ export default function WargaPoskoPage() {
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span className="hidden sm:inline">Filter</span>
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-emerald-400 text-[#132422] text-[10px] font-black flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
           </button>
         </div>
 
         {/* DROPDOWN VIEW MENGAMBANG DI BAWAH */}
         {isFilterOpen && (
-          <div className="absolute top-full right-0 w-full sm:w-[420px] mt-2.5 bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+          <div className="absolute top-full right-0 w-full sm:w-[420px] mt-2.5 bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 z-30">
             {/* Header Dropdown */}
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
@@ -319,65 +322,63 @@ export default function WargaPoskoPage() {
             </p>
           </div>
         ) : (
-          filtered.slice(0, visibleCount).map((sh) => {
-            const sisa = sh.capacityTotal - sh.capacityFilled;
-            const percent = Math.round((sh.capacityFilled / sh.capacityTotal) * 100);
+          paginatedItems.map((sh) => {
+            const percent = Math.round((sh.terisi / sh.kapasitas) * 100);
 
             return (
               <div
                 key={sh.id}
                 className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs hover:border-[#38746D] transition-all space-y-4 flex flex-col justify-between"
               >
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {/* Header Posko & Status Tag */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5 mb-1">
                         <span className="text-[10px] font-extrabold text-[#38746D] uppercase tracking-wider bg-[#EEF5F3] px-2 py-0.5 rounded-md border border-[#38746D]/20">
-                          Kec. {sh.district}
+                          Kec. {sh.kecamatan}
                         </span>
                         <span className="text-[10px] text-gray-400">•</span>
                         <span className="text-[11px] font-semibold text-[#4B635F]">
-                          {sh.distance}
+                          1.2 km
                         </span>
                       </div>
                       <h3 className="font-extrabold text-base sm:text-lg text-[#132422] leading-snug">
-                        {sh.name}
+                        {sh.nama}
                       </h3>
                       <p className="text-xs text-[#718783] flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-                        <span className="truncate">{sh.location}</span>
+                        <span className="truncate">{sh.alamat}</span>
                       </p>
+
+                      {/* Badges Ringkas: Bebas Banjir & Elevasi */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20">
+                          <ShieldCheck className="w-3 h-3 text-[#38746D] shrink-0" />
+                          Bebas Banjir
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#F8FAF9] text-[#4B635F] border border-[#D5E4E0]">
+                          +2.5m dpl
+                        </span>
+                      </div>
                     </div>
 
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold shrink-0 ${
                         sh.status === "TERSEDIA"
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                          : "bg-amber-100 text-amber-900 border border-amber-300"
+                          ? "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/30"
+                          : "bg-amber-50 text-amber-900 border border-amber-200"
                       }`}
                     >
                       {sh.status === "TERSEDIA" ? "✓ Tersedia" : "⚠ Hampir Penuh"}
                     </span>
                   </div>
 
-                  {/* Elevasi & Akses Jalan Aman */}
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] bg-[#F8FAF9] p-2.5 rounded-xl border border-[#D5E4E0]">
-                    <div className="flex items-center gap-1 text-[#1D443F] font-bold">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>{sh.elevation}</span>
-                    </div>
-                    <span className="text-gray-300 hidden sm:inline">|</span>
-                    <div className="flex items-center gap-1 text-[#4B635F] text-[10.5px]">
-                      <span>Jalur: {sh.accessRoad}</span>
-                    </div>
-                  </div>
-
                   {/* Meter Okupansi Kapasitas */}
-                  <div className="space-y-1.5 pt-0.5">
+                  <div className="space-y-1.5 pt-1">
                     <div className="flex justify-between text-xs font-bold text-[#132422]">
                       <span>
-                        Kapasitas: {sh.capacityFilled} / {sh.capacityTotal} Jiwa
+                        Kapasitas: {sh.terisi} / {sh.kapasitas} Jiwa
                       </span>
                       <span
                         className={
@@ -385,13 +386,13 @@ export default function WargaPoskoPage() {
                             ? "text-rose-600"
                             : percent >= 70
                             ? "text-amber-700"
-                            : "text-emerald-700"
+                            : "text-[#38746D]"
                         }
                       >
                         {percent}% Terisi
                       </span>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           percent >= 90
@@ -403,79 +404,66 @@ export default function WargaPoskoPage() {
                         style={{ width: `${percent}%` }}
                       />
                     </div>
-                    <p className="text-[11px] text-[#4B635F]">
-                      Tersedia sisa <strong>{sisa} tempat tidur</strong> untuk warga terdampak.
-                    </p>
                   </div>
 
-                  {/* Fasilitas Posko dengan Ikon Semantik */}
-                  <div className="space-y-1 pt-1">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">
+                  {/* Fasilitas Posko Ringkas & Netral */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
                       Fasilitas Aktif:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {sh.facilities.map((fac, i) => {
-                        const badge = getFacilityBadge(fac);
-                        const Icon = badge.icon;
+                      {sh.fasilitas.map((fac, i) => {
+                        const cleanName = formatFacilityName(fac);
+                        const Icon = getFacilityIcon(fac);
                         return (
                           <span
                             key={i}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10.5px] font-semibold ${badge.color}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-100 text-slate-600 text-[11px] font-medium"
                           >
-                            <Icon className="w-3 h-3 shrink-0" />
-                            <span>{fac}</span>
+                            <Icon className="w-3 h-3 text-slate-500 shrink-0" />
+                            <span>{cleanName}</span>
                           </span>
                         );
                       })}
                     </div>
                   </div>
-
-                  {/* Catatan Logistik Petugas Lapangan */}
-                  {sh.notes && (
-                    <div className="text-[11px] text-[#4B635F] bg-[#EEF5F3] p-3 rounded-2xl border border-[#D5E4E0] leading-relaxed">
-                      <strong className="text-[#1D443F] block mb-0.5">
-                        Info Lapangan BPBD:
-                      </strong>
-                      <span>{sh.notes}</span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Footer Card: Kontak & 2 Opsi Navigasi Nyata */}
-                <div className="pt-3.5 border-t border-[#D5E4E0]/80 flex flex-wrap items-center justify-between gap-2">
-                  {/* Telepon Langsung */}
+                {/* Footer Card: Tombol Aksi Terstruktur Berhierarki Jelas */}
+                <div className="pt-3.5 border-t border-[#E8F1EE] flex items-center gap-2">
+                  {/* Tombol Sekunder 1: Telepon */}
                   <a
-                    href={`tel:${sh.contactPhone.replace(/[^0-9]/g, "")}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#D5E4E0] hover:bg-[#EEF5F3] text-xs font-bold text-[#1D443F] transition-all cursor-pointer"
-                    title={`Hubungi ${sh.contactPerson}`}
+                    href={`tel:${sh.kontak.telp.replace(/[^0-9]/g, "")}`}
+                    className="h-9.5 px-3.5 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#F8FAF9] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+                    title={`Hubungi Pengelola Posko: ${sh.kontak.pj} (${sh.kontak.telp})`}
                   >
-                    <PhoneCall className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                    <span className="truncate">{sh.contactPerson}</span>
+                    <PhoneCall className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+                    <span>Telepon</span>
                   </a>
 
-                  {/* Action Group: Peta Dasbor & Google Maps */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Link
-                      href="/warga/dashboard"
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] text-xs font-bold border border-[#38746D]/20 transition-all cursor-pointer"
-                      title="Lihat Titik Ini di Peta Dasbor Spasial"
-                    >
-                      <Compass className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Peta Dasbor</span>
-                    </Link>
+                  {/* Tombol Sekunder 2: Peta Dasbor */}
+                  <Link
+                    href="/warga/dashboard"
+                    className="h-9.5 px-3.5 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#EEF5F3] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+                    title="Lihat Titik Ini di Peta Dasbor"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+                    <span className="hidden sm:inline">Peta Dasbor</span>
+                    <span className="sm:hidden">Peta</span>
+                  </Link>
 
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
-                      title="Buka Navigasi Rute di Google Maps"
-                    >
-                      <Navigation className="w-3.5 h-3.5 text-[#88BDB6]" />
-                      <span>Rute GPS</span>
-                      <ExternalLink className="w-3 h-3 text-white/70" />
-                    </a>
-                  </div>
+                  {/* Tombol Utama (Primary): Rute GPS (Flex-1, Proporsi Terbesar, Hijau Global Dasbor) */}
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-9.5 flex-1 px-4 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                    title="Buka Navigasi Rute di Google Maps"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-[#A4C6C1] shrink-0" />
+                    <span>Rute GPS</span>
+                    <ExternalLink className="w-3 h-3 text-white/70 shrink-0" />
+                  </a>
                 </div>
               </div>
             );
@@ -483,16 +471,96 @@ export default function WargaPoskoPage() {
         )}
       </section>
 
-      {/* Tombol Muat Lebih Banyak Posko */}
-      {filtered.length > visibleCount && (
-        <div className="flex justify-center pt-2 pb-6">
-          <button
-            type="button"
-            onClick={() => setVisibleCount((prev) => prev + 16)}
-            className="px-5 py-2.5 rounded-2xl bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] font-bold text-xs border border-[#38746D]/30 shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-          >
-            <span>Muat Lebih Banyak Posko ({visibleCount} dari {filtered.length} posko ditampilkan)</span>
-          </button>
+      {/* 4. KOMPONEN PAGINATION MODERN (Pengganti Tombol Load More) */}
+      {filtered.length > 0 && (
+        <div className="pt-6 pb-8 border-t border-[#E8F1EE] flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+          {/* Info Status Item */}
+          <div className="text-xs text-[#4B635F] font-medium order-2 sm:order-1">
+            Menampilkan <strong className="text-[#132422]">{startIndex + 1}</strong> -{" "}
+            <strong className="text-[#132422]">
+              {Math.min(filtered.length, startIndex + itemsPerPage)}
+            </strong>{" "}
+            dari <strong className="text-[#132422]">{filtered.length}</strong> posko aman
+          </div>
+
+          {/* Pagination Navigation Control */}
+          <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
+            {/* Tombol Prev Lingkaran Solid */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="w-10 h-10 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+              aria-label="Halaman Sebelumnya"
+              title="Halaman Sebelumnya"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Deretan Angka Halaman dengan Indikator Border Hijau Aktif */}
+            <div className="flex items-center bg-[#F8FAF9] border border-[#D5E4E0] rounded-full px-2 py-1 gap-1">
+              {getPageNumbers(currentPage, totalPages).map((p, idx) => {
+                if (p === "...") {
+                  return (
+                    <span
+                      key={`dots-${idx}`}
+                      className="w-9 h-9 flex items-center justify-center text-gray-400 font-bold text-xs select-none"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+                const pageNum = p as number;
+                const isActive = pageNum === currentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs transition cursor-pointer ${
+                      isActive
+                        ? "border-2 border-[#38746D] text-[#38746D] font-black bg-white shadow-xs"
+                        : "text-gray-600 hover:text-[#38746D] font-semibold hover:bg-white"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tombol Next Lingkaran Solid */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="w-10 h-10 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs active:scale-95 cursor-pointer shrink-0"
+              aria-label="Halaman Berikutnya"
+              title="Halaman Berikutnya"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Items Per Page Dropdown Selector */}
+          <div className="flex items-center gap-2 text-xs font-medium text-[#4B635F] order-3">
+            <span>Tampilkan:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-9 px-2.5 rounded-xl border border-[#D5E4E0] bg-white text-xs font-bold text-[#1D443F] outline-none focus:border-[#38746D] transition cursor-pointer shadow-2xs"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-gray-400 hidden lg:inline">/ hal</span>
+          </div>
         </div>
       )}
     </div>

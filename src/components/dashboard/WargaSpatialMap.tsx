@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
 import {
   Layers,
@@ -18,6 +20,7 @@ import {
   Activity,
   PhoneCall,
   CheckCircle2,
+  Check,
   RefreshCw,
   PlusCircle,
   Radio,
@@ -34,6 +37,11 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  ArrowUpLeft,
+  ArrowUp,
+  CornerUpRight,
+  CornerUpLeft,
+  Undo2,
   Share2,
   Package,
   Phone,
@@ -55,6 +63,14 @@ import {
   ShieldSafeIllustration,
 } from "@/components/dashboard/StatusSiagaCard";
 import { getActiveSession } from "@/utils/authSession";
+import {
+  CURATED_POSKO_LIST,
+  FLOOD_OBSTACLES,
+  detectIntersectedFloodObstacles,
+  calculateDistanceInMeters as calcMetersSafe,
+  type FloodObstacle,
+  type PoskoItem,
+} from "@/data/curatedEvakuasiData";
 
 export interface MapReportPoint {
   id: string;
@@ -84,6 +100,9 @@ export interface MapShelterPoint {
   lat: number;
   lng: number;
   facilities: string[];
+  kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
+  foto?: string;
+  tier?: 1 | 2 | 3 | 4 | 5;
 }
 
 export interface MapTelemetryPoint {
@@ -100,6 +119,8 @@ export interface MapTelemetryPoint {
 export interface NavigationStep {
   instruction: string;
   distance: string;
+  distanceMeters?: number;
+  location?: [number, number];
   type?: string;
   modifier?: string;
 }
@@ -145,6 +166,66 @@ interface WargaSpatialMapProps {
 // ============================================================================
 // HELPER PERHITUNGAN JARAK SPASIAL & FORMATTING TERDEKAT (HAVERSINE)
 // ============================================================================
+function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δλ = toRad(lon2 - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  const θ = Math.atan2(y, x);
+  return (toDeg(θ) + 360) % 360;
+}
+
+function formatNavDuration(seconds: number): string {
+  if (seconds <= 0) return "Tiba sekarang";
+  const mins = Math.ceil(seconds / 60);
+  if (mins < 60) return `${mins} mnt`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hrs} jam ${remMins > 0 ? `${remMins} mnt` : ""}`.trim();
+}
+
+function formatNavDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+// Helper pemecah polyline rute menjadi 2 layer dinamis ("Lendir Siput"):
+// 1. Yang sudah dilewati: jejak pudar (#94A3B8, opacity 0.35)
+// 2. Sisa rute: solid aktif (#1A73E8)
+function splitRouteAtCurrentPosition(
+  routeCoords: [number, number][],
+  currentPos: [number, number]
+): { passed: [number, number][]; remaining: [number, number][] } {
+  if (!routeCoords || routeCoords.length < 2) {
+    return { passed: [], remaining: routeCoords || [] };
+  }
+
+  let closestIndex = 0;
+  let minDistance = Infinity;
+
+  for (let i = 0; i < routeCoords.length; i++) {
+    const pt = routeCoords[i];
+    const dist = calculateDistanceInMeters(currentPos[0], currentPos[1], pt[0], pt[1]);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestIndex = i;
+    }
+  }
+
+  const passed = routeCoords.slice(0, closestIndex + 1);
+  passed.push(currentPos);
+
+  const remaining = [currentPos, ...routeCoords.slice(closestIndex + 1)];
+
+  return { passed, remaining };
+}
+
 function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -152,9 +233,9 @@ function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
 }
@@ -172,57 +253,129 @@ function formatEtaText(meters: number): string {
   return `±${mins} mnt`;
 }
 
+// Filter spasial jarak minimum antar-marker untuk menghindari penumpukan (clustering alami Google Maps)
+function filterMinDistance<T extends { lat: number; lng: number }>(items: T[], minDistKm: number): T[] {
+  const kept: T[] = [];
+  for (const item of items) {
+    let tooClose = false;
+    for (const k of kept) {
+      const dLat = (item.lat - k.lat) * 111;
+      const dLng = (item.lng - k.lng) * 110;
+      if (dLat * dLat + dLng * dLng < minDistKm * minDistKm) {
+        tooClose = true;
+        break;
+      }
+    }
+    if (!tooClose) {
+      kept.push(item);
+    }
+  }
+  return kept;
+}
+
+// Daftar kecamatan utama untuk persebaran seimbang Tier 1 se-Kabupaten Indramayu
+const MAJOR_DISTRICTS = [
+  "patrol",
+  "haurgeulis",
+  "kandanghaur",
+  "losarang",
+  "lohbener",
+  "jatibarang",
+  "indramayu",
+  "sindang",
+  "karangampel",
+  "cantigi",
+  "cikedung",
+  "anjatan",
+];
+
 // Generator Custom Marker Pin Teardrop Google Maps Style
 type PinType = "posko" | "genangan" | "kritis" | "sensor" | "infra" | "rawan";
 
-const createPinIcon = (type: PinType) => {
+const pinIconCache: Record<string, L.DivIcon> = {};
+
+const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 11) => {
+  // Dynamic Pin Sizing:
+  // Zoom <= 10: Ukuran kecil kompak [20x26px], ikon di dalam w-2.5 h-2.5 (10px)
+  // Zoom 11-13: Ukuran medium [26x34px], ikon di dalam w-3.5 h-3.5 (14px)
+  // Zoom >= 14: Ukuran standar maksimal [32x40px], ikon di dalam w-4 h-4 (16px)
+  // Terkunci maksimal (Max Width: 32px, Max Height: 40px)
+  let sizeKey: "sm" | "md" | "lg" = "md";
+  if (zoom <= 10) sizeKey = "sm";
+  else if (zoom >= 14) sizeKey = "lg";
+
+  const cacheKey = `${type}-${isActive ? "active" : "normal"}-${sizeKey}`;
+  if (pinIconCache[cacheKey]) return pinIconCache[cacheKey]!;
+
   const config = {
     posko: {
       bg: "bg-[#2D6A4F]",
-      icon: <Home className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <Home className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     genangan: {
       bg: "bg-amber-500",
-      icon: <Waves className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <Waves className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     kritis: {
       bg: "bg-rose-600",
-      icon: <AlertTriangle className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     sensor: {
       bg: "bg-sky-600",
-      icon: <Activity className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <Activity className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     infra: {
       bg: "bg-cyan-600",
-      icon: <Building2 className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <Building2 className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     rawan: {
       bg: "bg-purple-600",
-      icon: <AlertTriangle className="w-4 h-4 text-white" strokeWidth={2.5} />,
+      icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
   }[type];
 
+  let circleSize = "w-[26px] h-[26px]";
+  let arrowSize = "border-l-[5px] border-r-[5px] border-t-[7px] -mt-[1.5px]";
+  let iconSizeCls = "w-3.5 h-3.5";
+  let wPx = 26;
+  let hPx = 34;
+
+  if (sizeKey === "sm") {
+    circleSize = "w-5 h-5";
+    arrowSize = "border-l-[4px] border-r-[4px] border-t-[6px] -mt-[1px]";
+    iconSizeCls = "w-2.5 h-2.5";
+    wPx = 20;
+    hPx = 26;
+  } else if (sizeKey === "lg") {
+    circleSize = "w-8 h-8 max-w-[32px] max-h-[32px]";
+    arrowSize = "border-l-[6px] border-r-[6px] border-t-[8px] -mt-[2px]";
+    iconSizeCls = "w-4 h-4";
+    wPx = 32;
+    hPx = 40;
+  }
+
+  // Teardrop Pin Bersih & Statis ala Google Maps
   const html = `
-    <div class="relative flex flex-col items-center group cursor-pointer filter drop-shadow-md">
-      ${type === "kritis"
-      ? '<span class="absolute -top-1 w-9 h-9 rounded-full bg-rose-500/40 animate-ping pointer-events-none"></span>'
-      : ""
-    }
-      <div class="w-8 h-8 ${config.bg} rounded-full border-2 border-white shadow-md flex items-center justify-center relative z-10 transition-transform group-hover:scale-110">
-        ${renderToStaticMarkup(config.icon)}
+    <div class="relative flex flex-col items-center group cursor-pointer filter drop-shadow-md ${isActive ? "z-[999]" : ""}">
+      <div class="${circleSize} ${config.bg} rounded-full border-2 border-white shadow-md flex items-center justify-center relative z-10 transition-transform ${isActive
+      ? "scale-110 ring-2 ring-[#2D6A4F] shadow-lg"
+      : "group-hover:scale-105"
+    }">
+        ${renderToStaticMarkup(config.icon(iconSizeCls))}
       </div>
-      <div class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white -mt-[2px] relative z-0"></div>
+      <div class="w-0 h-0 ${arrowSize} border-l-transparent border-r-transparent border-t-white relative z-0"></div>
     </div>
   `;
 
-  return L.divIcon({
+  const icon = L.divIcon({
     html,
-    className: "custom-pin-marker",
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-    popupAnchor: [0, -38],
+    className: `custom-pin-marker ${isActive ? "active-pin-marker" : ""}`,
+    iconSize: [wPx, hPx],
+    iconAnchor: [Math.round(wPx / 2), hPx],
+    popupAnchor: [0, -hPx + 2],
   });
+  pinIconCache[cacheKey] = icon;
+  return icon;
 };
 
 // Metadata Tambahan: Foto Realistis, Rating Kesiapan, ETA, & Rute Bebas Banjir
@@ -379,16 +532,38 @@ export default function WargaSpatialMap({
   const [basemap, setBasemap] = useState<"streets" | "satellite">("streets");
   const [compassHeading, setCompassHeading] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const activeRadarMarkerRef = useRef<L.Marker | null>(null);
   const activeRouteLayerRef = useRef<L.LayerGroup | null>(null);
 
   const [siagaExpanded, setSiagaExpanded] = useState(false);
-  const [poskoExpanded, setPoskoExpanded] = useState(true);
+  const [poskoExpanded, setPoskoExpanded] = useState(false);
+
+  // Auto-expand card list posko setelah animasi page entry selesai (jeda 800ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setPoskoExpanded(true), 800);
+    return () => clearTimeout(timer);
+  }, []);
   const [activeShelterDetail, setActiveShelterDetail] = useState<MapShelterPoint | null>(null);
   const [activeReportDetail, setActiveReportDetail] = useState<MapReportPoint | null>(null);
   const [activeTelemetryDetail, setActiveTelemetryDetail] = useState<MapTelemetryPoint | null>(null);
   const [activeNavRoute, setActiveNavRoute] = useState<ActiveNavRouteData | null>(null);
+  const [targetNavShelter, setTargetNavShelter] = useState<MapShelterPoint | null>(null);
+  const activeNavRouteRef = useRef(activeNavRoute);
+  activeNavRouteRef.current = activeNavRoute;
   const [isRoutingLoading, setIsRoutingLoading] = useState(false);
+
+  // State Mode Navigasi Berjalan (Turn-by-Turn Driving Mode) ala Google Maps
+  const [isNavigating, setIsNavigating] = useState(false);
+  const isNavigatingRef = useRef(false);
+  isNavigatingRef.current = isNavigating;
+
+  const [navCurrentCoord, setNavCurrentCoord] = useState<[number, number] | null>(null);
+  const [navBearing, setNavBearing] = useState<number>(0);
+  const [navStepIndex, setNavStepIndex] = useState<number>(0);
+  const [navDistanceToNextStep, setNavDistanceToNextStep] = useState<number>(150);
+  const [navRemainingSeconds, setNavRemainingSeconds] = useState<number>(0);
+  const [navRemainingMeters, setNavRemainingMeters] = useState<number>(0);
+  const navWatchIdRef = useRef<number | null>(null);
+  const navLastGpsPosRef = useRef<[number, number] | null>(null);
 
   // State 3 Klasifikasi Saran Rute & Custom Waypoint
   const [selectedRouteClassification, setSelectedRouteClassification] = useState<1 | 2 | 3 | "custom">(1);
@@ -404,7 +579,7 @@ export default function WargaSpatialMap({
   isPickingWaypointRef.current = isPickingWaypoint;
   const activeShelterRef = useRef<MapShelterPoint | null>(null);
   activeShelterRef.current = activeShelterDetail || activeNavRoute?.shelter || null;
-  const handleMapClickForWaypointRef = useRef<(lat: number, lng: number) => void>(() => {});
+  const handleMapClickForWaypointRef = useRef<(lat: number, lng: number) => void>(() => { });
 
   // State Search & Kategori Filter Baris 1 & 2
   const [searchQuery, setSearchQuery] = useState("");
@@ -464,31 +639,72 @@ export default function WargaSpatialMap({
   // User GPS Coordinates & Dynamic Proximity States
   const [userCoords, setUserCoords] = useState<[number, number]>([-6.3475, 108.1189]);
   const [isGpsLocked, setIsGpsLocked] = useState(false);
-  const [shelterLimit, setShelterLimit] = useState<number>(5);
+  // Dynamic Level of Detail (LOD) & Viewport Bounds ala Google Maps
+  const [mapZoom, setMapZoom] = useState<number>(11);
+  const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
   const initialGpsFittedRef = useRef(false);
 
-  // Helper pasang marker GPS pengguna dengan efek pulsa radar hijau DERMAYU (#2D6A4F)
-  const updateUserMarkerOnMap = (lat: number, lng: number, accuracy?: number) => {
+  // Helper pasang marker GPS pengguna bergaya Google Maps (Blue Dot & Floating Pill "Lokasi Anda")
+  // Marker ini PERMANEN dan WAJIB SELALU TAMPIL dalam keadaan apapun (Idle, Detail, maupun Routing)
+  const updateUserMarkerOnMap = (lat: number, lng: number, accuracy?: number, isNavMode: boolean = false, bearing: number = 0) => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const userIconHtml = `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;">
-        <span style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(45, 106, 79, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <div style="width: 18px; height: 18px; border-radius: 9999px; background: #2D6A4F; border: 3px solid #ffffff; box-shadow: 0 3px 10px rgba(0,0,0,0.35);"></div>
-      </div>
-    `;
-    const userIcon = L.divIcon({
-      html: userIconHtml,
-      className: "custom-user-pulsing-marker",
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-    });
+    let userIcon: L.DivIcon;
+
+    if (isNavMode) {
+      // Chevron Navigasi Khas Google Maps:
+      // Lingkaran putih kokoh + Navigation Arrow 3D (#1A73E8) + Heading Beam segitiga gradasi semi-transparan
+      const navIconHtml = `
+        <div style="position: relative; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <!-- Heading Beam / Kerucut Sinar Kompas -->
+          <div style="position: absolute; top: -16px; left: 8px; width: 40px; height: 40px; background: radial-gradient(circle, rgba(26,115,232,0.28) 0%, rgba(26,115,232,0) 70%); clip-path: polygon(50% 100%, 0 0, 100% 0); transform: rotate(${bearing}deg); transform-origin: 50% 85%;"></div>
+          <!-- Lingkaran Luar Putih + Shadow Tebal -->
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; border: 2.5px solid #ffffff;">
+            <!-- Navigation Chevron ala Google Maps -->
+            <div style="width: 26px; height: 26px; transform: rotate(${bearing}deg); transform-origin: center center; display: flex; align-items: center; justify-content: center; transition: transform 0.3s ease-out;">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="#1A73E8">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      `;
+      userIcon = L.divIcon({
+        html: navIconHtml,
+        className: "custom-nav-chevron-marker",
+        iconSize: [56, 56],
+        iconAnchor: [28, 28],
+      });
+    } else {
+      const userIconHtml = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
+          <div style="background: #ffffff; color: #1e293b; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; border: 1.5px solid #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,0.18); margin-bottom: 4px; white-space: nowrap; line-height: 1.2;">
+            Lokasi Anda
+          </div>
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;">
+            <span style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(26, 115, 232, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+            <div style="width: 18px; height: 18px; border-radius: 9999px; background: #1A73E8; border: 3px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.35);"></div>
+          </div>
+        </div>
+      `;
+      userIcon = L.divIcon({
+        html: userIconHtml,
+        className: "custom-user-pulsing-marker",
+        iconSize: [90, 56],
+        iconAnchor: [45, 38],
+      });
+    }
 
     if (userMarkerRef.current) {
+      if (!map.hasLayer(userMarkerRef.current)) {
+        userMarkerRef.current.addTo(map);
+      }
       userMarkerRef.current.setLatLng([lat, lng]);
+      userMarkerRef.current.setIcon(userIcon);
+      userMarkerRef.current.setZIndexOffset(3000);
     } else {
-      userMarkerRef.current = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 })
+      userMarkerRef.current = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 3000 })
         .bindPopup(
           `<div style="font-family: inherit; font-size: 12px; font-weight: 700; color: #1D443F; padding: 2px;">
             📍 Posisi Anda Saat Ini (GPS Otomatis)
@@ -501,13 +717,16 @@ export default function WargaSpatialMap({
     }
 
     if (userAccuracyCircleRef.current) {
+      if (!map.hasLayer(userAccuracyCircleRef.current)) {
+        userAccuracyCircleRef.current.addTo(map);
+      }
       userAccuracyCircleRef.current.setLatLng([lat, lng]);
-      userAccuracyCircleRef.current.setRadius(accuracy || 30);
+      userAccuracyCircleRef.current.setRadius(accuracy || 25);
     } else {
       userAccuracyCircleRef.current = L.circle([lat, lng], {
-        radius: accuracy || 30,
-        color: "#2D6A4F",
-        fillColor: "#2D6A4F",
+        radius: accuracy || 25,
+        color: "#1A73E8",
+        fillColor: "#1A73E8",
         fillOpacity: 0.12,
         weight: 1.5,
         dashArray: "3, 5",
@@ -515,7 +734,14 @@ export default function WargaSpatialMap({
     }
   };
 
-  // Deteksi GPS otomatis saat pertama kali halaman/peta dibuka
+  // Sinkronisasi reaktif: Pastikan titik "Lokasi Anda" SELALU diperbarui saat userCoords berubah
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+    }
+  }, [userCoords]);
+
+  // Deteksi & Pelacakan Real-Time GPS (getCurrentPosition + watchPosition)
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -531,19 +757,37 @@ export default function WargaSpatialMap({
         },
         (err) => {
           console.warn("GPS otomatis belum aktif atau izin ditolak:", err.message);
-          updateUserMarkerOnMap(-6.3475, 108.1189, 50);
+          updateUserMarkerOnMap(userCoords[0], userCoords[1], 50);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setUserCoords([latitude, longitude]);
+          setIsGpsLocked(true);
+          updateUserMarkerOnMap(latitude, longitude, accuracy);
+        },
+        (err) => {
+          console.warn("GPS watch position notice:", err.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      );
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+      };
     } else {
-      updateUserMarkerOnMap(-6.3475, 108.1189, 50);
+      updateUserMarkerOnMap(userCoords[0], userCoords[1], 50);
     }
   }, []);
 
-  // Kalkulasi jarak real-time dari posisi GPS pengguna ke seluruh posko sekolah
+  // Kalkulasi jarak real-time & Skema 5-Level Tiering Posko (LoD by Zoom Level)
   const processedShelters = useMemo(() => {
     const [uLat, uLng] = userCoords;
-    return shelters.map((sh) => {
+
+    const list = shelters.map((sh) => {
       const distMeters = calculateDistanceInMeters(uLat, uLng, sh.lat, sh.lng);
       const distStr = formatDistanceText(distMeters);
       const etaStr = formatEtaText(distMeters);
@@ -553,6 +797,66 @@ export default function WargaSpatialMap({
         distance: `${distStr} (${etaStr})`,
         displayDistance: distStr,
         displayEta: etaStr,
+      };
+    });
+
+    // Skema 5 Level Kemunculan Bertahap:
+    // Tier 1: Posko Induk Utama per kecamatan besar (~8-10 pin tersebar seimbang utara, tengah, barat, timur)
+    // Tier 2: Posko sekunder berkapasitas besar & berakses jalan Pantura (~18-25 pin total)
+    // Tier 3: Posko tingkat desa/kelurahan (di-thinning berjarak minimum ~1.2 km di zoom 12)
+    // Tier 4: Posko lingkungan tingkat RW / SD / Musholla (di zoom 13-14)
+    // Tier 5: Semua posko lokal lainnya (di zoom >= 15)
+    const assignedTiers = new Map<string, 1 | 2 | 3 | 4 | 5>();
+    const tier1Districts = new Set<string>();
+
+    const flagshipIds = ["sh-11", "sh-10", "sh-3", "sh-1", "sh-4"];
+    for (const id of flagshipIds) {
+      const found = list.find((s) => s.id === id);
+      if (found) {
+        assignedTiers.set(found.id, 1);
+        tier1Districts.add((found.district || "").toLowerCase());
+      }
+    }
+
+    for (const dist of MAJOR_DISTRICTS) {
+      if (tier1Districts.has(dist)) continue;
+      const inDist = list.filter((s) => (s.district || "").toLowerCase().includes(dist));
+      if (inDist.length > 0) {
+        inDist.sort((a, b) => b.capacityTotal - a.capacityTotal);
+        assignedTiers.set(inDist[0].id, 1);
+        tier1Districts.add(dist);
+      }
+    }
+
+    let tier2Count = 0;
+    for (const sh of list) {
+      if (assignedTiers.has(sh.id)) continue;
+      const isHighCap = sh.capacityTotal >= 300;
+      const isMajor = sh.name.includes("SMA") || sh.name.includes("SMK") || sh.name.includes("Balai Desa") || sh.name.includes("GOR");
+      if ((isHighCap || isMajor) && tier2Count < 18) {
+        assignedTiers.set(sh.id, 2);
+        tier2Count++;
+      }
+    }
+
+    for (const sh of list) {
+      if (assignedTiers.has(sh.id)) continue;
+      if (sh.capacityTotal >= 180 || sh.name.includes("SMP") || sh.name.includes("Balai Desa")) {
+        assignedTiers.set(sh.id, 3);
+      } else if (sh.capacityTotal >= 100 || sh.name.includes("SDN") || sh.name.includes("MIS")) {
+        assignedTiers.set(sh.id, 4);
+      } else {
+        assignedTiers.set(sh.id, 5);
+      }
+    }
+
+    return list.map((sh) => {
+      const orig = sh as any;
+      return {
+        ...sh,
+        kategori: orig.kategori || "sekolah",
+        foto: orig.foto,
+        tier: (orig.tier as 1 | 2 | 3 | 4 | 5) || assignedTiers.get(sh.id) || (4 as 1 | 2 | 3 | 4 | 5),
       };
     });
   }, [shelters, userCoords]);
@@ -629,14 +933,66 @@ export default function WargaSpatialMap({
     return list.sort((a, b) => a.distMeters - b.distMeters);
   }, [processedShelters, searchQuery, activeFilterChip]);
 
-  // Hanya ambil 3-5 posko sekolah terdekat untuk dirender di peta Leaflet (Zero DOM lag)
+  // Skema 5 Level Kemunculan Bertahap (LoD by Zoom Level) ala Google Maps:
   const mapVisibleShelters = useMemo(() => {
-    const top = displayedShelters.slice(0, shelterLimit);
-    if (activeShelterDetail && !top.some((s) => s.id === activeShelterDetail.id)) {
-      return [activeShelterDetail, ...top];
+    // 0. Jika User Melakukan Filter (Search / Kategori / Kecamatan):
+    const isFiltered = Boolean(searchQuery.trim() || activeFilterChip !== "terdekat");
+    if (isFiltered) {
+      if (mapBounds && mapZoom >= 11) {
+        return displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)));
+      }
+      return displayedShelters.slice(0, 30);
     }
-    return top;
-  }, [displayedShelters, shelterLimit, activeShelterDetail]);
+
+    // Viewport Bounding Box: HANYA data yang koordinatnya berada di dalam area layar aktif
+    const inView = mapBounds
+      ? displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)))
+      : displayedShelters;
+
+    let result: typeof displayedShelters = [];
+
+    // LEVEL 1: Zoom Sangat Luar (Zoom <= 10) - Gambar 1
+    // Persebaran merata: Tampilkan HANYA 1 posko utama per kecamatan besar (Tier 1: ~8-10 pin penting)
+    if (mapZoom <= 10) {
+      result = inView.filter((sh) => sh.tier === 1);
+      // Jika inView belum mencakup seluruh daratan karena zoom inisial, ambil langsung dari displayedShelters Tier 1
+      if (result.length < 5) {
+        result = displayedShelters.filter((sh) => sh.tier === 1);
+      }
+    }
+    // LEVEL 2: Zoom Tingkat Kawasan (Zoom 11) - Gambar 2
+    // Posko sekunder lapis kedua (Tier 1 + Tier 2: ~18-25 pin tersebar seimbang)
+    else if (mapZoom === 11) {
+      result = inView.filter((sh) => sh.tier <= 2);
+    }
+    // LEVEL 3: Zoom Tingkat Kecamatan (Zoom 12) - Gambar 3
+    // Tier 1, 2, 3 dengan batas minimum jarak (~1.2 km) agar tidak bertumpuk
+    else if (mapZoom === 12) {
+      const candidates = inView.filter((sh) => sh.tier <= 3);
+      result = filterMinDistance(candidates, 1.2);
+    }
+    // LEVEL 4: Zoom Lingkungan / Desa (Zoom 13 - 14) - Gambar 4
+    // Posko lokal tingkat RW / sekolah dasar / masjid di area pandang
+    else if (mapZoom <= 14) {
+      const candidates = inView.filter((sh) => sh.tier <= 4);
+      result = filterMinDistance(candidates, 0.4);
+    }
+    // LEVEL 5: Zoom Maksimal Dekat (Zoom >= 15) - Gambar 5
+    // Render SEMUA posko evakuasi secara lengkap di dalam area layar aktif
+    else {
+      result = inView;
+    }
+
+    // Pastikan posko yang sedang aktif dipilih user selalu disertakan di peta
+    if (activeShelterDetail && !result.some((s) => s.id === activeShelterDetail.id)) {
+      const matchInDisplayed = displayedShelters.find((s) => s.id === activeShelterDetail.id);
+      if (matchInDisplayed) {
+        result = [matchInDisplayed, ...result];
+      }
+    }
+
+    return result;
+  }, [displayedShelters, searchQuery, activeFilterChip, mapZoom, mapBounds, activeShelterDetail]);
 
   // Status tampilan default (3-5 posko terdekat) vs mode dinamis/ekspansi
   const isDefaultView = activeFilterChip === "terdekat" && !showAllShelters && !searchQuery.trim();
@@ -662,9 +1018,9 @@ export default function WargaSpatialMap({
       return `Posko Wilayah ${activeFilterChip}`;
     }
     if (showAllShelters) {
-      return `Posko Terdekat Lainnya (${Math.min(10, displayedShelters.length)} Terdekat)`;
+      return `Posko Terdekat Lainnya (${Math.min(20, displayedShelters.length)} Terdekat)`;
     }
-    return `Posko Evakuasi Terdekat (${shelterLimit} Terdekat)`;
+    return "Posko Evakuasi Terdekat";
   };
 
   const [selectedMarker, setSelectedMarker] = useState<
@@ -674,98 +1030,96 @@ export default function WargaSpatialMap({
     | null
   >(null);
 
-  const isDetailActive = Boolean(activeShelterDetail || activeReportDetail || activeTelemetryDetail || activeNavRoute);
+  // Definisi 3 Mode Tampilan Sesuai Standar Google Maps:
+  // - IDLE: Mode Jelajah (Search Bar & Filter Kategori Tampil, Card Daftar Posko Ringkas)
+  // - DETAIL: Mode Detail Posko / Titik (Search & Filter Sembunyi, Card Detail Full Height)
+  // - ROUTE: Mode Navigasi Rute (Search & Filter Sembunyi, Card Rute Full Height)
+  const viewMode: "IDLE" | "DETAIL" | "ROUTE" = (activeNavRoute || (isRoutingLoading && targetNavShelter))
+    ? "ROUTE"
+    : (activeShelterDetail || activeReportDetail || activeTelemetryDetail)
+      ? "DETAIL"
+      : "IDLE";
+  const isDetailActive = viewMode !== "IDLE";
 
-  // 3-Level Sheet Snap: "compact" (~118px - tidak menutupi peta), "medium" (~48vh), "expanded" (~82vh)
-  type SheetSnap = "compact" | "medium" | "expanded";
-  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffsetY, setDragOffsetY] = useState(0);
-  const dragDiffYRef = useRef(0);
+  // 3-Level Sheet Snap ala Google Maps: 'min' (~74px mentok bawah), 'mid' (~42vh default), 'full' (calc(100vh - 80px))
+  type SheetSnap = "min" | "mid" | "full";
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("mid");
+  const sheetSnapRef = useRef<SheetSnap>(sheetSnap);
+  sheetSnapRef.current = sheetSnap;
+  const isDetailActiveRef = useRef<boolean>(isDetailActive);
+  isDetailActiveRef.current = isDetailActive;
   const touchStartYRef = useRef<number | null>(null);
-  const currentSnapRef = useRef<SheetSnap>("compact");
-  currentSnapRef.current = sheetSnap;
+  const touchDeltaYRef = useRef<number>(0);
+  const touchStartTimeRef = useRef<number>(0);
 
-  const handleDragStart = (clientY: number) => {
-    touchStartYRef.current = clientY;
-    dragDiffYRef.current = 0;
-    setIsDragging(true);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchStartTimeRef.current = Date.now();
+    touchDeltaYRef.current = 0;
   };
 
-  const handleDragMove = (clientY: number) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartYRef.current === null) return;
-    const diff = clientY - touchStartYRef.current;
-    dragDiffYRef.current = diff;
-    setDragOffsetY(diff);
+    touchDeltaYRef.current = e.touches[0].clientY - touchStartYRef.current;
   };
 
-  const handleDragEnd = () => {
+  const handleTouchEnd = () => {
     if (touchStartYRef.current === null) return;
-    const diff = dragDiffYRef.current;
-    setIsDragging(false);
-    setDragOffsetY(0);
-    dragDiffYRef.current = 0;
+    const deltaY = touchDeltaYRef.current;
+    const elapsed = Date.now() - (touchStartTimeRef.current || 0);
     touchStartYRef.current = null;
+    touchDeltaYRef.current = 0;
 
-    const current = currentSnapRef.current;
-
-    // Geser KE BAWAH (diff > 35px)
-    if (diff > 35) {
-      if (current === "expanded") {
-        setSheetSnap("medium");
-      } else if (current === "medium") {
-        setSheetSnap("compact"); // turun ke compact agar tidak menutupi peta
-      } else if (current === "compact") {
-        if (diff > 60) {
-          clearSelection(); // tutup detail jika ditarik ke bawah saat compact
-        }
-      }
-    }
-    // Geser KE ATAS (diff < -35px)
-    else if (diff < -35) {
-      if (current === "compact") {
-        if (diff < -120) {
-          setSheetSnap("expanded");
-        } else {
-          setSheetSnap("medium");
-        }
-      } else if (current === "medium") {
-        setSheetSnap("expanded");
-      }
+    // Threshold responsif (15px normal atau 10px flick cepat < 250ms)
+    if (deltaY > 15 || (deltaY > 10 && elapsed < 250)) {
+      // Geser KE BAWAH (Drag Down)
+      setSheetSnap((prev) => {
+        if (prev === "full") return "mid";
+        if (prev === "mid") return "min";
+        return "min";
+      });
+    } else if (deltaY < -15 || (deltaY < -10 && elapsed < 250)) {
+      // Geser KE ATAS (Drag Up)
+      setSheetSnap((prev) => {
+        if (prev === "min") return "mid";
+        if (prev === "mid") return "full";
+        return "full";
+      });
     }
   };
 
-  const handleSheetTouchStart = (e: React.TouchEvent) => {
-    handleDragStart(e.touches[0].clientY);
+  const bodyScrollTopRef = useRef<number>(0);
+  const bodyTouchStartYRef = useRef<number | null>(null);
+  const bodyTouchDeltaYRef = useRef<number>(0);
+
+  const handleBodyScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    bodyScrollTopRef.current = e.currentTarget.scrollTop;
   };
 
-  const handleSheetTouchMove = (e: React.TouchEvent) => {
-    handleDragMove(e.touches[0].clientY);
+  const handleBodyTouchStart = (e: React.TouchEvent) => {
+    bodyTouchStartYRef.current = e.touches[0].clientY;
+    bodyTouchDeltaYRef.current = 0;
   };
 
-  const handleSheetTouchEnd = () => {
-    handleDragEnd();
+  const handleBodyTouchMove = (e: React.TouchEvent) => {
+    if (bodyTouchStartYRef.current === null) return;
+    bodyTouchDeltaYRef.current = e.touches[0].clientY - bodyTouchStartYRef.current;
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === "touch") return; // Handled by touch events
-    handleDragStart(e.clientY);
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch { }
-  };
+  const handleBodyTouchEnd = () => {
+    if (bodyTouchStartYRef.current === null) return;
+    const deltaY = bodyTouchDeltaYRef.current;
+    const isAtTop = bodyScrollTopRef.current <= 5;
+    bodyTouchStartYRef.current = null;
+    bodyTouchDeltaYRef.current = 0;
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (e.pointerType === "touch") return;
-    handleDragMove(e.clientY);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (e.pointerType === "touch") return;
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch { }
-    handleDragEnd();
+    if (deltaY > 35 && isAtTop) {
+      setSheetSnap((prev) => {
+        if (prev === "full") return "mid";
+        if (prev === "mid") return "min";
+        return "min";
+      });
+    }
   };
 
   const [district, setDistrict] = useState("Kandanghaur");
@@ -778,7 +1132,7 @@ export default function WargaSpatialMap({
         const primary = active.district.split("-")[0]?.trim() || active.district;
         setDistrict(primary);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const siagaConfig = SIAGA_CONFIGS[siagaLevel];
@@ -854,7 +1208,19 @@ export default function WargaSpatialMap({
     sheltersLayerRef.current = L.layerGroup().addTo(map);
     telemetryLayerRef.current = L.layerGroup().addTo(map);
     routesLayerRef.current = L.layerGroup().addTo(map);
+    activeRouteLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
+
+    // Pasang listener zoom & moveend untuk Dynamic Level of Detail ala Google Maps
+    map.on("zoomend", () => {
+      setMapZoom(map.getZoom());
+      setMapBounds(map.getBounds());
+    });
+    map.on("moveend", () => {
+      setMapBounds(map.getBounds());
+    });
+    setMapZoom(map.getZoom());
+    setMapBounds(map.getBounds());
 
     // Pasang marker user segera setelah peta Leaflet siap
     updateUserMarkerOnMap(userCoords[0], userCoords[1]);
@@ -885,8 +1251,24 @@ export default function WargaSpatialMap({
         resizeObserver.unobserve(container);
       }
       resizeObserver.disconnect();
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('hide-mobile-nav');
+      }
+      if (navWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(navWatchIdRef.current);
+        navWatchIdRef.current = null;
+      }
+      if (userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current.remove();
+        userAccuracyCircleRef.current = null;
+      }
       map.remove();
       mapInstanceRef.current = null;
+      activeRouteLayerRef.current = null;
     };
   }, []);
 
@@ -913,7 +1295,7 @@ export default function WargaSpatialMap({
         const isHigh = rep.severity === "HIGH";
         const color = isCritical ? "#DC2626" : isHigh ? "#EA580C" : "#D97706";
 
-        const icon = createPinIcon(isCritical ? "kritis" : "genangan");
+        const icon = createPinIcon(isCritical ? "kritis" : "genangan", false, mapZoom);
 
         const popupContent = `
           <div style="font-family: inherit; width: 220px; padding: 2px; color: #132422;">
@@ -942,6 +1324,22 @@ export default function WargaSpatialMap({
         `;
 
         const marker = L.marker([rep.lat, rep.lng], { icon }).bindPopup(popupContent);
+
+        // Lingkaran Radius Hambatan Genangan (200 meter)
+        if (rep.waterLevelText || rep.ticketCode.startsWith("GEN-")) {
+          const floodCircle = L.circle([rep.lat, rep.lng], {
+            radius: 200,
+            color: isCritical ? "#DC2626" : "#F59E0B",
+            fillColor: isCritical ? "#EF4444" : "#FBBF24",
+            fillOpacity: 0.16,
+            weight: 1.5,
+            dashArray: "4, 6",
+          }).bindTooltip(
+            `<div style="font-size: 10px; font-weight: bold; color: ${color};">Radius Hambatan 200m: ${rep.title} (${rep.waterLevelText || "Air Pasang"})</div>`,
+            { direction: "top", offset: [0, -10] }
+          );
+          reportsLayerRef.current?.addLayer(floodCircle);
+        }
         marker.on("click", () => {
           setActiveReportDetail(rep);
           setActiveShelterDetail(null);
@@ -949,7 +1347,7 @@ export default function WargaSpatialMap({
           setSelectedMarker({ type: "report", data: rep });
           setSiagaExpanded(false);
           setPoskoExpanded(true);
-          setSheetSnap("compact");
+          setSheetSnap("mid");
           clearRadarGlow();
           if (mapInstanceRef.current) {
             mapInstanceRef.current.flyTo([rep.lat, rep.lng], 16, { duration: 1.2 });
@@ -960,21 +1358,20 @@ export default function WargaSpatialMap({
       });
     }
 
-    // 2. PLOT SHELTERS (POSKO PENGUNGSIAN)
-    // PERFORMA ULTRA-RESPONSIF: Hanya render 3-5 posko sekolah terdekat dari GPS agar Leaflet 100% cepat & bebas lag!
+    // 2. PLOT SHELTERS (POSKO PENGUNGSIAN) BERSIH & STATIS ALA GOOGLE MAPS
     if (activeLayer === "ALL" || activeLayer === "SHELTERS") {
       mapVisibleShelters.forEach((sh) => {
         const sisaKapasitas = sh.capacityTotal - sh.capacityFilled;
         const isFull = sh.status === "PENUH";
-        const color = isFull ? "#9CA3AF" : "#059669";
+        const isSelected = activeShelterDetail?.id === sh.id;
 
-        const icon = createPinIcon("posko");
+        const icon = createPinIcon("posko", isSelected, mapZoom);
 
         const popupContent = `
           <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
-                POSKO TERDEKAT (GPS)
+                POSKO EVAKUASI
               </span>
               <span style="font-size: 10px; font-weight: 700; color: ${isFull ? "#DC2626" : "#059669"};">
                 ${sh.status}
@@ -1001,29 +1398,36 @@ export default function WargaSpatialMap({
           </div>
         `;
 
-        const marker = L.marker([sh.lat, sh.lng], { icon }).bindPopup(popupContent);
+        const marker = L.marker([sh.lat, sh.lng], { icon, title: sh.name }).bindPopup(popupContent);
         marker.on("click", () => {
           handleSelectShelterItem(sh);
         });
+
+        // Tooltip nama ringkas saat di-hover
+        marker.bindTooltip(
+          `<div style="font-family: inherit; font-size: 11px; font-weight: 800; color: #1D443F; padding: 2px 4px;">${sh.name}</div>`,
+          { direction: "top", offset: [0, -36], opacity: 0.95 }
+        );
+
         sheltersLayerRef.current?.addLayer(marker);
       });
-
-      // 3. PLOT SAFE EVACUATION ROUTE POLYLINES (Eretan coast to Balai Desa & GOR)
-      const safeRoute1: [number, number][] = [
-        [-6.3475, 108.1189], // Titik Banjir Eretan
-        [-6.3468, 108.1192], // Simpang Tanggul
-        [-6.3460, 108.1195], // Balai Desa Eretan Wetan
-      ];
-
-      const polyline = L.polyline(safeRoute1, {
-        color: "#059669",
-        weight: 4,
-        dashArray: "6, 8",
-        opacity: 0.85,
-      }).bindTooltip("Jalur Evakuasi Darat Bebas Air", { sticky: true });
-
-      routesLayerRef.current?.addLayer(polyline);
     }
+
+    // 3. PLOT SAFE EVACUATION ROUTE POLYLINES (Eretan coast to Balai Desa & GOR)
+    const safeRoute1: [number, number][] = [
+      [-6.3475, 108.1189], // Titik Banjir Eretan
+      [-6.3468, 108.1192], // Simpang Tanggul
+      [-6.3460, 108.1195], // Balai Desa Eretan Wetan
+    ];
+
+    const polyline = L.polyline(safeRoute1, {
+      color: "#059669",
+      weight: 4,
+      dashArray: "6, 8",
+      opacity: 0.85,
+    }).bindTooltip("Jalur Evakuasi Darat Bebas Air", { sticky: true });
+
+    routesLayerRef.current?.addLayer(polyline);
 
     // 4. PLOT TELEMETRY STATIONS
     if (activeLayer === "ALL" || activeLayer === "TELEMETRY") {
@@ -1031,7 +1435,7 @@ export default function WargaSpatialMap({
         const isWaspada = tel.status === "WASPADA" || tel.status === "SIAGA";
         const color = isWaspada ? "#D97706" : "#0284C7";
 
-        const icon = createPinIcon("sensor");
+        const icon = createPinIcon("sensor", false, mapZoom);
 
         const popupContent = `
           <div style="font-family: inherit; width: 210px; padding: 2px; color: #132422;">
@@ -1064,7 +1468,7 @@ export default function WargaSpatialMap({
           setSelectedMarker({ type: "telemetry", data: tel });
           setSiagaExpanded(false);
           setPoskoExpanded(true);
-          setSheetSnap("compact");
+          setSheetSnap("mid");
           clearRadarGlow();
           if (mapInstanceRef.current) {
             mapInstanceRef.current.flyTo([tel.lat, tel.lng], 16, { duration: 1.2 });
@@ -1073,39 +1477,14 @@ export default function WargaSpatialMap({
         telemetryLayerRef.current?.addLayer(marker);
       });
     }
-  }, [reports, mapVisibleShelters, telemetry, activeLayer, onSelectReport, onSelectShelter]);
 
-  // Radar Glow Effect pada Marker Posko yang Aktif
-  const showRadarGlow = (lat: number, lng: number) => {
-    if (!mapInstanceRef.current) return;
-    if (activeRadarMarkerRef.current) {
-      mapInstanceRef.current.removeLayer(activeRadarMarkerRef.current);
-      activeRadarMarkerRef.current = null;
-    }
+    // Pastikan titik "Lokasi Anda" selalu aktif dan terpasang di layer teratas peta
+    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+  }, [reports, mapVisibleShelters, telemetry, activeLayer, mapZoom, onSelectReport, onSelectShelter, userCoords]);
 
-    const radarIcon = L.divIcon({
-      html: `
-        <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
-          <div style="position: absolute; width: 42px; height: 42px; border-radius: 9999px; background: rgba(45, 106, 79, 0.3); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="position: absolute; width: 30px; height: 30px; border-radius: 9999px; background: rgba(45, 106, 79, 0.45); animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
-          <div style="width: 16px; height: 16px; border-radius: 9999px; background: #2D6A4F; border: 2.5px solid #ffffff; box-shadow: 0 0 12px rgba(45, 106, 79, 0.9);"></div>
-        </div>
-      `,
-      className: "custom-radar-pulse",
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-    });
-
-    const marker = L.marker([lat, lng], { icon: radarIcon, zIndexOffset: 999 }).addTo(mapInstanceRef.current);
-    activeRadarMarkerRef.current = marker;
-  };
-
-  const clearRadarGlow = () => {
-    if (activeRadarMarkerRef.current && mapInstanceRef.current) {
-      mapInstanceRef.current.removeLayer(activeRadarMarkerRef.current);
-      activeRadarMarkerRef.current = null;
-    }
-  };
+  // Marker seleksi statis ala Google Maps (animasi radar/uap dihapus total)
+  const showRadarGlow = (_lat: number, _lng: number) => { };
+  const clearRadarGlow = () => { };
 
   // Bersihkan Seleksi Marker & Kembalikan ke Tampilan Posko Awal
   const clearSelection = () => {
@@ -1118,31 +1497,43 @@ export default function WargaSpatialMap({
       activeRouteLayerRef.current.clearLayers();
     }
     setActiveNavRoute(null);
-    setSheetSnap("compact");
+    setTargetNavShelter(null);
+    setIsRoutingLoading(false);
+    setSheetSnap("min");
     setSelectedRouteClassification(1);
     setIsPickingWaypoint(false);
     setCustomWaypoint(null);
+    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
   };
 
-  // Pilih Item Posko: Kamera terbang, Radar menyala, & Buka Detail Card
+  // Pilih Item Posko: Kamera terbang, Radar menyala, & Buka Detail Card (Tanpa langsung gambar rute!)
   const handleSelectShelterItem = (sh: MapShelterPoint) => {
+    // 1. Bersihkan layer rute jika sebelumnya ada rute lain aktif
+    if (activeRouteLayerRef.current) {
+      activeRouteLayerRef.current.clearLayers();
+    }
+    setActiveNavRoute(null);
+    setTargetNavShelter(null);
+    setIsRoutingLoading(false);
+
+    // 2. Set posko terpilih (viewMode beralih ke 'DETAIL')
     setActiveShelterDetail(sh);
     setActiveReportDetail(null);
     setActiveTelemetryDetail(null);
     setSelectedMarker({ type: "shelter", data: sh });
     setSiagaExpanded(false);
     setPoskoExpanded(true);
-    setSheetSnap("compact");
+    setSheetSnap("mid");
     setSelectedRouteClassification(1);
     setIsPickingWaypoint(false);
     showRadarGlow(sh.lat, sh.lng);
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([sh.lat, sh.lng], 16, { duration: 1.2 });
+      mapInstanceRef.current.panTo([sh.lat, sh.lng], { animate: true, duration: 0.5 });
     }
     if (onSelectShelter) {
       onSelectShelter(sh);
     }
-    previewShelterRoute(sh, 1);
+    // CATATAN: HANYA buka detail posko! Kalkulasi rute baru jalan saat tombol "Arahkan Rute" diklik.
   };
 
 
@@ -1200,156 +1591,256 @@ export default function WargaSpatialMap({
     return Math.round(distanceMeters / 1.25);
   };
 
+  // Helper icon SVG untuk speech bubble Google Maps
+  const getModeIconSvg = (m: "motorcycle" | "car" | "walking", color: string) => {
+    if (m === "motorcycle") {
+      return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-2px;"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-3l-3 5.5h6l-1.5 6"/><path d="M9 11.5l3.5-5.5H16"/></svg>`;
+    }
+    if (m === "car") {
+      return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-2px;"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C1.4 11.2 1 12.1 1 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+    }
+    return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-2px;"><circle cx="12" cy="5" r="2"/><path d="m9 20 3-6 3 6"/><path d="m6 8 6 2 6-2"/><path d="M12 10v4"/></svg>`;
+  };
+
+  // Helper mencari titik optimal penempatan callout bubble rute agar tidak bertumpukan
+  const findBestCalloutPoint = (
+    coords: [number, number][],
+    otherCoords?: [number, number][],
+    preferredRatio: number = 0.5
+  ): [number, number] => {
+    if (!coords || coords.length === 0) return [0, 0];
+    if (coords.length < 6 || !otherCoords || otherCoords.length === 0) {
+      const idx = Math.min(coords.length - 1, Math.max(0, Math.floor(coords.length * preferredRatio)));
+      return coords[idx];
+    }
+
+    let bestIdx = Math.floor(coords.length * preferredRatio);
+    let maxMinDist = -1;
+
+    const startCheck = Math.floor(coords.length * 0.2);
+    const endCheck = Math.floor(coords.length * 0.8);
+    const step = Math.max(1, Math.floor(coords.length / 25));
+
+    for (let i = startCheck; i <= endCheck; i += step) {
+      const [lat, lng] = coords[i];
+      let minDist = Infinity;
+      for (let j = 0; j < otherCoords.length; j += Math.max(1, Math.floor(otherCoords.length / 25))) {
+        const [oLat, oLng] = otherCoords[j];
+        const dLat = (lat - oLat) * 111000;
+        const dLng = (lng - oLng) * 110000;
+        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+        if (dist < minDist) minDist = dist;
+      }
+
+      if (minDist > maxMinDist) {
+        maxMinDist = minDist;
+        bestIdx = i;
+      }
+    }
+
+    if (maxMinDist < 60) {
+      bestIdx = Math.min(coords.length - 1, Math.max(0, Math.floor(coords.length * preferredRatio)));
+    }
+
+    return coords[bestIdx];
+  };
+
   // Render Layer Polyline & Tooltip di Peta Leaflet
   const renderNavRoutesOnMap = (
     routes: NavigationRouteOption[],
     selectedIndex: number,
-    mode: "motorcycle" | "car" | "walking"
+    mode: "motorcycle" | "car" | "walking" = "motorcycle",
+    destPoskoCoords?: [number, number],
+    originUserCoords?: [number, number],
+    isNavMode: boolean = false,
+    currentNavPosition?: [number, number] | null
   ) => {
-    if (!mapInstanceRef.current) return;
-
-    if (activeRouteLayerRef.current) {
-      activeRouteLayerRef.current.clearLayers();
-    } else {
+    if (!activeRouteLayerRef.current && mapInstanceRef.current) {
       activeRouteLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
     }
+    if (!activeRouteLayerRef.current) return;
+    activeRouteLayerRef.current.clearLayers();
 
     const modeIcon = mode === "motorcycle" ? "🏍️" : mode === "car" ? "🚗" : "🚶";
 
-    // 1. Gambar rute alternatif terlebih dahulu (di layer bawah)
-    routes.forEach((rt, idx) => {
+    // 1. Gambar rute alternatif (Secondary Route) di layer bawah mengikuti jaringan jalan riil OSRM
+    if (!isNavMode) {
+      routes.forEach((rt, idx) => {
       if (idx === selectedIndex) return;
 
-      let altColor = "#94A3B8";
-      let altDash = "4, 6";
-      let altTooltipBg = "#334155";
-      let altBadgeBg = "#94A3B8";
-      let altBadgeText = "#0F172A";
-      let altBorder = "#94A3B8";
+      const isWarning = rt.statusBadgeType === "warning";
 
-      if (rt.statusBadgeType === "warning") {
-        altColor = "#F59E0B";
-        altDash = "5, 6";
-        altTooltipBg = "#78350F";
-        altBadgeBg = "#FBBF24";
-        altBadgeText = "#78350F";
-        altBorder = "#FBBF24";
-      } else if (rt.statusBadgeType === "custom") {
-        altColor = "#A78BFA";
-        altDash = "4, 6";
-        altTooltipBg = "#5B21B6";
-        altBadgeBg = "#A78BFA";
-        altBadgeText = "#2E1065";
-        altBorder = "#A78BFA";
-      }
-
-      const altLine = L.polyline(rt.coordinates, {
-        color: altColor,
-        weight: 5,
-        opacity: 0.8,
-        dashArray: altDash,
+      // Border Casing rute alternatif (Garis tepi putih tipis)
+      const altCasing = L.polyline(rt.coordinates, {
+        color: "#FFFFFF",
+        weight: 8,
+        opacity: 0.9,
         lineCap: "round",
         lineJoin: "round",
+        interactive: true,
       });
 
-      const altTooltipHtml = `
-        <div style="background: ${altTooltipBg}; color: white; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1.5px solid ${altBorder}; display: flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;">
-          <span>${rt.durationText} &bull; ${rt.distanceText}</span>
-          <span style="background: ${altBadgeBg}; color: ${altBadgeText}; padding: 1.5px 6px; border-radius: 9999px; font-size: 8.5px; font-weight: 800;">${rt.statusBadge}</span>
+      // Garis Rute Alternatif (Secondary Route) - Abu-abu kebiruan terang khas Google Maps (#8AB4F8)
+      const altLine = L.polyline(rt.coordinates, {
+        color: isWarning ? "#F59E0B" : "#8AB4F8",
+        weight: 6,
+        opacity: 0.85,
+        lineCap: "round",
+        lineJoin: "round",
+        interactive: true,
+      });
+
+      // Klik polyline alternatif untuk langsung menjadikannya rute utama terpilih
+      const handleClickAlt = (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        handleSelectRouteIndex(idx);
+      };
+      altCasing.on("click", handleClickAlt);
+      altLine.on("click", handleClickAlt);
+
+      activeRouteLayerRef.current?.addLayer(altCasing);
+      activeRouteLayerRef.current?.addLayer(altLine);
+
+      // Callout Balon Putih (#FFFFFF) khas Google Maps untuk Rute Alternatif (Tangkai mengarah ke jalan)
+      const primaryCoords = routes[selectedIndex]?.coordinates || [];
+      const altCalloutPoint = findBestCalloutPoint(rt.coordinates, primaryCoords, 0.6);
+
+      const altBubbleHtml = `
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; pointer-events: auto; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.18)); transition: transform 0.15s ease;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">
+          <div style="background: #FFFFFF; color: #1E293B; border: 1.5px solid #CBD5E1; padding: 5px 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 1px; white-space: nowrap;">
+            <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #1E293B; line-height: 1.2;">
+              ${getModeIconSvg(mode, "#1E293B")}
+              <span>${rt.durationText}</span>
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: ${isWarning ? "#D97706" : "#475569"}; line-height: 1.2;">
+              ${rt.distanceText} &bull; ${isWarning ? "Rawan Genangan" : "Jalur Kering"}
+            </div>
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid #FFFFFF; margin-top: -1.5px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08));"></div>
         </div>
       `;
 
-      altLine.bindTooltip(altTooltipHtml, {
-        permanent: true,
-        direction: "center",
-        className: "dermayu-route-badge",
+      const altDivIcon = L.divIcon({
+        html: altBubbleHtml,
+        className: "custom-nav-alt-callout",
+        iconSize: [160, 52],
+        iconAnchor: [80, 52],
       });
 
-      altLine.on("click", (e) => {
+      const altMarker = L.marker(altCalloutPoint, {
+        icon: altDivIcon,
+        zIndexOffset: 2400,
+      });
+
+      altMarker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         handleSelectRouteIndex(idx);
       });
 
-      activeRouteLayerRef.current?.addLayer(altLine);
-    });
+      activeRouteLayerRef.current?.addLayer(altMarker);
+      });
+    }
 
-    // 2. Gambar rute utama / terpilih di layer teratas
+    // 2. Gambar rute utama / terpilih di layer teratas ala Google Maps (Biru #1A73E8 + Casing Putih)
     const activeRoute = routes[selectedIndex] || routes[0];
     if (activeRoute && activeRoute.coordinates.length > 0) {
-      let mainColor = "#2D6A4F";
-      let mainTooltipBg = "#1B4D3E";
-      let mainBadgeBg = "#34D399";
-      let mainBadgeText = "#064E3B";
-      let mainBorder = "#34D399";
-      let mainDash: string | undefined = undefined;
+      const isWarning = activeRoute.statusBadgeType === "warning";
+      const mainColor = isWarning ? "#F59E0B" : activeRoute.statusBadgeType === "custom" ? "#7C3AED" : "#1A73E8";
 
-      if (activeRoute.statusBadgeType === "warning") {
-        mainColor = "#F59E0B";
-        mainDash = "6, 8";
-        mainTooltipBg = "#78350F";
-        mainBadgeBg = "#FBBF24";
-        mainBadgeText = "#78350F";
-        mainBorder = "#FBBF24";
-      } else if (activeRoute.statusBadgeType === "detour") {
-        mainColor = "#64748B";
-        mainDash = "4, 6";
-        mainTooltipBg = "#334155";
-        mainBadgeBg = "#94A3B8";
-        mainBadgeText = "#0F172A";
-        mainBorder = "#94A3B8";
-      } else if (activeRoute.statusBadgeType === "custom") {
-        mainColor = "#7C3AED";
-        mainTooltipBg = "#5B21B6";
-        mainBadgeBg = "#A78BFA";
-        mainBadgeText = "#2E1065";
-        mainBorder = "#A78BFA";
+      if (isNavMode && currentNavPosition) {
+        const { passed, remaining } = splitRouteAtCurrentPosition(activeRoute.coordinates, currentNavPosition);
+
+        // a. Rute Yang Sudah Dilewati (Passed Route / Jejak Lendir Siput Pudar)
+        if (passed.length > 1) {
+          const passedLine = L.polyline(passed, {
+            color: "#94A3B8",
+            weight: 6,
+            opacity: 0.35,
+            lineCap: "round",
+            lineJoin: "round",
+          });
+          activeRouteLayerRef.current?.addLayer(passedLine);
+        }
+
+        // b. Rute Yang Belum Dilewati (Remaining Route: Casing putih tebal + core biru aktif)
+        if (remaining.length > 1) {
+          const glowLine = L.polyline(remaining, {
+            color: "#FFFFFF",
+            weight: 9,
+            opacity: 0.95,
+            lineCap: "round",
+            lineJoin: "round",
+          });
+          const coreLine = L.polyline(remaining, {
+            color: mainColor,
+            weight: 6,
+            opacity: 1,
+            lineCap: "round",
+            lineJoin: "round",
+          });
+          activeRouteLayerRef.current?.addLayer(glowLine);
+          activeRouteLayerRef.current?.addLayer(coreLine);
+        }
+      } else {
+        // Casing layer garis putih di bawahnya (Google Maps Halo Casing)
+        const glowLine = L.polyline(activeRoute.coordinates, {
+          color: "#FFFFFF",
+          weight: 9,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
+        });
+
+        // Garis rute utama di atas casing (Google Maps Core Blue #1A73E8)
+        const coreLine = L.polyline(activeRoute.coordinates, {
+          color: mainColor,
+          weight: 6,
+          opacity: 1,
+          lineCap: "round",
+          lineJoin: "round",
+        });
+
+        activeRouteLayerRef.current?.addLayer(glowLine);
+        activeRouteLayerRef.current?.addLayer(coreLine);
       }
 
-      const glowLine = L.polyline(activeRoute.coordinates, {
-        color: "#ffffff",
-        weight: 10,
-        opacity: 0.95,
-        lineCap: "round",
-        lineJoin: "round",
-      });
+      // Callout Balon Biru Tua (#1A73E8) khas Google Maps untuk Rute Utama Terpilih
+      if (!isNavMode) {
+      const altRouteCoords = routes.find((_, i) => i !== selectedIndex)?.coordinates;
+      const primaryCalloutPoint = findBestCalloutPoint(activeRoute.coordinates, altRouteCoords, 0.4);
 
-      const coreLine = L.polyline(activeRoute.coordinates, {
-        color: mainColor,
-        weight: 6,
-        opacity: 0.95,
-        dashArray: mainDash,
-        lineCap: "round",
-        lineJoin: "round",
-      });
-
-      const mainTooltipHtml = `
-        <div style="background: ${mainTooltipBg}; color: white; padding: 5px 12px; border-radius: 9999px; font-weight: 800; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); border: 1.5px solid ${mainBorder}; display: flex; align-items: center; gap: 6px; white-space: nowrap; pointer-events: none;">
-          <span>${modeIcon} ${activeRoute.durationText} &bull; ${activeRoute.distanceText}</span>
-          <span style="background: ${mainBadgeBg}; color: ${mainBadgeText}; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 900; letter-spacing: 0.02em;">${activeRoute.statusBadge}</span>
+      const primaryBubbleHtml = `
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; user-select: none; pointer-events: auto; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.28));">
+          <div style="background: #1A73E8; color: #ffffff; padding: 5px 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 1px; white-space: nowrap;">
+            <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; line-height: 1.2;">
+              ${getModeIconSvg(mode, "#FFFFFF")}
+              <span>${activeRoute.durationText}</span>
+            </div>
+            <div style="font-size: 11px; font-weight: 500; opacity: 0.95; line-height: 1.2;">
+              ${activeRoute.distanceText} &bull; ${isWarning ? "Rawan Genangan" : "Aman (Bebas Banjir)"}
+            </div>
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid #1A73E8; margin-top: -0.5px;"></div>
         </div>
       `;
 
-      coreLine.bindTooltip(mainTooltipHtml, {
-        permanent: true,
-        direction: "center",
-        className: "dermayu-route-badge",
+      const primaryDivIcon = L.divIcon({
+        html: primaryBubbleHtml,
+        className: "custom-nav-primary-callout",
+        iconSize: [160, 52],
+        iconAnchor: [80, 52],
       });
 
-      activeRouteLayerRef.current?.addLayer(glowLine);
-      activeRouteLayerRef.current?.addLayer(coreLine);
+      const primaryMarker = L.marker(primaryCalloutPoint, {
+        icon: primaryDivIcon,
+        zIndexOffset: 2600, // Z-Index lebih tinggi daripada rute alternatif
+      });
 
-      if (activeRoute.statusBadgeType === "safe") {
-        const accentLine = L.polyline(activeRoute.coordinates, {
-          color: "#6EE7B7",
-          weight: 2.5,
-          dashArray: "8, 12",
-          opacity: 0.95,
-        });
-        activeRouteLayerRef.current?.addLayer(accentLine);
+      activeRouteLayerRef.current?.addLayer(primaryMarker);
       }
 
-      // Marker Peringatan Genangan Rob pada Rute 2
-      if (activeRoute.statusBadgeType === "warning" && activeRoute.coordinates.length > 2) {
+      // Warning marker jika rute terpilih melintasi titik hambatan
+      if (isWarning && activeRoute.coordinates.length > 2) {
         const midPoint = activeRoute.coordinates[Math.floor(activeRoute.coordinates.length / 2)];
         const warnIcon = L.divIcon({
           className: "custom-genangan-marker",
@@ -1363,7 +1854,7 @@ export default function WargaSpatialMap({
         });
         const warnMarker = L.marker(midPoint, { icon: warnIcon });
         warnMarker.bindTooltip(
-          `<div style="font-size:10px; font-weight:bold; color:#DC2626; padding:2px 4px;">Titik Genangan Rob (15-25 cm)</div>`,
+          `<div style="font-size:10px; font-weight:bold; color:#DC2626; padding:2px 4px;">Titik Genangan Air</div>`,
           { permanent: true, direction: "top" }
         );
         activeRouteLayerRef.current?.addLayer(warnMarker);
@@ -1389,14 +1880,110 @@ export default function WargaSpatialMap({
         activeRouteLayerRef.current?.addLayer(wpMarker);
       }
 
-      // Fit viewport proporsional sesuai Requirement 4
-      const bounds = coreLine.getBounds();
+      // ==============================================================
+      // 3. Pangkal Rute / Titik Awal (Lokasi Pengguna)
+      // ==============================================================
+      const roadStartCoord = activeRoute.coordinates[0];
+      const targetOriginCoord =
+        originUserCoords ||
+        activeNavRoute?.originCoords ||
+        (userMarkerRef.current ? [userMarkerRef.current.getLatLng().lat, userMarkerRef.current.getLatLng().lng] as [number, number] : userCoords);
+
+      if (roadStartCoord) {
+        // Dot bulat kecil di tepi jalan awal rute OSRM (#1E293B dengan border putih)
+        const startDotIcon = L.divIcon({
+          className: "custom-nav-start-dot",
+          html: `
+            <div style="width: 12px; height: 12px; border-radius: 9999px; background: #1E293B; border: 2px solid #FFFFFF; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>
+          `,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        });
+        const startDotMarker = L.marker(roadStartCoord, { icon: startDotIcon, zIndexOffset: 2000 });
+        activeRouteLayerRef.current?.addLayer(startDotMarker);
+
+        // Garis Penghubung Putus-Putus Awal (First-Mile Walking Dotted Line)
+        // Jika lokasi pengguna berada di dalam gang/halaman/rumah (berjarak > 3 meter dari jalan raya)
+        if (targetOriginCoord) {
+          const distFromUser = calcMetersSafe(
+            targetOriginCoord[0],
+            targetOriginCoord[1],
+            roadStartCoord[0],
+            roadStartCoord[1]
+          );
+          if (distFromUser > 3) {
+            const firstMileLine = L.polyline([targetOriginCoord, roadStartCoord], {
+              color: "#1E293B",
+              weight: 3,
+              opacity: 0.8,
+              dashArray: "4, 6",
+              lineCap: "round",
+              lineJoin: "round",
+            });
+            activeRouteLayerRef.current?.addLayer(firstMileLine);
+          }
+
+          // Pastikan marker "Lokasi Anda" di peta utama selalu aktif di titik pangkal targetOriginCoord
+          updateUserMarkerOnMap(targetOriginCoord[0], targetOriginCoord[1]);
+        }
+      }
+
+      // ==============================================================
+      // 4. Titik Akhir / Posko Tujuan: Dot bulat kecil tanpa label (#1E293B dengan border putih)
+      // ==============================================================
+      const roadEndCoord = activeRoute.coordinates[activeRoute.coordinates.length - 1];
+      const targetPoskoCoord =
+        destPoskoCoords ||
+        activeNavRoute?.destinationCoords ||
+        (activeShelterRef.current ? [activeShelterRef.current.lat, activeShelterRef.current.lng] as [number, number] : undefined);
+
+      if (roadEndCoord) {
+        const dotIcon = L.divIcon({
+          className: "custom-nav-dest-dot",
+          html: `
+            <div style="width: 12px; height: 12px; border-radius: 9999px; background: #1E293B; border: 2px solid #FFFFFF; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>
+          `,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        });
+        const dotMarker = L.marker(roadEndCoord, { icon: dotIcon, zIndexOffset: 2000 });
+        activeRouteLayerRef.current?.addLayer(dotMarker);
+
+        // Garis Penghubung Putus-Putus (Last-Mile Walking Dotted Line)
+        // Menghubungkan titik akhir jalan raya OSRM langsung ke koordinat pin posko jika berada di dalam gang/halaman
+        if (targetPoskoCoord) {
+          const distToPosko = calcMetersSafe(
+            roadEndCoord[0],
+            roadEndCoord[1],
+            targetPoskoCoord[0],
+            targetPoskoCoord[1]
+          );
+          if (distToPosko > 3) {
+            const walkingLine = L.polyline([roadEndCoord, targetPoskoCoord], {
+              color: "#1E293B",
+              weight: 3,
+              opacity: 0.8,
+              dashArray: "4, 6",
+              lineCap: "round",
+              lineJoin: "round",
+            });
+            activeRouteLayerRef.current?.addLayer(walkingLine);
+          }
+        }
+      }
+
+      // 5. Viewport FitBounds Otomatis membingkai titik awal pengguna, seluruh rute jalan, dan titik posko
+      const allFitCoords = [
+        ...(targetOriginCoord ? [targetOriginCoord] : []),
+        ...activeRoute.coordinates,
+        ...(targetPoskoCoord ? [targetPoskoCoord] : []),
+      ];
+      const bounds = L.latLngBounds(allFitCoords);
       if (bounds.isValid()) {
-        mapInstanceRef.current.fitBounds(bounds, {
-          padding: [50, 50],
-          maxZoom: 16,
+        mapInstanceRef.current?.fitBounds(bounds, {
+          padding: [80, 80],
+          maxZoom: 17,
           animate: true,
-          duration: 1.2,
         });
       }
     }
@@ -1410,7 +1997,7 @@ export default function WargaSpatialMap({
         ...prev,
         selectedRouteIndex: newIndex,
       };
-      renderNavRoutesOnMap(updated.routes, newIndex, updated.transportMode);
+      renderNavRoutesOnMap(updated.routes, newIndex, updated.transportMode, updated.destinationCoords, updated.originCoords);
       return updated;
     });
   };
@@ -1432,7 +2019,7 @@ export default function WargaSpatialMap({
         transportMode: newMode,
         routes: updatedRoutes,
       };
-      renderNavRoutesOnMap(updatedRoutes, prev.selectedRouteIndex, newMode);
+      renderNavRoutesOnMap(updatedRoutes, prev.selectedRouteIndex, newMode, prev.destinationCoords, prev.originCoords);
       return updated;
     });
   };
@@ -1441,205 +2028,11 @@ export default function WargaSpatialMap({
   const previewShelterRoute = (
     shelter: MapShelterPoint,
     classification: 1 | 2 | 3 | "custom",
-    customWpData?: {
-      lat: number;
-      lng: number;
-      distanceText?: string;
-      durationText?: string;
-      coordinates?: [number, number][];
-    } | null
+    customWpData?: any
   ) => {
-    if (!mapInstanceRef.current) return;
-    if (activeRouteLayerRef.current) {
-      activeRouteLayerRef.current.clearLayers();
-    } else {
-      activeRouteLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
-    }
-
-    const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
-    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : [-6.3490, 108.1165];
-    const userLat = startCoord[0];
-    const userLng = startCoord[1];
-    const poskoLat = shelter.lat;
-    const poskoLng = shelter.lng;
-
-    const baseMeters = parseDistanceInMeters(shelter.distance);
-    const baseMinutes = Math.max(2, Math.round(baseMeters / 300));
-
-    // Coordinates generation for preview
-    // 1. Primary Pantura (Jalur teraman & bebas banjir)
-    const route1Coords: [number, number][] = [
-      [userLat, userLng],
-      [-6.3508, 108.1188],
-      [-6.3548, 108.1246],
-      [-6.3610, 108.1318],
-      [-6.3688, 108.1394],
-      [-6.3780, 108.1470],
-      [-6.3825, 108.1498],
-      [poskoLat, poskoLng],
-    ];
-
-    // 2. Coastal / Tanggul (Rawan Genangan 15-25 cm)
-    const midLat = (userLat + poskoLat) / 2;
-    const midLng = (userLng + poskoLng) / 2;
-    const route2Coords: [number, number][] = [
-      [userLat, userLng],
-      [userLat + 0.004, userLng + 0.005],
-      [midLat + 0.007, midLng - 0.003],
-      [poskoLat + 0.004, poskoLng - 0.002],
-      [poskoLat, poskoLng],
-    ];
-
-    // 3. Bypass Lingkar Luar (Jauh & Aman)
-    const route3Coords: [number, number][] = [
-      [userLat, userLng],
-      [userLat - 0.012, userLng + 0.003],
-      [midLat - 0.018, midLng + 0.010],
-      [poskoLat - 0.008, poskoLng + 0.008],
-      [poskoLat, poskoLng],
-    ];
-
-    if (classification === 1) {
-      // Opsi 1: "Terdekat & Aman" (Rekomendasi Utama)
-      const glow = L.polyline(route1Coords, { color: "#ffffff", weight: 10, opacity: 0.95 });
-      const core = L.polyline(route1Coords, { color: "#2D6A4F", weight: 6, opacity: 0.95 });
-      const accent = L.polyline(route1Coords, { color: "#6EE7B7", weight: 2.5, dashArray: "8, 12", opacity: 0.95 });
-
-      const tooltipHtml = `
-        <div style="background: #1B4D3E; color: white; padding: 5px 12px; border-radius: 9999px; font-weight: 800; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); border: 1.5px solid #34D399; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-          <span>${formatNavDistance(baseMeters)} &bull; ±${baseMinutes} mnt</span>
-          <span style="background: #34D399; color: #064E3B; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 900;">Bebas Banjir • Rekomendasi BPBD</span>
-        </div>
-      `;
-      core.bindTooltip(tooltipHtml, { permanent: true, direction: "center", className: "dermayu-route-badge" });
-
-      activeRouteLayerRef.current.addLayer(glow);
-      activeRouteLayerRef.current.addLayer(core);
-      activeRouteLayerRef.current.addLayer(accent);
-
-      const bounds = core.getBounds();
-      if (bounds.isValid()) {
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
-      }
-    } else if (classification === 2) {
-      // Opsi 2: "Terdekat tapi Ada Genangan" (Rute Waspada)
-      const r2Dist = Math.round(baseMeters * 0.78);
-      const r2Dur = Math.max(2, Math.round(baseMinutes * 0.75));
-
-      const line = L.polyline(route2Coords, {
-        color: "#F59E0B",
-        weight: 5.5,
-        opacity: 0.95,
-        dashArray: "6, 8",
-        lineCap: "round",
-      });
-
-      const tooltipHtml = `
-        <div style="background: #78350F; color: white; padding: 5px 12px; border-radius: 9999px; font-weight: 800; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); border: 1.5px solid #FBBF24; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-          <span>${formatNavDistance(r2Dist)} &bull; ±${r2Dur} mnt</span>
-          <span style="background: #FBBF24; color: #78350F; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 900;">Rawan Genangan (15-25 cm)</span>
-        </div>
-      `;
-      line.bindTooltip(tooltipHtml, { permanent: true, direction: "center", className: "dermayu-route-badge" });
-
-      const warnPoint = route2Coords[2];
-      const warnIcon = L.divIcon({
-        className: "custom-genangan-marker",
-        html: `
-          <div style="background: #DC2626; color: white; width: 26px; height: 26px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 12px rgba(220,38,38,0.5); font-size: 12px; font-weight: bold;">
-            ⚠️
-          </div>
-        `,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
-      });
-      const warnMarker = L.marker(warnPoint, { icon: warnIcon });
-      warnMarker.bindTooltip(
-        `<div style="font-size:10.5px; font-weight:bold; color:#DC2626; padding:2px 4px;">Titik Genangan Rob (15-25 cm)</div>`,
-        { permanent: true, direction: "top" }
-      );
-
-      activeRouteLayerRef.current.addLayer(line);
-      activeRouteLayerRef.current.addLayer(warnMarker);
-
-      const bounds = line.getBounds();
-      if (bounds.isValid()) {
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
-      }
-    } else if (classification === 3) {
-      // Opsi 3: "Jauh & Aman" (Jalur Alternatif Memutar)
-      const r3Dist = Math.round(baseMeters * 2.45);
-      const r3Dur = Math.max(4, Math.round(baseMinutes * 2.25));
-
-      const line = L.polyline(route3Coords, {
-        color: "#64748B",
-        weight: 4.5,
-        opacity: 0.85,
-        dashArray: "4, 6",
-        lineCap: "round",
-      });
-
-      const tooltipHtml = `
-        <div style="background: #334155; color: white; padding: 5px 12px; border-radius: 9999px; font-weight: 800; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); border: 1.5px solid #94A3B8; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-          <span>${formatNavDistance(r3Dist)} &bull; ±${r3Dur} mnt</span>
-          <span style="background: #94A3B8; color: #0F172A; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 900;">Jalur Kering Alternatif</span>
-        </div>
-      `;
-      line.bindTooltip(tooltipHtml, { permanent: true, direction: "center", className: "dermayu-route-badge" });
-
-      activeRouteLayerRef.current.addLayer(line);
-
-      const bounds = line.getBounds();
-      if (bounds.isValid()) {
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
-      }
-    } else if (classification === "custom" && customWpData) {
-      // Custom Waypoint route
-      const wpCoords = customWpData.coordinates || [
-        [userLat, userLng],
-        [customWpData.lat, customWpData.lng],
-        [poskoLat, poskoLng],
-      ];
-
-      const line = L.polyline(wpCoords, {
-        color: "#7C3AED",
-        weight: 6,
-        opacity: 0.95,
-        lineCap: "round",
-      });
-
-      const tooltipHtml = `
-        <div style="background: #5B21B6; color: white; padding: 5px 12px; border-radius: 9999px; font-weight: 800; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); border: 1.5px solid #A78BFA; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-          <span>${customWpData.distanceText || "9.5 km"} &bull; ${customWpData.durationText || "14 mnt"}</span>
-          <span style="background: #A78BFA; color: #2E1065; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 900;">Jalur Kustom Waypoint</span>
-        </div>
-      `;
-      line.bindTooltip(tooltipHtml, { permanent: true, direction: "center", className: "dermayu-route-badge" });
-
-      const wpIcon = L.divIcon({
-        className: "custom-wp-pin",
-        html: `
-          <div style="background: #7C3AED; color: white; width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(124,58,237,0.5); font-size: 13px; font-weight: bold;">
-            📍
-          </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      const wpMarker = L.marker([customWpData.lat, customWpData.lng], { icon: wpIcon });
-      wpMarker.bindTooltip(
-        `<div style="font-size:10.5px; font-weight:bold; color:#7C3AED; padding:2px 4px;">Titik Singgah Kustom</div>`,
-        { permanent: true, direction: "top" }
-      );
-
-      activeRouteLayerRef.current.addLayer(line);
-      activeRouteLayerRef.current.addLayer(wpMarker);
-
-      const bounds = line.getBounds();
-      if (bounds.isValid()) {
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
-      }
-    }
+    // Delegasikan langsung ke drawSafeRoute agar 100% menggunakan koordinat jaringan jalan riil OSRM
+    const targetIdx = classification === 2 ? 1 : classification === 3 ? 2 : 0;
+    drawSafeRoute(shelter, "motorcycle", targetIdx, customWpData);
   };
 
   // Handler klik peta saat mode titik singgah aktif
@@ -1650,7 +2043,7 @@ export default function WargaSpatialMap({
     if (!shelter) return;
 
     const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
-    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : [-6.3490, 108.1165];
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
     const userLat = startCoord[0];
     const userLng = startCoord[1];
     const wpLat = lat;
@@ -1717,165 +2110,156 @@ export default function WargaSpatialMap({
   const drawSafeRoute = async (
     shelter: MapShelterPoint,
     initialMode: "motorcycle" | "car" | "walking" = "motorcycle",
-    initialRouteIndex: number = 0,
+    targetSelectedIdx = 0,
     customWp?: any
   ) => {
-    if (!mapInstanceRef.current) return;
-
+    setTargetNavShelter(shelter);
     setIsRoutingLoading(true);
     setPoskoExpanded(true);
-    setActiveShelterDetail(null); // Tutup detail posko statis, beralih ke mode navigasi aktif
 
     const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
-    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : [-6.3490, 108.1165];
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
     const userLat = startCoord[0];
     const userLng = startCoord[1];
     const poskoLat = shelter.lat;
     const poskoLng = shelter.lng;
 
     const baseMeters = parseDistanceInMeters(shelter.distance);
-    const baseMinutes = Math.max(2, Math.round(baseMeters / 300));
+    const baseMinutes = Math.max(1, Math.round(baseMeters / 300));
 
-    let osrmCoords: [number, number][] = [];
-    let osrmDist = baseMeters;
-    let osrmDur = baseMinutes * 60;
-    let osrmSteps: NavigationStep[] = [];
+    let rawRoutes: any[] = [];
 
     try {
+      // Endpoint OSRM driving resmi dengan parameter alternatives=true
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
-      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(6000) });
       if (res.ok) {
         const data = await res.json();
         if (data.code === "Ok" && Array.isArray(data.routes) && data.routes.length > 0) {
-          const r = data.routes[0];
-          osrmCoords = (r.geometry?.coordinates || []).map(
-            ([cLng, cLat]: [number, number]) => [cLat, cLng] as [number, number]
-          );
-          osrmDist = Math.round(r.distance || baseMeters);
-          osrmDur = Math.round(r.duration || baseMinutes * 60);
-
-          const rawSteps = r.legs?.[0]?.steps || [];
-          osrmSteps = rawSteps.map((st: any) => {
-            const street = st.name || "Jalan Penghubung";
-            let instr = `Lurus di ${street}`;
-            if (st.maneuver?.type === "depart") instr = `Mulai dari titik Anda menuju ${street}`;
-            else if (st.maneuver?.type === "arrive") instr = `Tiba di ${shelter.name}`;
-            else if (st.maneuver?.modifier === "right") instr = `Belok kanan ke ${street}`;
-            else if (st.maneuver?.modifier === "left") instr = `Belok kiri ke ${street}`;
-            else if (st.maneuver?.modifier === "slight right") instr = `Belok sedikit ke kanan ke ${street}`;
-            else if (st.maneuver?.modifier === "slight left") instr = `Belok sedikit ke kiri ke ${street}`;
-            return {
-              instruction: instr,
-              distance: formatNavDistance(st.distance || 0),
-              type: st.maneuver?.type,
-              modifier: st.maneuver?.modifier,
-            };
-          });
+          rawRoutes = data.routes;
         }
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn("Gagal menghubungi OSRM router:", err);
     }
 
-    if (osrmCoords.length === 0) {
-      osrmCoords = [
+    // Jika OSRM hanya mengembalikan 1 rute tunggal, query rute alternatif kedua via jalan paralel
+    if (rawRoutes.length === 1 && rawRoutes[0].geometry?.coordinates?.length > 4) {
+      const coords = rawRoutes[0].geometry.coordinates;
+      const mid = coords[Math.floor(coords.length / 2)];
+      const detourLng = mid[0] + 0.0035;
+      const detourLat = mid[1] + 0.0035;
+      try {
+        const altUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${detourLng},${detourLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
+        const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(4000) });
+        if (altRes.ok) {
+          const altData = await altRes.json();
+          if (altData.code === "Ok" && altData.routes?.[0]) {
+            rawRoutes.push(altData.routes[0]);
+          }
+        }
+      } catch { }
+    }
+
+    const computedRoutes: NavigationRouteOption[] = [];
+
+    if (rawRoutes.length > 0) {
+      // 1. Proses setiap rute riil yang dikembalikan OSRM
+      rawRoutes.forEach((r, idx) => {
+        const rawCoords = r.geometry?.coordinates || [];
+        // PENTING: OSRM GeoJSON format [lng, lat] DIUBAH menjadi format Leaflet [lat, lng]
+        const leafletPositions: [number, number][] = rawCoords.map(
+          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+        );
+
+        const rDist = Math.round(r.distance || baseMeters);
+        const rDur = Math.round(r.duration || baseMinutes * 60);
+
+        // Deteksi perpotongan dengan 20 titik hambatan genangan (Radius 200m)
+        const hitObstacles = detectIntersectedFloodObstacles(leafletPositions, FLOOD_OBSTACLES);
+        const isFlooded = hitObstacles.length > 0;
+        const maxWaterDepth = isFlooded ? Math.max(...hitObstacles.map((o) => o.depthCm)) : 0;
+
+        const rawSteps = r.legs?.[0]?.steps || [];
+        const steps: NavigationStep[] = rawSteps.map((st: any) => {
+          const street = st.name || "Jalan Penghubung";
+          let instr = `Lurus di ${street}`;
+          if (st.maneuver?.type === "depart") instr = `Mulai dari titik Anda menuju ${street}`;
+          else if (st.maneuver?.type === "arrive") instr = `Tiba di ${shelter.name}`;
+          else if (st.maneuver?.modifier === "right") instr = `Belok kanan ke ${street}`;
+          else if (st.maneuver?.modifier === "left") instr = `Belok kiri ke ${street}`;
+          else if (st.maneuver?.modifier === "slight right") instr = `Belok sedikit ke kanan ke ${street}`;
+          else if (st.maneuver?.modifier === "slight left") instr = `Belok sedikit ke kiri ke ${street}`;
+          return {
+            instruction: instr,
+            distance: formatNavDistance(st.distance || 0),
+            distanceMeters: st.distance || 0,
+            location: st.maneuver?.location ? [st.maneuver.location[1], st.maneuver.location[0]] : undefined,
+            type: st.maneuver?.type,
+            modifier: st.maneuver?.modifier,
+          };
+        });
+
+        if (isFlooded) {
+          computedRoutes.push({
+            id: `rt-${idx + 1}-warning`,
+            name: idx === 0 ? `Terdekat tapi Ada Genangan (lewat ${hitObstacles[0].location.split(",")[0]})` : `Jalur Alternatif ${idx + 1} (Ada Genangan)`,
+            summary: `lewat ${hitObstacles[0].location} (Melintasi Radius 200m)`,
+            distanceText: formatNavDistance(rDist),
+            distanceMeters: rDist,
+            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
+            durationSeconds: rDur,
+            statusBadge: `Rawan Genangan (${maxWaterDepth} cm)`,
+            statusBadgeType: "warning",
+            coordinates: leafletPositions,
+            steps: [
+              ...steps,
+              { instruction: `PERINGATAN: Jalur ini terdeteksi genangan air ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm`, distance: "200 m" },
+            ],
+          });
+        } else {
+          computedRoutes.push({
+            id: `rt-${idx + 1}-safe`,
+            name: idx === 0 ? "Terdekat & Bebas Genangan (Rekomendasi BPBD)" : `Jalur Bebas Banjir Alternatif ${idx + 1}`,
+            summary: `lewat ${steps[1]?.instruction.replace("Lurus di ", "") || "jalur jalan aman"}`,
+            distanceText: formatNavDistance(rDist),
+            distanceMeters: rDist,
+            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
+            durationSeconds: rDur,
+            statusBadge: "Bebas Genangan • Rekomendasi BPBD",
+            statusBadgeType: "safe",
+            coordinates: leafletPositions,
+            steps,
+          });
+        }
+      });
+    } else {
+      // Fallback lokal aman dengan midpoint jika offline/rate-limit
+      const midPoint: [number, number] = [(userLat + poskoLat) / 2, (userLng + poskoLng) / 2];
+      const fallbackPositions: [number, number][] = [
         [userLat, userLng],
-        [-6.3508, 108.1188],
-        [-6.3525, 108.1215],
-        [-6.3548, 108.1246],
-        [-6.3575, 108.1278],
-        [-6.3610, 108.1318],
-        [-6.3645, 108.1355],
-        [-6.3688, 108.1394],
-        [-6.3735, 108.1435],
-        [-6.3780, 108.1470],
-        [-6.3825, 108.1498],
+        midPoint,
         [poskoLat, poskoLng],
       ];
-      osrmSteps = [
-        { instruction: "Mulai dari lokasi Anda menuju Jl. Raya Pantura", distance: "300 m" },
-        { instruction: "Lurus di Jl. Raya Pantura (jalur bebas genangan)", distance: formatNavDistance(Math.round(baseMeters * 0.7)) },
-        { instruction: "Belok sedikit ke kanan menuju gerbang posko", distance: "250 m" },
-        { instruction: `Tiba di lokasi evakuasi ${shelter.name}`, distance: "100 m" },
-      ];
+      computedRoutes.push({
+        id: "rt-1-fallback",
+        name: "Navigasi Langsung ke Gerbang Posko",
+        summary: "Jalur darat menuju posko",
+        distanceText: formatNavDistance(baseMeters),
+        distanceMeters: baseMeters,
+        durationText: formatNavDuration(baseMinutes * 60),
+        durationSeconds: baseMinutes * 60,
+        statusBadge: "Bebas Genangan • Rekomendasi BPBD",
+        statusBadgeType: "safe",
+        coordinates: fallbackPositions,
+        steps: [
+          { instruction: "Mulai dari lokasi Anda menuju gerbang posko", distance: formatNavDistance(baseMeters) },
+          { instruction: `Tiba di ${shelter.name}`, distance: "10 m" },
+        ],
+      });
     }
 
-    // 2. Coastal / Tanggul (Rawan Genangan 15-25 cm)
-    const midLat = (userLat + poskoLat) / 2;
-    const midLng = (userLng + poskoLng) / 2;
-    const route2Coords: [number, number][] = [
-      [userLat, userLng],
-      [userLat + 0.004, userLng + 0.005],
-      [midLat + 0.007, midLng - 0.003],
-      [poskoLat + 0.004, poskoLng - 0.002],
-      [poskoLat, poskoLng],
-    ];
-    const r2DistMeters = Math.round(osrmDist * 0.78);
-    const r2DurSeconds = Math.round(osrmDur * 0.75);
-
-    // 3. Bypass Lingkar Luar (Jauh & Aman)
-    const route3Coords: [number, number][] = [
-      [userLat, userLng],
-      [userLat - 0.012, userLng + 0.003],
-      [midLat - 0.018, midLng + 0.010],
-      [poskoLat - 0.008, poskoLng + 0.008],
-      [poskoLat, poskoLng],
-    ];
-    const r3DistMeters = Math.round(osrmDist * 2.45);
-    const r3DurSeconds = Math.round(osrmDur * 2.25);
-
-    const computedRoutes: NavigationRouteOption[] = [
-      {
-        id: "rt-1-safe",
-        name: "Terdekat & Aman (lewat Jl. Raya Pantura)",
-        summary: "lewat Jl. Raya Pantura",
-        distanceText: formatNavDistance(osrmDist),
-        distanceMeters: osrmDist,
-        durationText: formatNavDuration(computeModeDuration(osrmDist, osrmDur, initialMode)),
-        durationSeconds: osrmDur,
-        statusBadge: "Bebas Banjir • Rekomendasi BPBD",
-        statusBadgeType: "safe",
-        coordinates: osrmCoords,
-        steps: osrmSteps,
-      },
-      {
-        id: "rt-2-warning",
-        name: "Terdekat tapi Ada Genangan (lewat Jl. Nelayan Pesisir)",
-        summary: "lewat Jl. Nelayan Pesisir / Tanggul",
-        distanceText: formatNavDistance(r2DistMeters),
-        distanceMeters: r2DistMeters,
-        durationText: formatNavDuration(computeModeDuration(r2DistMeters, r2DurSeconds, initialMode)),
-        durationSeconds: r2DurSeconds,
-        statusBadge: "Rawan Genangan (15-25 cm)",
-        statusBadgeType: "warning",
-        coordinates: route2Coords,
-        steps: [
-          { instruction: "Mulai dari lokasi Anda ke arah utara menuju pesisir", distance: "350 m" },
-          { instruction: "Melintasi Jalur Nelayan Pesisir (titik genangan air rob semata kaki)", distance: formatNavDistance(Math.round(r2DistMeters * 0.6)) },
-          { instruction: "Belok ke selatan menuju simpang posko", distance: "250 m" },
-          { instruction: `Tiba di ${shelter.name}`, distance: "100 m" },
-        ],
-      },
-      {
-        id: "rt-3-detour",
-        name: "Jauh & Aman (lewat By-Pass Lingkar Luar)",
-        summary: "lewat By-Pass Lingkar Luar",
-        distanceText: formatNavDistance(r3DistMeters),
-        distanceMeters: r3DistMeters,
-        durationText: formatNavDuration(computeModeDuration(r3DistMeters, r3DurSeconds, initialMode)),
-        durationSeconds: r3DurSeconds,
-        statusBadge: "Jalur Kering Alternatif",
-        statusBadgeType: "detour",
-        coordinates: route3Coords,
-        steps: [
-          { instruction: "Mulai dari lokasi Anda menuju By-Pass Lingkar Luar", distance: "500 m" },
-          { instruction: "Lurus di Jalur By-Pass Lingkar Luar (jalur kering bebas genangan total)", distance: formatNavDistance(Math.round(r3DistMeters * 0.8)) },
-          { instruction: "Masuk ke gerbang posko evakuasi", distance: "300 m" },
-          { instruction: `Tiba di ${shelter.name}`, distance: "100 m" },
-        ],
-      },
-    ];
-
+    // Jika ada custom waypoint aktif
     if (customWp && customWp.lat && customWp.lng) {
       const customCoords = customWp.coordinates || [
         [userLat, userLng],
@@ -1883,31 +2267,30 @@ export default function WargaSpatialMap({
         [poskoLat, poskoLng],
       ];
       computedRoutes.push({
-        id: "rt-custom-waypoint",
-        name: "Jalur Kustom (via Titik Singgah Pilihan)",
-        summary: "via Titik Singgah Anda",
-        distanceText: customWp.distanceText || formatNavDistance(Math.round(osrmDist * 1.3)),
-        distanceMeters: Math.round(osrmDist * 1.3),
-        durationText: customWp.durationText || formatNavDuration(computeModeDuration(Math.round(osrmDist * 1.3), Math.round(osrmDur * 1.3), initialMode)),
-        durationSeconds: Math.round(osrmDur * 1.3),
-        statusBadge: "Jalur Kustom Waypoint",
+        id: "rt-custom-wp",
+        name: "Rute Kustom via Titik Singgah",
+        summary: "lewat titik singgah pilihan Anda",
+        distanceText: customWp.distanceText || formatNavDistance(Math.round(baseMeters * 1.2)),
+        distanceMeters: Math.round(baseMeters * 1.2),
+        durationText: customWp.durationText || formatNavDuration(Math.round(baseMinutes * 60 * 1.2)),
+        durationSeconds: Math.round(baseMinutes * 60 * 1.2),
+        statusBadge: "Titik Singgah Kustom",
         statusBadgeType: "custom",
         coordinates: customCoords,
         steps: [
-          { instruction: "Mulai dari titik lokasi Anda", distance: "300 m" },
-          { instruction: "Menuju titik singgah pilihan Anda", distance: formatNavDistance(Math.round(osrmDist * 0.7)) },
-          { instruction: `Melanjutkan perjalanan menuju ${shelter.name}`, distance: formatNavDistance(Math.round(osrmDist * 0.6)) },
-          { instruction: `Tiba di posko evakuasi ${shelter.name}`, distance: "100 m" },
+          { instruction: "Menuju titik singgah pilihan Anda", distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
+          { instruction: `Melanjutkan perjalanan menuju ${shelter.name}`, distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
         ],
       });
     }
 
-    const safeSelectedIdx = Math.min(initialRouteIndex, computedRoutes.length - 1);
+    // Tentukan rute yang terpilih
+    const safeSelectedIdx = Math.min(targetSelectedIdx, computedRoutes.length - 1);
 
     const navData: ActiveNavRouteData = {
       shelter,
       originName: "Lokasi Anda",
-      originCoords: startCoord,
+      originCoords: [userLat, userLng],
       destinationName: shelter.name,
       destinationCoords: [poskoLat, poskoLng],
       transportMode: initialMode,
@@ -1917,21 +2300,231 @@ export default function WargaSpatialMap({
     };
 
     setActiveNavRoute(navData);
+    setActiveShelterDetail(null);
+    setSheetSnap("mid");
     setIsRoutingLoading(false);
 
-    // Gambar di peta dan pusatkan kamera
-    renderNavRoutesOnMap(computedRoutes, safeSelectedIdx, initialMode);
+    // Gambar di peta Leaflet & panggil fitBounds otomatis
+    renderNavRoutesOnMap(computedRoutes, safeSelectedIdx, initialMode, [poskoLat, poskoLng], [userLat, userLng]);
 
     setToastMessage(`Navigasi rute aktif: Menuju ${shelter.name}`);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Update lokasi GPS saat Mode Navigasi Berjalan aktif
+  const handleGpsLocationUpdateInNavigation = (coords: [number, number], accuracy?: number) => {
+    const curRoute = activeNavRouteRef.current;
+    if (!curRoute) return;
+
+    const selectedRoute = curRoute.routes[curRoute.selectedRouteIndex];
+    if (!selectedRoute || !selectedRoute.coordinates || selectedRoute.coordinates.length < 2) return;
+
+    // Threshold filter: abaikan pergeseran jitter sangat kecil (< 3 meter)
+    if (navLastGpsPosRef.current) {
+      const movedDist = calculateDistanceInMeters(
+        navLastGpsPosRef.current[0],
+        navLastGpsPosRef.current[1],
+        coords[0],
+        coords[1]
+      );
+      if (movedDist < 3) return;
+    }
+
+    navLastGpsPosRef.current = coords;
+    setNavCurrentCoord(coords);
+
+    // Cari segmen terdekat dan hitung bearing sudut hadap
+    const coordsList = selectedRoute.coordinates;
+    let closestIdx = 0;
+    let minD = Infinity;
+
+    for (let i = 0; i < coordsList.length; i++) {
+      const d = calculateDistanceInMeters(coords[0], coords[1], coordsList[i][0], coordsList[i][1]);
+      if (d < minD) {
+        minD = d;
+        closestIdx = i;
+      }
+    }
+
+    const nextIdx = Math.min(closestIdx + 1, coordsList.length - 1);
+    const nextPt = coordsList[nextIdx];
+    const bearing = calculateBearing(coords[0], coords[1], nextPt[0], nextPt[1]);
+    setNavBearing(bearing);
+
+    // Hitung sisa jarak dan durasi
+    let remMeters = calculateDistanceInMeters(coords[0], coords[1], nextPt[0], nextPt[1]);
+    for (let j = nextIdx; j < coordsList.length - 1; j++) {
+      remMeters += calculateDistanceInMeters(
+        coordsList[j][0],
+        coordsList[j][1],
+        coordsList[j + 1][0],
+        coordsList[j + 1][1]
+      );
+    }
+
+    const speedMps = 6.0; // ~22 km/h
+    const remSecs = Math.max(20, Math.round(remMeters / speedMps));
+
+    setNavRemainingMeters(remMeters);
+    setNavRemainingSeconds(remSecs);
+
+    // Update step index
+    if (selectedRoute.steps && selectedRoute.steps.length > 0) {
+      let curStep = 0;
+      for (let s = 0; s < selectedRoute.steps.length; s++) {
+        const stepLoc = selectedRoute.steps[s].location;
+        if (stepLoc) {
+          const dToStep = calculateDistanceInMeters(coords[0], coords[1], stepLoc[0], stepLoc[1]);
+          if (dToStep > 35) {
+            curStep = s;
+            setNavDistanceToNextStep(Math.round(dToStep));
+            break;
+          }
+        }
+      }
+      setNavStepIndex(curStep);
+    }
+
+    // Render ulang marker dan polyline progress
+    updateUserMarkerOnMap(coords[0], coords[1], accuracy, true, bearing);
+
+    const destCoord: [number, number] = [curRoute.shelter.lat, curRoute.shelter.lng];
+    renderNavRoutesOnMap(
+      curRoute.routes,
+      curRoute.selectedRouteIndex,
+      curRoute.transportMode,
+      destCoord,
+      coords,
+      true,
+      coords
+    );
+
+    const map = mapInstanceRef.current;
+    if (map) {
+      map.panTo(coords, { animate: true, duration: 0.5 });
+    }
+  };
+
+  // Mulai Mode Navigasi Berjalan (Turn-by-Turn Driving Mode) ala Google Maps
+  const handleStartTurnByTurnNavigation = () => {
+    if (typeof document !== "undefined") {
+      document.body.classList.add("hide-mobile-nav");
+    }
+    if (!activeNavRoute) return;
+
+    const selectedRoute = activeNavRoute.routes[activeNavRoute.selectedRouteIndex];
+    if (!selectedRoute || !selectedRoute.coordinates || selectedRoute.coordinates.length < 2) return;
+
+    setIsNavigating(true);
+    setSheetSnap("min");
+
+    const startCoord = userCoords || selectedRoute.coordinates[0];
+    const secondCoord = selectedRoute.coordinates[1];
+    const initialBearing = calculateBearing(startCoord[0], startCoord[1], secondCoord[0], secondCoord[1]);
+
+    setNavCurrentCoord(startCoord);
+    setNavBearing(initialBearing);
+    setNavStepIndex(0);
+    setNavRemainingMeters(selectedRoute.distanceMeters || 1200);
+    setNavRemainingSeconds(selectedRoute.durationSeconds || 300);
+    setNavDistanceToNextStep(
+      selectedRoute.steps && selectedRoute.steps[0]?.distanceMeters
+        ? selectedRoute.steps[0].distanceMeters
+        : 70
+    );
+
+    // Zoom peta otomatis mendekat ke level detail jalan ala Google Maps
+    const map = mapInstanceRef.current;
+    if (map) {
+      map.setView(startCoord, 18, { animate: true, duration: 0.8 });
+    }
+
+    // Ganti marker lokasi menjadi chevron navigasi Google Maps
+    updateUserMarkerOnMap(startCoord[0], startCoord[1], undefined, true, initialBearing);
+
+    // Render polyline navigasi eksklusif
+    const destCoord: [number, number] = [activeNavRoute.shelter.lat, activeNavRoute.shelter.lng];
+    renderNavRoutesOnMap(
+      activeNavRoute.routes,
+      activeNavRoute.selectedRouteIndex,
+      activeNavRoute.transportMode,
+      destCoord,
+      startCoord,
+      true,
+      startCoord
+    );
+
+    // Mulai pelacakan posisi GPS riil
+    if (navigator.geolocation) {
+      if (navWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(navWatchIdRef.current);
+      }
+      navLastGpsPosRef.current = startCoord;
+      navWatchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setUserCoords([lat, lng]);
+          handleGpsLocationUpdateInNavigation([lat, lng], pos.coords.accuracy);
+        },
+        (err) => {
+          console.warn("Nav GPS watch error:", err.message);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 2000,
+          timeout: 10000,
+        }
+      );
+    }
+  };
+
+  // Keluar dari Mode Navigasi Berjalan
+  const handleExitNavigation = () => {
+    setIsNavigating(false);
+    if (typeof document !== "undefined") {
+      document.body.classList.remove("hide-mobile-nav");
+    }
+    if (navWatchIdRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(navWatchIdRef.current);
+      navWatchIdRef.current = null;
+    }
+    navLastGpsPosRef.current = null;
+    setNavCurrentCoord(null);
+
+    // Kembalikan marker pengguna ke bulatan normal
+    if (userCoords) {
+      updateUserMarkerOnMap(userCoords[0], userCoords[1], undefined, false, 0);
+    }
+
+    // Render ulang seluruh rute
+    if (activeNavRoute) {
+      const destCoord: [number, number] = [activeNavRoute.shelter.lat, activeNavRoute.shelter.lng];
+      renderNavRoutesOnMap(
+        activeNavRoute.routes,
+        activeNavRoute.selectedRouteIndex,
+        activeNavRoute.transportMode,
+        destCoord,
+        userCoords || undefined,
+        false,
+        null
+      );
+    }
+  };
+
+  // Selesai / Batalkan Navigasi
   const handleClearNavRoute = () => {
+    if (isNavigatingRef.current) {
+      handleExitNavigation();
+    }
     if (activeRouteLayerRef.current) {
       activeRouteLayerRef.current.clearLayers();
     }
     setActiveNavRoute(null);
+    setTargetNavShelter(null);
+    setIsRoutingLoading(false);
     clearRadarGlow();
+    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
     setToastMessage("Navigasi rute evakuasi ditutup");
     setTimeout(() => setToastMessage(null), 2500);
   };
@@ -1940,10 +2533,15 @@ export default function WargaSpatialMap({
     if (activeRouteLayerRef.current) {
       activeRouteLayerRef.current.clearLayers();
     }
-    const targetShelter = activeNavRoute?.shelter;
+    const targetShelter = activeNavRoute?.shelter || targetNavShelter || activeShelterDetail;
     setActiveNavRoute(null);
+    setTargetNavShelter(null);
+    setIsRoutingLoading(false);
+    clearRadarGlow();
+    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
     if (targetShelter) {
       setActiveShelterDetail(targetShelter);
+      setSheetSnap("mid");
       setPoskoExpanded(true);
     }
   };
@@ -2042,12 +2640,16 @@ export default function WargaSpatialMap({
           mapInstanceRef.current.flyTo([latitude, longitude], 15, { duration: 1.2 });
         }
 
-        setToastMessage(`GPS Terkunci: Menampilkan ${shelterLimit} posko terdekat dari lokasi Anda`);
+        setToastMessage("GPS Terkunci: Menampilkan posko terdekat dari lokasi Anda");
         setTimeout(() => setToastMessage(null), 3000);
       },
       () => {
         setLocating(false);
-        setToastMessage("Izin akses lokasi ditolak oleh peramban. Menggunakan koordinat siaga.");
+        updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([userCoords[0], userCoords[1]], 14, { duration: 1.2 });
+        }
+        setToastMessage("Izin akses lokasi ditolak oleh peramban. Menampilkan titik lokasi siaga Anda.");
         setTimeout(() => setToastMessage(null), 4000);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -2135,13 +2737,14 @@ export default function WargaSpatialMap({
         key={sh.id}
         onClick={() => handleSelectShelterItem(sh)}
         className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-left ${isSelected
-            ? "bg-emerald-50/90 border-[#2D6A4F] shadow-xs"
-            : "bg-white hover:bg-emerald-50/40 border-gray-100 hover:border-emerald-200"
+          ? "bg-emerald-50/90 border-[#2D6A4F] shadow-xs"
+          : "bg-white hover:bg-emerald-50/40 border-gray-100 hover:border-emerald-200"
           }`}
       >
         {/* Sisi Kiri: Nama, Status, Jarak & Tombol Aksi */}
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-1.5 flex-wrap">
+            
             <h5 className="font-extrabold text-[12px] text-[#132422] truncate leading-tight">
               {sh.name}
             </h5>
@@ -2227,7 +2830,7 @@ export default function WargaSpatialMap({
         {/* Sisi Kanan: Thumbnail Foto Gedung Posko */}
         <div className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-xs bg-slate-100">
           <img
-            src={meta.photoUrl}
+            src={(sh as any).foto || meta.photoUrl}
             alt={sh.name}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -2237,10 +2840,1016 @@ export default function WargaSpatialMap({
     );
   };
 
+  const renderMobileBottomSheetContent = () => {
+    // -------------------------------------------------------------
+    // KASUS 1: MODE RUTE AKTIF (PETUNJUK ARAH EVAKUASI)
+    // -------------------------------------------------------------
+    if (viewMode === "ROUTE") {
+      const shelter = activeNavRoute?.shelter || targetNavShelter;
+      if (!shelter) return null;
+      const selectedRt = activeNavRoute ? activeNavRoute.routes[activeNavRoute.selectedRouteIndex] : null;
+      const isRtSafe = selectedRt?.statusBadgeType === "safe";
+
+      return (
+        <div className="flex flex-col h-full overflow-hidden select-none">
+          {/* 1. Header (Selalu terlihat di semua snap point) */}
+          <div
+            className="pt-2 px-4 pb-2.5 shrink-0 cursor-grab active:cursor-grabbing border-b border-slate-100/60 select-none"
+            style={{ touchAction: "none" }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
+            {/* Drag Handle Bar */}
+            <div
+              className="py-1.5 -my-1 cursor-pointer flex justify-center items-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSheetSnap((prev) => (prev === "min" ? "mid" : prev === "mid" ? "min" : "mid"));
+              }}
+              title={sheetSnap === "min" ? "Perbesar Navigasi" : "Perkecil ke Bawah"}
+            >
+              <div className="w-10 h-1.5 bg-slate-300 hover:bg-slate-400 rounded-full transition active:scale-95" />
+            </div>
+
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBackToShelterDetail();
+                  }}
+                  className="p-1 -ml-1 rounded-lg hover:bg-emerald-50 text-[#2D6A4F] transition active:scale-95 cursor-pointer shrink-0"
+                  title="Kembali ke Detail Posko"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
+                    Petunjuk Arah Evakuasi
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[280px]">
+                    Menuju {shelter.name} {selectedRt ? `• ${selectedRt.durationText} (${selectedRt.distanceText})` : "• Memuat rute OSRM..."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0 -mr-1">
+                {sheetSnap === "min" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartTurnByTurnNavigation();
+                      }}
+                      className="h-7 px-2.5 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                    >
+                      <Navigation className="w-3 h-3 text-emerald-300" />
+                      <span>Mulai</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSheetSnap("mid");
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                      title="Perbesar ke Setengah Layar"
+                    >
+                      <ChevronUp className="w-5 h-5 text-slate-600" />
+                    </button>
+                  </>
+                ) : sheetSnap === "mid" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSheetSnap("full");
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                      title="Perbesar Layar Penuh"
+                    >
+                      <ChevronUp className="w-5 h-5 text-slate-600" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSheetSnap("min");
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                      title="Perkecil ke Bawah"
+                    >
+                      <ChevronDown className="w-5 h-5 text-slate-600" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("mid");
+                    }}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                    title="Perkecil ke Setengah Layar"
+                  >
+                    <ChevronDown className="w-5 h-5 text-slate-600" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearNavRoute();
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 transition active:scale-90 cursor-pointer shrink-0"
+                  title="Tutup Navigasi"
+                  aria-label="Tutup Navigasi"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Scrollable Body */}
+          <div
+            onScroll={handleBodyScroll}
+            onTouchStart={handleBodyTouchStart}
+            onTouchMove={handleBodyTouchMove}
+            onTouchEnd={handleBodyTouchEnd}
+            className={`flex-1 min-h-0 px-4 py-3 space-y-3.5 scrollbar-thin md:scrollbar-thin overscroll-contain overflow-y-auto ${
+              sheetSnap === "min" ? "hidden" : "block"
+            }`}
+          >
+            {!activeNavRoute ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="px-3 py-2 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2 text-xs font-bold text-emerald-800">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                  <span>Menghitung rute tercepat bebas banjir (OSRM)...</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 bg-slate-100/70 p-1 rounded-xl">
+                  <div className="py-2 flex flex-col items-center justify-center gap-1 bg-white rounded-lg shadow-2xs">
+                    <Bike className="w-4 h-4 text-[#2D6A4F]" />
+                    <div className="w-8 h-2.5 bg-emerald-100 rounded" />
+                  </div>
+                  <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
+                    <Car className="w-4 h-4 text-slate-500" />
+                    <div className="w-8 h-2.5 bg-slate-200 rounded" />
+                  </div>
+                  <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
+                    <Footprints className="w-4 h-4 text-slate-500" />
+                    <div className="w-8 h-2.5 bg-slate-200 rounded" />
+                  </div>
+                </div>
+                <div className="py-2 px-3 bg-slate-50/70 rounded-xl flex items-center gap-3">
+                  <div className="flex flex-col items-center shrink-0 py-0.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border-2 border-white ring-1 ring-emerald-400" />
+                    <span className="w-0.5 h-4 border-l border-dashed border-slate-300 my-0.5" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white ring-1 ring-rose-400" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="text-xs font-medium text-slate-700">Lokasi Anda</div>
+                    <div className="text-xs font-semibold text-slate-900">{shelter.name}</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="rounded-xl p-3 bg-emerald-50/30 border-2 border-emerald-300/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="h-5 w-28 bg-emerald-200/70 rounded-md" />
+                      <div className="h-5 w-20 bg-emerald-100 rounded-full" />
+                    </div>
+                    <div className="h-3.5 w-48 bg-slate-200 rounded-md" />
+                  </div>
+                  <div className="rounded-xl p-3 bg-white border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="h-5 w-24 bg-slate-200 rounded-md" />
+                      <div className="h-5 w-20 bg-slate-100 rounded-full" />
+                    </div>
+                    <div className="h-3.5 w-36 bg-slate-200 rounded-md" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+            {/* Routing Loading Indicator */}
+            {isRoutingLoading && (
+              <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 rounded-xl flex items-center gap-2 text-[10.5px] font-bold text-emerald-800 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                <span>Menghitung rute jalan aktual (OSRM)...</span>
+              </div>
+            )}
+
+            {/* Tab Pilihan Moda Transportasi */}
+            <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50/80 p-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleSelectTransportMode("motorcycle")}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
+                  activeNavRoute.transportMode === "motorcycle"
+                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Bike className="w-4 h-4" />
+                <span>{activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.durationText || "4 mnt"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTransportMode("car")}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
+                  activeNavRoute.transportMode === "car"
+                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Car className="w-4 h-4" />
+                <span>
+                  {formatNavDuration(
+                    computeModeDuration(
+                      activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.distanceMeters || 8100,
+                      activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.durationSeconds || 660,
+                      "car"
+                    )
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTransportMode("walking")}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
+                  activeNavRoute.transportMode === "walking"
+                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Footprints className="w-4 h-4" />
+                <span>
+                  {formatNavDuration(
+                    computeModeDuration(
+                      activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.distanceMeters || 8100,
+                      activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.durationSeconds || 660,
+                      "walking"
+                    )
+                  )}
+                </span>
+              </button>
+            </div>
+
+            {/* Input Titik Awal & Titik Tujuan */}
+            <div className="py-2 px-3 bg-slate-50/70 rounded-xl flex items-center gap-3 shrink-0">
+              <div className="flex flex-col items-center shrink-0 py-0.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border-2 border-white ring-1 ring-emerald-400" />
+                <span className="w-0.5 h-4 border-l border-dashed border-slate-300 my-0.5" />
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white ring-1 ring-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="text-xs font-medium text-slate-700 truncate">
+                  Lokasi Anda
+                </div>
+                <div className="text-xs font-semibold text-slate-900 truncate">
+                  {activeNavRoute.shelter.name}
+                </div>
+              </div>
+            </div>
+
+            {/* Status Bar Keberangkatan */}
+            <div className="px-1 text-[11px] text-slate-500 flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>Berangkat sekarang &bull; Jalur pantau aktif</span>
+            </div>
+
+            {/* List Pilihan Opsi Rute */}
+            <div className="space-y-2">
+              {activeNavRoute.routes.map((rt, idx) => {
+                const isSelected = idx === activeNavRoute.selectedRouteIndex;
+                const isSafe = rt.statusBadgeType === "safe";
+                const rawSummary = rt.summary || (idx === 0 ? "Jl. Raya Pantura" : "Jl. By-Pass Lohbener");
+                const roadName = rawSummary.startsWith("lewat") ? rawSummary : `lewat ${rawSummary}`;
+
+                return (
+                  <div
+                    key={rt.id}
+                    onClick={() => handleSelectRouteIndex(idx)}
+                    className={`rounded-xl p-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-emerald-50/30 border-2 border-[#2D6A4F] shadow-xs"
+                        : "bg-white border border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className={`font-bold text-base leading-tight ${isSelected ? "text-emerald-800" : "text-slate-800"}`}>
+                            {rt.durationText}
+                          </span>
+                          <span className="text-slate-400 font-medium text-xs">&bull;</span>
+                          <span className="text-xs font-normal text-slate-500">
+                            {rt.distanceText}
+                          </span>
+                        </div>
+                        <p className={`text-[11px] truncate mt-0.5 ${isSelected ? "text-slate-600 font-medium" : "text-slate-500"}`}>
+                          {roadName}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        {isSafe ? (
+                          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-emerald-200/80 shrink-0">
+                            Bebas Genangan
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0">
+                            Jalur Alternatif
+                          </span>
+                        )}
+                        {isSelected && (
+                          <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tombol Aksi Navigasi */}
+            <div className="pt-2 pb-1 space-y-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleStartTurnByTurnNavigation}
+                className="w-full py-3 px-4 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md cursor-pointer border border-[#1B4D3E]"
+              >
+                <Navigation className="w-4 h-4 text-emerald-300" />
+                <span>Mulai Panduan Langkah Demi Langkah</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearNavRoute}
+                className="w-full py-1 text-slate-500 hover:text-slate-800 text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5 text-slate-400" />
+                <span>Tutup Navigasi</span>
+              </button>
+            </div>
+            </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // KASUS 2: DETAIL POSKO EVAKUASI AKTIF
+    // -------------------------------------------------------------
+    if (activeShelterDetail) {
+      const activeMeta = SHELTER_METADATA[activeShelterDetail.id] || {
+        photoUrl: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+        rating: "Siaga 24 Jam",
+        eta: "±4 mnt",
+        avoidArea: "Menghindari Genangan Pesisir",
+        emergencyNeeds: ["Logistik Dasar", "Air Bersih"],
+      };
+
+      return (
+        <div className="flex flex-col h-full overflow-hidden select-none">
+          {/* 1. Header (Selalu terlihat di semua snap point) */}
+          <div
+            className="pt-2 px-4 pb-2.5 shrink-0 cursor-grab active:cursor-grabbing border-b border-slate-100/60 select-none"
+            style={{ touchAction: "none" }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
+            {/* Drag Handle Bar */}
+            <div
+              className="py-1.5 -my-1 cursor-pointer flex justify-center items-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSheetSnap((prev) => (prev === "min" ? "mid" : prev === "mid" ? "min" : "mid"));
+              }}
+              title={sheetSnap === "min" ? "Buka Detail Posko" : "Perkecil ke Bawah"}
+            >
+              <div className="w-10 h-1.5 bg-slate-300 hover:bg-slate-400 rounded-full transition active:scale-95" />
+            </div>
+
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
+                  {activeShelterDetail.name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[280px]">
+                  {activeShelterDetail.location} &bull; {activeShelterDetail.distance.split("(")[0].trim()} dari Anda
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 -mr-1">
+                {sheetSnap === "min" ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("mid");
+                    }}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                    title="Buka Detail Posko"
+                    aria-label="Buka Detail Posko"
+                  >
+                    <ChevronUp className="w-5 h-5 text-slate-600" />
+                  </button>
+                ) : sheetSnap === "mid" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSheetSnap("full");
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                      title="Perbesar Layar Penuh"
+                      aria-label="Perbesar Layar Penuh"
+                    >
+                      <ChevronUp className="w-5 h-5 text-slate-600" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSheetSnap("min");
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                      title="Perkecil ke Bawah (Tinggal Nama & Alamat)"
+                      aria-label="Perkecil ke Bawah"
+                    >
+                      <ChevronDown className="w-5 h-5 text-slate-600" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("mid");
+                    }}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                    title="Perkecil ke Setengah Layar"
+                    aria-label="Perkecil ke Setengah Layar"
+                  >
+                    <ChevronDown className="w-5 h-5 text-slate-600" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSelection();
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 transition active:scale-90 cursor-pointer shrink-0"
+                  title="Tutup Posko"
+                  aria-label="Tutup Posko"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Scrollable Body */}
+          <div
+            onScroll={handleBodyScroll}
+            onTouchStart={handleBodyTouchStart}
+            onTouchMove={handleBodyTouchMove}
+            onTouchEnd={handleBodyTouchEnd}
+            className={`flex-1 min-h-0 px-4 py-3 space-y-3.5 scrollbar-thin md:scrollbar-thin overscroll-contain overflow-y-auto ${
+              sheetSnap === "min" ? "hidden" : "block"
+            }`}
+          >
+            {/* Baris Tombol Aksi Fungsional */}
+            <div className="flex items-center gap-1.5 py-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  drawSafeRoute(
+                    activeShelterDetail,
+                    "motorcycle",
+                    selectedRouteClassification === 2 ? 1 : selectedRouteClassification === 3 ? 2 : selectedRouteClassification === "custom" ? 3 : 0,
+                    customWaypoint
+                  )
+                }
+                className="h-9 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E] flex-1 min-w-0"
+              >
+                <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="truncate">Arahkan Rute</span>
+              </button>
+
+              <a
+                href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
+                onClick={(e) => e.stopPropagation()}
+                title={`Hubungi ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
+                className="w-9 h-9 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+              </a>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const needs = activeMeta.emergencyNeeds && activeMeta.emergencyNeeds.length > 0 ? activeMeta.emergencyNeeds.join(", ") : "Logistik Dasar, Air Bersih, Obat-obatan";
+                  setToastMessage(`Kebutuhan ${activeShelterDetail.name}: ${needs}`);
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+                title="Cek Kebutuhan Logistik"
+                className="w-9 h-9 rounded-xl bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Package className="w-3.5 h-3.5 text-amber-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (navigator.share) {
+                    navigator.share({
+                      title: activeShelterDetail.name,
+                      text: `Posko Evakuasi DERMAYU: ${activeShelterDetail.name} (${activeShelterDetail.location}) - Jarak: ${activeShelterDetail.distance.split("(")[0].trim()}. Kapasitas: ${activeShelterDetail.capacityFilled}/${activeShelterDetail.capacityTotal} Jiwa.`,
+                      url: window.location.href,
+                    }).catch(() => { });
+                  } else {
+                    navigator.clipboard?.writeText(`${activeShelterDetail.name} - ${activeShelterDetail.location} (${activeShelterDetail.distance.split("(")[0].trim()})`);
+                    setToastMessage("Alamat posko disalin ke clipboard!");
+                    setTimeout(() => setToastMessage(null), 2500);
+                  }
+                }}
+                title="Bagikan Lokasi Posko"
+                className="w-9 h-9 rounded-xl bg-white hover:bg-sky-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Share2 className="w-3.5 h-3.5 text-sky-600" />
+              </button>
+            </div>
+
+            {/* Informasi Kapasitas & Progress Bar Kuwu */}
+            <div className="py-2 px-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-[11px] shrink-0">
+              <div className="flex items-center justify-between text-slate-600 gap-1">
+                <span className="truncate">
+                  Kapasitas: <strong className="text-emerald-700 font-extrabold">{activeShelterDetail.capacityFilled}/{activeShelterDetail.capacityTotal}</strong>
+                  <span className="text-slate-400"> (Sisa {activeShelterDetail.capacityTotal - activeShelterDetail.capacityFilled})</span>
+                </span>
+                <span className="text-[10.5px] text-slate-500 shrink-0">
+                  Kuwu: <strong className="text-slate-800">{activeShelterDetail.contactPerson}</strong>
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+                <div
+                  className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round((activeShelterDetail.capacityFilled / activeShelterDetail.capacityTotal) * 100)
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Foto Posko (Full resolusi pada 'full', compact preview pada 'mid') */}
+            <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-gray-200 bg-slate-100 shrink-0 ${
+              sheetSnap === "full" ? "h-44 sm:h-50" : "h-28"
+            }`}>
+              <img
+                src={activeMeta.photoUrl}
+                alt={activeShelterDetail.name}
+                className="w-full h-full object-cover object-center"
+                loading="eager"
+              />
+            </div>
+
+            {/* Pilihan & Saran Rute Evakuasi */}
+            <div className="pt-1 border-t border-gray-100 space-y-2">
+              <h4 className="text-[11.5px] font-black text-slate-900 flex items-center gap-1.5">
+                <span>Pilihan &amp; Saran Rute Evakuasi</span>
+              </h4>
+
+              <div className="flex flex-col gap-2">
+                {/* Opsi 1: Terdekat & Bebas Banjir */}
+                <div
+                  onClick={() => {
+                    setSelectedRouteClassification(1);
+                    previewShelterRoute(activeShelterDetail, 1);
+                  }}
+                  className={`rounded-xl p-3 cursor-pointer transition-all ${
+                    selectedRouteClassification === 1
+                      ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                      : "bg-white border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-base text-slate-800">
+                        {activeMeta.eta.replace("±", "").trim() || "4 mnt"}
+                      </span>
+                      <span className="text-sm text-slate-500 font-normal">
+                        ({activeShelterDetail.distance.split("(")[0].trim()})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-emerald-50 text-emerald-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                        Bebas Banjir
+                      </span>
+                      {selectedRouteClassification === 1 && (
+                        <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600 truncate mt-1">
+                    lewat Jl. Raya Pantura
+                  </p>
+                </div>
+
+                {/* Opsi 2: Rute dengan Titik Genangan */}
+                <div
+                  onClick={() => {
+                    setSelectedRouteClassification(2);
+                    previewShelterRoute(activeShelterDetail, 2);
+                  }}
+                  className={`rounded-xl p-3 cursor-pointer transition-all ${
+                    selectedRouteClassification === 2
+                      ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
+                      : "bg-white border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-base text-slate-800">
+                        {Math.max(2, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 0.75))} mnt
+                      </span>
+                      <span className="text-sm text-slate-500 font-normal">
+                        ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 0.78))})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-amber-50 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                        Genangan 15 cm
+                      </span>
+                      {selectedRouteClassification === 2 && (
+                        <div className="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center shrink-0">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600 truncate mt-1">
+                    lewat Jl. Nelayan Pesisir
+                  </p>
+                </div>
+
+                {/* Opsi 3: Jalur Alternatif Memutar */}
+                <div
+                  onClick={() => {
+                    setSelectedRouteClassification(3);
+                    previewShelterRoute(activeShelterDetail, 3);
+                  }}
+                  className={`rounded-xl p-3 cursor-pointer transition-all ${
+                    selectedRouteClassification === 3
+                      ? "bg-slate-50 border-2 border-slate-700 shadow-xs"
+                      : "bg-white border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-base text-slate-800">
+                        {Math.max(4, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 2.25))} mnt
+                      </span>
+                      <span className="text-sm text-slate-500 font-normal">
+                        ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 2.45))})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                        Jalur Alternatif
+                      </span>
+                      {selectedRouteClassification === 3 && (
+                        <div className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600 truncate mt-1">
+                    lewat By-Pass Lingkar Luar
+                  </p>
+                </div>
+
+                {/* Opsi Rute Kustom jika aktif */}
+                {customWaypoint && (
+                  <div
+                    onClick={() => {
+                      setSelectedRouteClassification("custom");
+                      previewShelterRoute(activeShelterDetail, "custom", customWaypoint);
+                    }}
+                    className={`rounded-xl p-3 cursor-pointer transition-all ${
+                      selectedRouteClassification === "custom"
+                        ? "bg-purple-50/50 border-2 border-purple-600 shadow-xs"
+                        : "bg-white border border-slate-200 hover:border-purple-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-bold text-base text-slate-800">
+                          {customWaypoint.durationText}
+                        </span>
+                        <span className="text-sm text-slate-500 font-normal">
+                          ({customWaypoint.distanceText})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="bg-purple-50 text-purple-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                          Rute Manual
+                        </span>
+                        {selectedRouteClassification === "custom" && (
+                          <div className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 truncate mt-1">
+                      via Titik Singgah Pilihan Anda
+                    </p>
+                  </div>
+                )}
+
+                {/* Tombol Tentukan Jalur Sendiri (Custom) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPickingWaypoint(true);
+                    setToastMessage("Klik jalan pada peta untuk menentukan titik singgah");
+                  }}
+                  className="text-xs font-medium text-[#2D6A4F] hover:text-[#23533E] py-2 flex items-center justify-center gap-1.5 w-full border border-dashed border-emerald-300 rounded-xl bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer transition-colors"
+                >
+                  <span>Pilih rute manual di peta ✏️</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // KASUS 3: LAPORAN WARGA AKTIF
+    // -------------------------------------------------------------
+    if (activeReportDetail) {
+      return (
+        <div className="flex flex-col h-full overflow-hidden select-none">
+          <div
+            className="pt-2 px-4 pb-2.5 shrink-0 cursor-grab active:cursor-grabbing border-b border-slate-100/60 select-none"
+            style={{ touchAction: "none" }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
+            <div
+              className="w-10 h-1.5 bg-slate-300 hover:bg-slate-400 rounded-full mx-auto mb-2 cursor-pointer transition active:scale-95"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (sheetSnap === "min") setSheetSnap("mid");
+                else if (sheetSnap === "mid") setSheetSnap("min");
+                else setSheetSnap("mid");
+              }}
+              title={sheetSnap === "min" ? "Buka Laporan" : "Perkecil ke Bawah"}
+            />
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
+                  {activeReportDetail.title}
+                </h3>
+                <p className="text-xs text-rose-600 font-bold mt-0.5 truncate max-w-[280px]">
+                  TMA: {activeReportDetail.waterLevelText || "±45 cm"} &bull; {activeReportDetail.location}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 -mr-1">
+                {sheetSnap === "min" && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("mid");
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                    title="Buka Detail"
+                  >
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                  </button>
+                )}
+                {sheetSnap === "mid" && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("min");
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                    title="Perkecil ke Bawah"
+                  >
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSelection();
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0"
+                  title="Tutup Laporan"
+                >
+                  <X className="w-[18px] h-[18px]" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {sheetSnap !== "min" && (
+            <div
+              onScroll={handleBodyScroll}
+              onTouchStart={handleBodyTouchStart}
+              onTouchMove={handleBodyTouchMove}
+              onTouchEnd={handleBodyTouchEnd}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-3.5 scrollbar-none"
+            >
+              {renderDetailContent(false)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // KASUS 4: POSKO PANTAU SENSOR TELEMETRI AKTIF
+    // -------------------------------------------------------------
+    if (activeTelemetryDetail) {
+      return (
+        <div className="flex flex-col h-full overflow-hidden select-none">
+          <div
+            className="pt-2 px-4 pb-2.5 shrink-0 cursor-grab active:cursor-grabbing border-b border-slate-100/60 select-none"
+            style={{ touchAction: "none" }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
+            <div
+              className="w-10 h-1.5 bg-slate-300 hover:bg-slate-400 rounded-full mx-auto mb-2 cursor-pointer transition active:scale-95"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (sheetSnap === "min") setSheetSnap("mid");
+                else if (sheetSnap === "mid") setSheetSnap("min");
+                else setSheetSnap("mid");
+              }}
+              title={sheetSnap === "min" ? "Buka Sensor" : "Perkecil ke Bawah"}
+            />
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
+                  {activeTelemetryDetail.name}
+                </h3>
+                <p className="text-xs text-sky-700 font-bold mt-0.5 truncate max-w-[280px]">
+                  TMA: {activeTelemetryDetail.waterLevel} &bull; Tren: {activeTelemetryDetail.trend}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 -mr-1">
+                {sheetSnap === "min" && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("mid");
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                    title="Buka Detail"
+                  >
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                  </button>
+                )}
+                {sheetSnap === "mid" && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("min");
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                    title="Perkecil ke Bawah"
+                  >
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSelection();
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0"
+                  title="Tutup Sensor"
+                >
+                  <X className="w-[18px] h-[18px]" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {sheetSnap !== "min" && (
+            <div
+              onScroll={handleBodyScroll}
+              onTouchStart={handleBodyTouchStart}
+              onTouchMove={handleBodyTouchMove}
+              onTouchEnd={handleBodyTouchEnd}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-3.5 scrollbar-none"
+            >
+              {renderDetailContent(false)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   // Render Konten Detail Lokasi / Navigasi (Dipakai di Desktop Card 2 & Mobile Bottom Sheet)
   const renderDetailContent = (isMobileSheet = false) => {
-    if (activeNavRoute) {
-      if (isMobileSheet && sheetSnap === "compact") {
+    if (viewMode === "ROUTE") {
+      const shelter = activeNavRoute?.shelter || targetNavShelter;
+      if (!activeNavRoute && shelter) {
+        return (
+          <div className={`flex flex-col min-h-0 flex-1 overflow-y-auto scrollbar-none md:scrollbar-thin ${isMobileSheet ? "space-y-3 pb-2" : "space-y-3"}`}>
+            <div className="px-3 py-2 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2.5 text-xs font-bold text-emerald-800 animate-pulse">
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+              <span>Menghitung rute evakuasi bebas banjir (OSRM)...</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1 bg-slate-100/70 p-1 rounded-xl">
+              <div className="py-2 flex flex-col items-center justify-center gap-1 bg-white rounded-lg shadow-2xs">
+                <Bike className="w-4 h-4 text-[#2D6A4F]" />
+                <div className="w-8 h-2.5 bg-emerald-100 rounded animate-pulse" />
+              </div>
+              <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
+                <Car className="w-4 h-4 text-slate-500" />
+                <div className="w-8 h-2.5 bg-slate-200 rounded animate-pulse" />
+              </div>
+              <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
+                <Footprints className="w-4 h-4 text-slate-500" />
+                <div className="w-8 h-2.5 bg-slate-200 rounded animate-pulse" />
+              </div>
+            </div>
+            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-gray-100 flex items-center gap-2.5 shrink-0">
+              <div className="flex flex-col items-center shrink-0 py-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border-2 border-white ring-1 ring-emerald-300" />
+                <span className="w-0.5 h-6 border-l-2 border-dashed border-slate-300 my-0.5" />
+                <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="p-1.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-slate-800 truncate shadow-2xs">
+                  Lokasi Anda
+                </div>
+                <div className="p-1.5 rounded-lg bg-white border border-gray-200 text-[11px] font-black text-slate-800 truncate shadow-2xs">
+                  {shelter.name}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="rounded-xl p-3 bg-emerald-50/30 border-2 border-emerald-300/80 animate-pulse space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="h-5 w-28 bg-emerald-200/70 rounded-md" />
+                  <div className="h-5 w-20 bg-emerald-100 rounded-full" />
+                </div>
+                <div className="h-3.5 w-48 bg-slate-200 rounded-md" />
+              </div>
+              <div className="rounded-xl p-3 bg-white border border-slate-200 animate-pulse space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="h-5 w-24 bg-slate-200 rounded-md" />
+                  <div className="h-5 w-20 bg-slate-100 rounded-full" />
+                </div>
+                <div className="h-3.5 w-36 bg-slate-200 rounded-md" />
+              </div>
+            </div>
+          </div>
+        );
+      }
+      if (activeNavRoute) {
+      if (isMobileSheet && sheetSnap === "min") {
         const selectedRt = activeNavRoute.routes[activeNavRoute.selectedRouteIndex];
         return (
           <div className="flex items-center justify-between gap-2 p-1 animate-in fade-in duration-150">
@@ -2273,7 +3882,7 @@ export default function WargaSpatialMap({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSheetSnap("medium");
+                  setSheetSnap("mid");
                 }}
                 className="h-8 px-2.5 rounded-lg bg-emerald-50 text-[#2D6A4F] text-[10.5px] font-extrabold hover:bg-emerald-100 border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center gap-1"
               >
@@ -2310,11 +3919,10 @@ export default function WargaSpatialMap({
             <button
               type="button"
               onClick={() => handleSelectTransportMode("motorcycle")}
-              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${
-                activeNavRoute.transportMode === "motorcycle"
-                  ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
-              }`}
+              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "motorcycle"
+                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
+                }`}
             >
               <Bike className="w-4 h-4" />
               <span className="text-[10px] leading-tight">
@@ -2324,11 +3932,10 @@ export default function WargaSpatialMap({
             <button
               type="button"
               onClick={() => handleSelectTransportMode("car")}
-              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${
-                activeNavRoute.transportMode === "car"
-                  ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
-              }`}
+              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "car"
+                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
+                }`}
             >
               <Car className="w-4 h-4" />
               <span className="text-[10px] leading-tight">
@@ -2344,11 +3951,10 @@ export default function WargaSpatialMap({
             <button
               type="button"
               onClick={() => handleSelectTransportMode("walking")}
-              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${
-                activeNavRoute.transportMode === "walking"
-                  ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
-              }`}
+              className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "walking"
+                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
+                }`}
             >
               <Footprints className="w-4 h-4" />
               <span className="text-[10px] leading-tight">
@@ -2371,11 +3977,8 @@ export default function WargaSpatialMap({
               <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             </div>
             <div className="flex-1 min-w-0 space-y-1.5">
-              <div className="p-1.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-slate-800 flex items-center justify-between shadow-2xs">
-                <span className="truncate">Lokasi Anda</span>
-                <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">
-                  Titik Awal
-                </span>
+              <div className="p-1.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-slate-800 truncate shadow-2xs">
+                Lokasi Anda
               </div>
               <div className="p-1.5 rounded-lg bg-white border border-gray-200 text-[11px] font-black text-slate-800 truncate shadow-2xs">
                 {activeNavRoute.shelter.name}
@@ -2384,95 +3987,67 @@ export default function WargaSpatialMap({
           </div>
 
           {/* Status Bar Keberangkatan */}
-          <div className="px-3 py-1.5 bg-white rounded-xl border border-gray-100 flex items-center justify-between text-[10px] text-slate-500 shrink-0">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-[#2D6A4F]" />
-              <span>Berangkat sekarang &bull; Jalur pantau aktif</span>
-            </span>
-            <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 font-black text-[8.5px]">
-              BPBD LIVE
-            </span>
+          <div className="px-3 py-1.5 bg-white rounded-xl border border-gray-100 flex items-center gap-1.5 text-[11px] text-slate-500 shrink-0">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>Berangkat sekarang &bull; Jalur pantau aktif</span>
           </div>
 
           {/* List Pilihan Opsi Rute */}
-          <div className="space-y-1.5 flex-1 min-h-0">
+          <div className="space-y-2 flex-1 min-h-0">
             {activeNavRoute.routes.map((rt, idx) => {
               const isSelected = idx === activeNavRoute.selectedRouteIndex;
               const isSafe = rt.statusBadgeType === "safe";
+              const rawSummary = rt.summary || (idx === 0 ? "Jl. Raya Pantura" : "Jl. By-Pass Lohbener");
+              const roadName = rawSummary.startsWith("lewat") ? rawSummary : `lewat ${rawSummary}`;
+
               return (
                 <div
                   key={rt.id}
                   onClick={() => handleSelectRouteIndex(idx)}
-                  className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                  className={`rounded-xl p-3 cursor-pointer transition-all text-left ${
                     isSelected
-                      ? "bg-emerald-50/80 border-[#2D6A4F] shadow-xs ring-1 ring-[#2D6A4F]/20"
-                      : "bg-white hover:bg-slate-50 border-gray-200 hover:border-slate-300"
+                      ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                      : "bg-white border border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
-                          isSelected
-                            ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
-                            : "bg-slate-100 text-slate-600 border-slate-200"
-                        }`}
-                      >
-                        {activeNavRoute.transportMode === "motorcycle" ? (
-                          <Bike className="w-4 h-4" />
-                        ) : activeNavRoute.transportMode === "car" ? (
-                          <Car className="w-4 h-4" />
-                        ) : (
-                          <Footprints className="w-4 h-4" />
-                        )}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`font-bold text-base leading-tight ${isSelected ? "text-emerald-800" : "text-slate-800"}`}>
+                          {rt.durationText}
+                        </span>
+                        <span className="text-slate-400 font-medium text-xs">&bull;</span>
+                        <span className="text-xs font-normal text-slate-500">
+                          {rt.distanceText}
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="font-extrabold text-[11.5px] text-[#132422] truncate leading-tight">
-                          {rt.name}
-                        </h5>
-                        <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                          {isSafe ? "Rute tercepat & jalur darat aman" : "Jalur pesisir alternatif"}
-                        </p>
-                      </div>
+                      <p className={`text-[11px] truncate mt-0.5 ${isSelected ? "text-slate-600 font-medium" : "text-slate-500"}`}>
+                        {roadName}
+                      </p>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <span className={`text-[12px] font-black block leading-tight ${isSelected ? "text-[#1B4D3E]" : "text-slate-800"}`}>
-                        {rt.durationText}
-                      </span>
-                      <span className="text-[9.5px] text-slate-500 font-bold block">
-                        {rt.distanceText}
-                      </span>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {isSafe ? (
+                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-emerald-200/80 shrink-0">
+                          Bebas Genangan
+                        </span>
+                      ) : (
+                        <span className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0">
+                          Jalur Alternatif
+                        </span>
+                      )}
+                      {isSelected && (
+                        <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-gray-100/80">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[8.5px] font-extrabold border ${
-                        isSafe
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                          : "bg-amber-100 text-amber-800 border-amber-300"
-                      }`}
-                    >
-                      {rt.statusBadge}
-                    </span>
-
-                    {isSelected ? (
-                      <span className="text-[10px] font-bold text-[#2D6A4F] flex items-center gap-0.5">
-                        <span>Rute Terpilih</span>
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      </span>
-                    ) : (
-                      <span className="text-[9.5px] font-bold text-slate-400">
-                        Klik untuk beralih
-                      </span>
-                    )}
                   </div>
                 </div>
               );
             })}
 
-            {/* Panduan Langkah Turn-by-Turn */}
+          {/* Panduan Langkah Turn-by-Turn */}
             {activeNavRoute.showingSteps && (
               <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 animate-in fade-in duration-200">
                 <h6 className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
@@ -2502,19 +4077,11 @@ export default function WargaSpatialMap({
           <div className="pt-1 space-y-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => {
-                setActiveNavRoute((prev) =>
-                  prev ? { ...prev, showingSteps: !prev.showingSteps } : null
-                );
-              }}
-              className="w-full py-2 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs cursor-pointer border border-[#1B4D3E]"
+              onClick={handleStartTurnByTurnNavigation}
+              className="w-full py-2.5 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-xs cursor-pointer border border-[#1B4D3E]"
             >
-              <Milestone className="w-3.5 h-3.5" />
-              <span>
-                {activeNavRoute.showingSteps
-                  ? "Sembunyikan Panduan Langkah"
-                  : "Mulai Panduan Langkah Demi Langkah"}
-              </span>
+              <Navigation className="w-4 h-4 fill-white text-white" />
+              <span>Mulai Panduan Langkah Demi Langkah</span>
             </button>
 
             <button
@@ -2528,6 +4095,7 @@ export default function WargaSpatialMap({
           </div>
         </div>
       );
+      }
     }
 
     if (activeShelterDetail) {
@@ -2539,7 +4107,7 @@ export default function WargaSpatialMap({
         emergencyNeeds: ["Logistik Dasar", "Air Bersih"],
       };
 
-      if (isMobileSheet && sheetSnap === "compact") {
+      if (isMobileSheet && sheetSnap === "min") {
         return (
           <div className="flex items-center justify-between gap-2.5 p-1 animate-in fade-in duration-150">
             {/* Mini Thumbnail */}
@@ -2584,7 +4152,7 @@ export default function WargaSpatialMap({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSheetSnap("medium");
+                  setSheetSnap("mid");
                 }}
                 className="h-8.5 w-8.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#2D6A4F] border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center justify-center"
                 title="Buka Detail Lengkap"
@@ -2632,32 +4200,8 @@ export default function WargaSpatialMap({
             </p>
           </div>
 
-          {/* 3. Ringkasan Esensial Kapasitas & Kuwu */}
-          <div className="py-1 border-t border-b border-gray-100 space-y-1 text-[11px]">
-            <div className="flex items-center justify-between text-slate-600 gap-1">
-              <span className="truncate">
-                Kapasitas: <strong className="text-emerald-700 font-extrabold">{activeShelterDetail.capacityFilled}/{activeShelterDetail.capacityTotal}</strong>
-                <span className="text-slate-400"> (Sisa {activeShelterDetail.capacityTotal - activeShelterDetail.capacityFilled})</span>
-              </span>
-              <span className="text-[10.5px] text-slate-500 shrink-0">
-                Kuwu: <strong className="text-slate-800">{activeShelterDetail.contactPerson}</strong>
-              </span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.round((activeShelterDetail.capacityFilled / activeShelterDetail.capacityTotal) * 100)
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* 4. Baris Tombol Aksi (Desain & Penempatan Identik Gambar 2) */}
-          <div className="flex items-center gap-1.5 pt-1">
+          {/* 3. Baris Tombol Aksi Fungsional */}
+          <div className="flex items-center gap-1.5 pt-0.5">
             <button
               type="button"
               onClick={() =>
@@ -2720,160 +4264,148 @@ export default function WargaSpatialMap({
             </button>
           </div>
 
+          {/* 4. Ringkasan Esensial Kapasitas & Kuwu */}
+          <div className="py-2 px-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-[11px]">
+            <div className="flex items-center justify-between text-slate-600 gap-1">
+              <span className="truncate">
+                Kapasitas: <strong className="text-emerald-700 font-extrabold">{activeShelterDetail.capacityFilled}/{activeShelterDetail.capacityTotal}</strong>
+                <span className="text-slate-400"> (Sisa {activeShelterDetail.capacityTotal - activeShelterDetail.capacityFilled})</span>
+              </span>
+              <span className="text-[10.5px] text-slate-500 shrink-0">
+                Kuwu: <strong className="text-slate-800">{activeShelterDetail.contactPerson}</strong>
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.round((activeShelterDetail.capacityFilled / activeShelterDetail.capacityTotal) * 100)
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+
           {/* 5. SECTION PILIHAN & SARAN RUTE EVAKUASI (GAYA GOOGLE MAPS) */}
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-[11.5px] font-black text-slate-900 flex items-center gap-1.5">
                 <span>Pilihan &amp; Saran Rute Evakuasi</span>
               </h4>
-              <span className="text-[9.5px] font-extrabold text-[#2D6A4F] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                3 Klasifikasi Jalur
-              </span>
             </div>
 
-            {/* Deretan 3 Klasifikasi Kartu Selector */}
-            <div className="space-y-1.5">
-              {/* Opsi 1: Terdekat & Aman (Rekomendasi Utama - Default Active) */}
+            {/* Deretan Pilihan Kartu Selector Rute Evakuasi */}
+            <div className="flex flex-col gap-2">
+              {/* Opsi 1: Terdekat & Bebas Banjir */}
               <div
                 onClick={() => {
                   setSelectedRouteClassification(1);
                   previewShelterRoute(activeShelterDetail, 1);
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                className={`rounded-xl p-3 cursor-pointer transition-all ${
                   selectedRouteClassification === 1
-                    ? "bg-[#F4FBF7] border-[#2D6A4F] ring-1 ring-[#2D6A4F]/30 shadow-xs"
-                    : "bg-white hover:bg-emerald-50/30 border-gray-200 hover:border-emerald-200"
+                    ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                    : "bg-white border border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        selectedRouteClassification === 1
-                          ? "border-[#2D6A4F] bg-[#2D6A4F]"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {selectedRouteClassification === 1 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11.5px] font-extrabold text-[#132422]">
-                          Terdekat &amp; Aman
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded-md text-[8px] font-black bg-[#2D6A4F] text-white tracking-wider">
-                          REKOMENDASI UTAMA
-                        </span>
-                      </div>
-                      <p className="text-[10.5px] font-extrabold text-[#2D6A4F] mt-0.5">
-                        {activeShelterDetail.distance.split("(")[0].trim()} &bull; {activeMeta.eta} lewat Jl. Raya Pantura
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-bold text-base text-slate-800">
+                      {activeMeta.eta.replace("±", "").trim() || "4 mnt"}
+                    </span>
+                    <span className="text-sm text-slate-500 font-normal">
+                      ({activeShelterDetail.distance.split("(")[0].trim()})
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                    Bebas Banjir • Rekomendasi BPBD
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="bg-emerald-50 text-emerald-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                      Bebas Banjir
+                    </span>
+                    {selectedRouteClassification === 1 && (
+                      <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-slate-500 mt-1 pl-6 leading-relaxed">
-                  Kondisi jalan aspal kering, elevasi tinggi aman dari luapan rob.
+                <p className="text-xs text-slate-600 truncate mt-1">
+                  lewat Jl. Raya Pantura
                 </p>
               </div>
 
-              {/* Opsi 2: Terdekat tapi Ada Genangan (Rute Waspada) */}
+              {/* Opsi 2: Rute dengan Titik Genangan */}
               <div
                 onClick={() => {
                   setSelectedRouteClassification(2);
                   previewShelterRoute(activeShelterDetail, 2);
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                className={`rounded-xl p-3 cursor-pointer transition-all ${
                   selectedRouteClassification === 2
-                    ? "bg-[#FFFBEB] border-amber-300 ring-1 ring-amber-400/30 shadow-xs"
-                    : "bg-white hover:bg-amber-50/30 border-gray-200 hover:border-amber-200"
+                    ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
+                    : "bg-white border border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        selectedRouteClassification === 2
-                          ? "border-amber-600 bg-amber-600"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {selectedRouteClassification === 2 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11.5px] font-extrabold text-[#132422]">
-                          Terdekat tapi Ada Genangan
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded-md text-[8px] font-black bg-amber-500 text-white tracking-wider">
-                          WASPADA
-                        </span>
-                      </div>
-                      <p className="text-[10.5px] font-extrabold text-amber-700 mt-0.5">
-                        {formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 0.78))} &bull; ±{Math.max(2, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 0.75))} mnt lewat Jl. Nelayan Pesisir
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-bold text-base text-slate-800">
+                      {Math.max(2, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 0.75))} mnt
+                    </span>
+                    <span className="text-sm text-slate-500 font-normal">
+                      ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 0.78))})
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                    Rawan Genangan (15-25 cm)
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="bg-amber-50 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                      Genangan 15 cm
+                    </span>
+                    {selectedRouteClassification === 2 && (
+                      <div className="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-amber-900/80 mt-1 pl-6 leading-relaxed">
-                  Jalur lebih cepat namun terdapat titik genangan air rob semata kaki, hanya disarankan untuk kendaraan roda 4 / truk evakuasi.
+                <p className="text-xs text-slate-600 truncate mt-1">
+                  lewat Jl. Nelayan Pesisir
                 </p>
               </div>
 
-              {/* Opsi 3: Jauh & Aman (Jalur Alternatif Memutar) */}
+              {/* Opsi 3: Jalur Alternatif Memutar */}
               <div
                 onClick={() => {
                   setSelectedRouteClassification(3);
                   previewShelterRoute(activeShelterDetail, 3);
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                className={`rounded-xl p-3 cursor-pointer transition-all ${
                   selectedRouteClassification === 3
-                    ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400/30 shadow-xs"
-                    : "bg-white hover:bg-slate-50 border-gray-200 hover:border-slate-300"
+                    ? "bg-slate-50 border-2 border-slate-700 shadow-xs"
+                    : "bg-white border border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        selectedRouteClassification === 3
-                          ? "border-slate-700 bg-slate-700"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {selectedRouteClassification === 3 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11.5px] font-extrabold text-[#132422]">
-                          Jauh &amp; Aman
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded-md text-[8px] font-black bg-slate-500 text-white tracking-wider">
-                          MEMUTAR
-                        </span>
-                      </div>
-                      <p className="text-[10.5px] font-extrabold text-slate-700 mt-0.5">
-                        {formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 2.45))} &bull; ±{Math.max(4, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 2.25))} mnt lewat By-Pass Lingkar Luar
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-bold text-base text-slate-800">
+                      {Math.max(4, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 2.25))} mnt
+                    </span>
+                    <span className="text-sm text-slate-500 font-normal">
+                      ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 2.45))})
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black bg-slate-100 text-slate-700 border border-slate-300 shrink-0">
-                    Jalur Kering Alternatif
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">
+                      Jalur Alternatif
+                    </span>
+                    {selectedRouteClassification === 3 && (
+                      <div className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-slate-500 mt-1 pl-6 leading-relaxed">
-                  Memutar melewati area perkantoran/perbukitan datar bebas genangan total, cocok untuk konvoi warga.
+                <p className="text-xs text-slate-600 truncate mt-1">
+                  lewat By-Pass Lingkar Luar
                 </p>
               </div>
 
@@ -2887,20 +4419,18 @@ export default function WargaSpatialMap({
                     setIsPickingWaypoint(true);
                   }
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
-                  selectedRouteClassification === "custom"
-                    ? "bg-purple-50/80 border-purple-500 ring-1 ring-purple-500/30 shadow-xs"
-                    : "bg-white hover:bg-purple-50/30 border-gray-200 hover:border-purple-200"
-                }`}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${selectedRouteClassification === "custom"
+                  ? "bg-purple-50/80 border-purple-500 ring-1 ring-purple-500/30 shadow-xs"
+                  : "bg-white hover:bg-purple-50/30 border-gray-200 hover:border-purple-200"
+                  }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        selectedRouteClassification === "custom"
-                          ? "border-purple-600 bg-purple-600"
-                          : "border-slate-300 bg-white"
-                      }`}
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${selectedRouteClassification === "custom"
+                        ? "border-purple-600 bg-purple-600"
+                        : "border-slate-300 bg-white"
+                        }`}
                     >
                       {selectedRouteClassification === "custom" && (
                         <span className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -2948,15 +4478,14 @@ export default function WargaSpatialMap({
     }
 
     if (activeReportDetail) {
-      if (isMobileSheet && sheetSnap === "compact") {
+      if (isMobileSheet && sheetSnap === "min") {
         return (
           <div className="flex items-center justify-between gap-2.5 p-1 animate-in fade-in duration-150">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
-                activeReportDetail.severity === "CRITICAL"
-                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                  : "bg-amber-50 text-amber-700 border-amber-200"
-              }`}>
+              <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${activeReportDetail.severity === "CRITICAL"
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}>
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="min-w-0">
@@ -2973,7 +4502,7 @@ export default function WargaSpatialMap({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSheetSnap("medium");
+                  setSheetSnap("mid");
                 }}
                 className="h-8 px-2.5 rounded-lg bg-gray-100 text-slate-700 text-[10.5px] font-bold hover:bg-gray-200 transition active:scale-95 cursor-pointer"
               >
@@ -3001,11 +4530,10 @@ export default function WargaSpatialMap({
           <div className="space-y-0.5">
             <div className="flex items-center justify-between">
               <span
-                className={`px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold border ${
-                  activeReportDetail.severity === "CRITICAL"
-                    ? "bg-rose-100 text-rose-800 border-rose-300"
-                    : "bg-amber-100 text-amber-800 border-amber-300"
-                }`}
+                className={`px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold border ${activeReportDetail.severity === "CRITICAL"
+                  ? "bg-rose-100 text-rose-800 border-rose-300"
+                  : "bg-amber-100 text-amber-800 border-amber-300"
+                  }`}
               >
                 {activeReportDetail.severity === "CRITICAL" ? "🔴 BANJIR ROB KRITIS" : "🟠 GENANGAN SEDANG"}
               </span>
@@ -3075,7 +4603,7 @@ export default function WargaSpatialMap({
     }
 
     if (activeTelemetryDetail) {
-      if (isMobileSheet && sheetSnap === "compact") {
+      if (isMobileSheet && sheetSnap === "min") {
         return (
           <div className="flex items-center justify-between gap-2.5 p-1 animate-in fade-in duration-150">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -3096,7 +4624,7 @@ export default function WargaSpatialMap({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSheetSnap("medium");
+                  setSheetSnap("mid");
                 }}
                 className="h-8 px-2.5 rounded-lg bg-sky-50 text-sky-800 text-[10.5px] font-bold hover:bg-sky-100 border border-sky-200/80 transition active:scale-95 cursor-pointer"
               >
@@ -3156,7 +4684,7 @@ export default function WargaSpatialMap({
           </div>
 
           <div className="text-[9.5px] p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100 text-emerald-900 leading-snug">
-            💡 <strong>Rekomendasi BPBD:</strong> Warga pesisir tetap waspada potensi air pasang rob pada malam hari.
+            <strong>Rekomendasi BPBD:</strong> Warga pesisir tetap waspada potensi air pasang rob pada malam hari.
           </div>
         </div>
       );
@@ -3169,8 +4697,8 @@ export default function WargaSpatialMap({
     <div
       ref={rootContainerRef}
       className={`relative w-full rounded-none overflow-hidden border-0 bg-white shadow-none flex flex-col isolate z-0 [&_.leaflet-bottom.leaflet-right]:bottom-20 md:[&_.leaflet-bottom.leaflet-right]:bottom-3 ${isFullscreen
-          ? "fixed inset-0 !z-[9999] w-screen h-screen"
-          : className || "h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)]"
+        ? "fixed inset-0 !z-[9999] w-screen h-screen"
+        : className || "h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)]"
         }`}
     >
       {/* Map Canvas & Floating Controls Wrapper (100% Edge-to-Edge) */}
@@ -3179,279 +4707,242 @@ export default function WargaSpatialMap({
         <div ref={mapContainerRef} className="w-full h-full relative z-0" />
 
         {/* ============================================================== */}
-        {/* 1. UNIFIED HUD: SEARCH BAR, KATEGORI & POSKO EVAKUASI         */}
+        {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}
         {/* ============================================================== */}
-        <div
-          className={`absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[380px] z-[300] flex flex-col gap-2 md:gap-2.5 pointer-events-auto transition-all duration-300 ${
-            isDetailActive ? "hidden md:flex" : "flex"
-          }`}
-          style={{ zIndex: 1000 }}
-        >
-          {/* Baris 1: Card Search Bar */}
-          <div className="bg-white rounded-2xl px-3.5 py-2.5 shadow-md border border-slate-100 flex items-center gap-2.5 shrink-0">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                if (!poskoExpanded) setPoskoExpanded(true);
-              }}
-              placeholder="Cari posko, balai desa, atau jalan di Indramayu..."
-              className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0"
-                title="Hapus pencarian"
-                aria-label="Hapus pencarian"
+        {!isNavigating && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className={`pointer-events-auto ${viewMode === "IDLE"
+              ? "absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5"
+              : "hidden md:flex absolute inset-x-3.5 top-16 bottom-20 md:inset-x-auto md:top-4 md:bottom-6 md:left-6 md:w-[400px] z-[300] flex-col"
+              }`}
+            style={{ zIndex: 1000 }}
+          >
+          {/* Tampilkan Search Bar dan Filter Chips HANYA saat viewMode === 'IDLE' */}
+          {viewMode === "IDLE" && (
+            <>
+              {/* Baris 1: Card Search Bar */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.05 }}
+                className="bg-white rounded-2xl px-3.5 py-2.5 shadow-md border border-slate-100 flex items-center gap-2.5 shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <div className="flex items-center gap-1.5 text-slate-400 shrink-0 pl-1 border-l border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setToastMessage("Fitur pencarian suara (Microphone) aktif");
-                  setTimeout(() => setToastMessage(null), 2500);
-                }}
-                className="p-1 rounded-lg hover:bg-slate-100 hover:text-[#2D6A4F] transition cursor-pointer"
-                title="Pencarian Suara"
-                aria-label="Pencarian Suara"
-              >
-                <Mic className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAllShelters((prev) => !prev);
-                  if (!poskoExpanded) setPoskoExpanded(true);
-                }}
-                className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${
-                  showAllShelters || activeFilterChip !== "terdekat" ? "text-[#2D6A4F]" : "text-slate-400 hover:text-[#2D6A4F]"
-                }`}
-                title="Filter Posko"
-                aria-label="Filter Posko"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Baris 2: Card Chip Kategori & Filter Wilayah */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 shrink-0">
-            {FILTER_CHIPS.map((chip) => {
-              const isActive = activeFilterChip === chip.id && (chip.id !== "terdekat" || !showAllShelters);
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  onClick={() => {
-                    if (chip.id === "terdekat") {
-                      setActiveFilterChip("terdekat");
-                      setShowAllShelters(false);
-                      setSearchQuery("");
-                      if (mapInstanceRef.current && userMarkerRef.current) {
-                        const uPos = userMarkerRef.current.getLatLng();
-                        mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
-                      }
-                    } else {
-                      setActiveFilterChip(chip.id);
-                      setShowAllShelters(true);
-                      if (chip.type === "district") {
-                        handleSelectDistrict(chip.id);
-                      }
-                    }
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
                     if (!poskoExpanded) setPoskoExpanded(true);
                   }}
-                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-[#2D6A4F] text-white font-medium shadow-sm"
-                      : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-                  }`}
-                >
-                  {chip.id === "terdekat" && (
-                    <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#2D6A4F]"}`} />
-                  )}
-                  <span>{chip.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Card Bawah: Card Posko Evakuasi Terdekat & Navigasi */}
-          <div
-            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden transition-all duration-300 flex flex-col ${
-              poskoExpanded
-                ? "max-h-[55vh] md:max-h-[calc(100vh-230px)] flex-1 min-h-0"
-                : "shrink-0 h-auto"
-            }`}
-          >
-            {/* Header Panel */}
-            <div
-              className={`p-2.5 sm:p-3 flex items-center justify-between gap-2 shrink-0 bg-white/70 transition-colors ${
-                poskoExpanded ? "border-b border-gray-100" : ""
-              }`}
-            >
-              {activeNavRoute ? (
-                <>
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={handleBackToShelterDetail}
-                      className="p-1 rounded-lg hover:bg-gray-100 text-[#2D6A4F] transition cursor-pointer"
-                      title="Kembali ke Detail Posko"
-                      aria-label="Kembali ke Detail Posko"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                    </button>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
-                        Petunjuk Arah Evakuasi
-                      </h4>
-                      <p className="text-[10px] text-[#4B635F] truncate">
-                        Menuju {activeNavRoute.shelter.name}
-                      </p>
-                    </div>
-                  </div>
+                  placeholder="Cari posko, balai desa, atau jalan di Indramayu..."
+                  className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
+                />
+                {searchQuery && (
                   <button
                     type="button"
-                    onClick={handleClearNavRoute}
-                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                    title="Tutup Navigasi"
-                    aria-label="Tutup Navigasi"
+                    onClick={() => setSearchQuery("")}
+                    className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0"
+                    title="Hapus pencarian"
+                    aria-label="Hapus pencarian"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                </>
-              ) : (
-                <>
-                  <div
-                    className={`flex items-center gap-2 min-w-0 flex-1 ${
-                      !isDetailActive ? "cursor-pointer select-none" : ""
-                    }`}
+                )}
+                <div className="flex items-center gap-1.5 text-slate-400 shrink-0 pl-1 border-l border-slate-200">
+                  <button
+                    type="button"
                     onClick={() => {
-                      if (!isDetailActive) {
-                        setPoskoExpanded((prev) => !prev);
-                      }
+                      setToastMessage("Fitur pencarian suara (Microphone) aktif");
+                      setTimeout(() => setToastMessage(null), 2500);
                     }}
+                    className="p-1 rounded-lg hover:bg-slate-100 hover:text-[#2D6A4F] transition cursor-pointer"
+                    title="Pencarian Suara"
+                    aria-label="Pencarian Suara"
                   >
-                    <div
-                      className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
-                        activeReportDetail
-                          ? activeReportDetail.severity === "CRITICAL"
-                            ? "bg-rose-50 text-rose-700 border-rose-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                          : activeTelemetryDetail
-                            ? "bg-sky-50 text-sky-700 border-sky-200"
-                            : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                    <Mic className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAllShelters((prev) => !prev);
+                      if (!poskoExpanded) setPoskoExpanded(true);
+                    }}
+                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || activeFilterChip !== "terdekat" ? "text-[#2D6A4F]" : "text-slate-400 hover:text-[#2D6A4F]"
                       }`}
-                    >
-                      {activeReportDetail ? (
-                        <AlertTriangle className="w-4 h-4" />
-                      ) : activeTelemetryDetail ? (
-                        <Activity className="w-4 h-4 text-sky-600" />
-                      ) : (
-                        <Building2 className="w-4 h-4 text-[#2D6A4F]" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
-                        {activeReportDetail
-                          ? activeReportDetail.title
-                          : activeTelemetryDetail
-                            ? activeTelemetryDetail.name
-                            : activeShelterDetail
-                              ? "Detail Posko Evakuasi"
-                              : getCardHeaderTitle()}
-                      </h4>
-                      {!isDetailActive && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span
-                            className={`inline-flex items-center gap-1 text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full border ${
-                              isGpsLocked
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : "bg-slate-100 text-slate-700 border-slate-200"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isGpsLocked ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
-                              }`}
-                            />
-                            {isGpsLocked ? "GPS Aktif" : "Eretan Hotspot"}
-                          </span>
-                          <p className="text-[10px] text-[#4B635F] truncate">
-                            {mapVisibleShelters.length} posko terdekat di peta
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {!isDetailActive && (
-                      <div className="flex items-center gap-1 bg-[#EEF5F3] p-0.5 rounded-lg border border-[#D5E4E0] shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShelterLimit(3);
-                          }}
-                          className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold transition cursor-pointer ${
-                            shelterLimit === 3
-                              ? "bg-[#2D6A4F] text-white shadow-2xs"
-                              : "text-[#4B635F] hover:text-[#132422]"
-                          }`}
-                        >
-                          3 Posko
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShelterLimit(5);
-                          }}
-                          className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold transition cursor-pointer ${
-                            shelterLimit === 5
-                              ? "bg-[#2D6A4F] text-white shadow-2xs"
-                              : "text-[#4B635F] hover:text-[#132422]"
-                          }`}
-                        >
-                          5 Posko
-                        </button>
-                      </div>
-                    )}
-                    {(activeReportDetail || activeTelemetryDetail) && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0 ${
-                          activeReportDetail
-                            ? activeReportDetail.severity === "CRITICAL"
-                              ? "bg-rose-100 text-rose-800 border-rose-300"
-                              : "bg-amber-100 text-amber-800 border-amber-300"
-                            : "bg-sky-100 text-sky-800 border-sky-300"
+                    title="Filter Posko"
+                    aria-label="Filter Posko"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Baris 2: Card Chip Kategori & Filter Wilayah */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+                className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 shrink-0"
+              >
+                {FILTER_CHIPS.map((chip) => {
+                  const isActive = activeFilterChip === chip.id && (chip.id !== "terdekat" || !showAllShelters);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => {
+                        if (chip.id === "terdekat") {
+                          setActiveFilterChip("terdekat");
+                          setShowAllShelters(false);
+                          setSearchQuery("");
+                          if (mapInstanceRef.current && userMarkerRef.current) {
+                            const uPos = userMarkerRef.current.getLatLng();
+                            mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
+                          }
+                        } else {
+                          setActiveFilterChip(chip.id);
+                          setShowAllShelters(true);
+                          if (chip.type === "district") {
+                            handleSelectDistrict(chip.id);
+                          }
+                        }
+                        if (!poskoExpanded) setPoskoExpanded(true);
+                      }}
+                      className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer ${isActive
+                        ? "bg-[#2D6A4F] text-white font-medium shadow-sm"
+                        : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                         }`}
-                      >
-                        {activeReportDetail
-                          ? activeReportDetail.severity === "CRITICAL"
-                            ? "Rob Kritis"
-                            : "Genangan"
-                          : activeTelemetryDetail?.status}
-                      </span>
-                    )}
-                    {isDetailActive ? (
+                    >
+                      {chip.id === "terdekat" && (
+                        <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#2D6A4F]"}`} />
+                      )}
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+
+          {/* Card Utama: Full Height Saat DETAIL / ROUTE, atau Compact Saat IDLE */}
+          <div
+            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden flex flex-col ${viewMode === "IDLE"
+              ? "shrink-0 h-auto"
+              : "h-full flex-1 min-h-0"
+              }`}
+          >
+            <AnimatePresence mode="wait">
+              {viewMode === "ROUTE" ? (
+                <motion.div
+                  key="route-mode-panel"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                >
+                  {/* Header Panel Route */}
+                  <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <button
                         type="button"
-                        onClick={clearSelection}
-                        className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                        title="Kembali ke Daftar Posko"
-                        aria-label="Kembali ke Daftar Posko"
+                        onClick={handleBackToShelterDetail}
+                        className="p-1.5 rounded-xl hover:bg-emerald-50 text-[#2D6A4F] transition cursor-pointer"
+                        title="Kembali ke Detail Posko"
+                        aria-label="Kembali ke Detail Posko"
                       >
-                        <X className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4" />
                       </button>
-                    ) : (
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
+                          Petunjuk Arah Evakuasi
+                        </h4>
+                        <p className="text-[10px] text-[#4B635F] truncate">
+                          Menuju {activeNavRoute?.shelter?.name || targetNavShelter?.name || "Posko Evakuasi"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearNavRoute}
+                      className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
+                      title="Tutup Navigasi"
+                      aria-label="Tutup Navigasi"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 sm:p-3.5">
+                    {renderDetailContent(false)}
+                  </div>
+                </motion.div>
+              ) : viewMode === "DETAIL" ? (
+                <motion.div
+                  key="detail-mode-panel"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                >
+                  {/* Header Panel Detail */}
+                  <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
+                        <Building2 className="w-4 h-4 text-[#2D6A4F]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
+                          {activeShelterDetail?.name || activeReportDetail?.title || activeTelemetryDetail?.name || "Detail Lokasi"}
+                        </h4>
+                        <p className="text-[10px] text-[#4B635F] truncate">
+                          {activeShelterDetail?.location || "Kawasan Pantau Evakuasi"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
+                      title="Tutup Detail"
+                      aria-label="Tutup Detail"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 sm:p-3.5">
+                    {renderDetailContent(false)}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="idle-mode-panel"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                >
+                  {/* Header Panel Idle */}
+                  <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
+                    <div
+                      className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer select-none"
+                      onClick={() => setPoskoExpanded((prev) => !prev)}
+                    >
+                      <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
+                        <Building2 className="w-4 h-4 text-[#2D6A4F]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
+                          {getCardHeaderTitle()}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => setPoskoExpanded((prev) => !prev)}
@@ -3459,27 +4950,25 @@ export default function WargaSpatialMap({
                         title={poskoExpanded ? "Tutup Daftar Posko" : "Buka Daftar Posko"}
                         aria-label="Toggle Daftar Posko"
                       >
-                        {poskoExpanded ? (
-                          <ChevronUp className="w-3.5 h-3.5 text-[#2D6A4F]" />
-                        ) : (
+                        <motion.div
+                          animate={{ rotate: poskoExpanded ? 180 : 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="flex items-center justify-center"
+                        >
                           <ChevronDown className="w-3.5 h-3.5 text-[#2D6A4F]" />
-                        )}
+                        </motion.div>
                       </button>
-                    )}
+                    </div>
                   </div>
-                </>
-              )}
-            </div>
 
-            {poskoExpanded && (
-              <>
-                {/* DETAIL PANEL / PETUNJUK ARAH EVAKUASI (GAYA GOOGLE MAPS) */}
-                {isDetailActive ? (
-                  renderDetailContent(false)
-                ) : (
-                  /* DAFTAR LIST POSKO TERDEKAT ATAU HASIL FILTER DINAMIS */
-                  <div className="flex flex-col min-h-0 flex-1">
-                    <div className="p-2 space-y-1.5 overflow-y-auto flex-1 min-h-0 scrollbar-none md:scrollbar-thin">
+                  {/* Isi Konten Card Idle dengan Accordion Height Animation */}
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: poskoExpanded ? "auto" : 0, opacity: poskoExpanded ? 1 : 0 }}
+                    transition={{ duration: 0.4, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
                       {displayedShelters.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
                           <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
@@ -3503,23 +4992,27 @@ export default function WargaSpatialMap({
                         </div>
                       ) : isDefaultView ? (
                         <>
-                          {displayedShelters.slice(0, shelterLimit).map((sh, index) => renderShelterCardItem(sh, index, true))}
-                          {displayedShelters.length > shelterLimit && (
+                          {displayedShelters.slice(0, showAllShelters ? 20 : 3).map((sh, index) => renderShelterCardItem(sh, index, true))}
+                          {displayedShelters.length > 3 && (
                             <button
                               type="button"
                               onClick={() => {
-                                setShowAllShelters(true);
+                                setShowAllShelters((prev) => !prev);
                               }}
                               className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2.5 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                             >
-                              <span>Lihat Posko Terdekat Lainnya (Maksimal 10)</span>
+                              <span>
+                                {showAllShelters
+                                  ? "Tampilkan 3 Posko Terdekat Saja"
+                                  : `Lihat Posko Lainnya (${displayedShelters.length} Posko Tersedia)`}
+                              </span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </>
                       ) : (
                         <>
-                          {displayedShelters.slice(0, showAllShelters ? 10 : shelterLimit).map((sh, index) => renderShelterCardItem(sh, index, activeFilterChip === "terdekat"))}
+                          {displayedShelters.slice(0, showAllShelters ? 25 : 10).map((sh, index) => renderShelterCardItem(sh, index, activeFilterChip === "terdekat"))}
                           <button
                             type="button"
                             onClick={() => {
@@ -3529,246 +5022,125 @@ export default function WargaSpatialMap({
                             }}
                             className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                           >
-                            <span>Kembali ke {shelterLimit} Posko Terdekat</span>
+                            <span>Kembali ke 3 Posko Terdekat</span>
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
                     </div>
-                  </div>
-                )}
-              </>
+                  </motion.div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
+      </motion.div>
+    )}
 
         {/* ============================================================== */}
-        {/* 3. MOBILE DETAIL BOTTOM SLIDER (SCREEN < MD)                   */}
-        {/* Muncul di bawah saat lokasi/posko diklik, bisa di-slide ke atas */}
+        {/* 2. DRAGGABLE MULTI-SNAP BOTTOM SHEET (MOBILE VIEWPORT KHUSUS)  */}
         {/* ============================================================== */}
-        {isDetailActive && (
-          <div
-            className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-40 md:hidden bg-white/98 backdrop-blur-xl rounded-t-2xl sm:rounded-t-[26px] border-t border-[#D5E4E0] shadow-[0_-12px_36px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden select-none ${
-              isDragging ? "transition-none" : "transition-all duration-300 ease-out"
-            } ${
-              sheetSnap === "compact"
-                ? "h-[118px] max-h-[125px]"
-                : sheetSnap === "medium"
-                  ? "h-[390px] max-h-[48vh]"
-                  : "h-[82vh] max-h-[82vh]"
-            }`}
-            style={{
-              zIndex: 1000,
-              transform:
-                isDragging && dragOffsetY !== 0
-                  ? `translateY(${Math.max(-150, Math.min(150, dragOffsetY))}px)`
-                  : undefined,
-            }}
-          >
-            {/* 1. Drag Handle Bar & Header Controls (Slider Interaktif Responsif) */}
-            <div className="w-full flex items-center justify-between px-3 pt-2 pb-1.5 shrink-0 bg-slate-50/80 border-b border-gray-100/80 select-none">
-              {/* Sisi Kiri: Tombol Kontrol Tinggi (Chevron Up & Down) */}
-              <div
-                className="flex items-center gap-1 shrink-0"
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {sheetSnap === "compact" && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSheetSnap("medium");
-                    }}
-                    className="h-7 px-2 rounded-lg text-[#2D6A4F] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center gap-1 text-[10px] font-bold"
-                    title="Buka Detail"
-                    aria-label="Buka Detail"
-                  >
-                    <ChevronUp className="w-3.5 h-3.5" />
-                    <span>Detail</span>
-                  </button>
-                )}
-                {sheetSnap === "medium" && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSheetSnap("compact");
-                      }}
-                      className="h-7 w-7 rounded-lg text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition active:scale-95 cursor-pointer flex items-center justify-center"
-                      title="Kecilkan ke Mode Peta"
-                      aria-label="Kecilkan ke Mode Peta"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSheetSnap("expanded");
-                      }}
-                      className="h-7 px-1.5 rounded-lg text-[#2D6A4F] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center gap-0.5 text-[10px] font-bold"
-                      title="Perbesar Layar Penuh"
-                      aria-label="Perbesar Layar Penuh"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                      <span>Penuh</span>
-                    </button>
-                  </div>
-                )}
-                {sheetSnap === "expanded" && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSheetSnap("medium");
-                    }}
-                    className="h-7 px-2 rounded-lg text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition active:scale-95 cursor-pointer flex items-center gap-1 text-[10px] font-bold"
-                    title="Kecilkan Tampilan"
-                    aria-label="Kecilkan Tampilan"
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                    <span>Kecilkan</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Area Tengah: Interactive Drag Slider (Hanya area ini yang menangkap gesture drag) */}
-              <div
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-2 cursor-grab active:cursor-grabbing touch-none select-none mx-1"
-                onTouchStart={handleSheetTouchStart}
-                onTouchMove={handleSheetTouchMove}
-                onTouchEnd={handleSheetTouchEnd}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onClick={() => {
-                  setSheetSnap((prev) =>
-                    prev === "compact" ? "medium" : prev === "medium" ? "expanded" : "compact"
-                  );
-                }}
-              >
-                <div className="w-10 h-1.2 rounded-full bg-slate-300 hover:bg-slate-400 transition-colors" />
-                <span className="text-[9px] font-bold text-slate-400 tracking-wide text-center">
-                  {sheetSnap === "compact"
-                    ? "Tarik ke atas untuk detail"
-                    : sheetSnap === "medium"
-                      ? "Geser ke atas untuk selengkapnya"
-                      : "Geser ke bawah untuk peta"}
-                </span>
-              </div>
-
-              {/* Sisi Kanan: Tombol Tutup (X) Selalu Berfungsi Langsung */}
-              <div
-                className="flex items-center justify-end shrink-0"
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    clearSelection();
-                  }}
-                  className="h-7 w-7 rounded-lg text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 transition active:scale-95 cursor-pointer flex items-center justify-center"
-                  title="Tutup Detail"
-                  aria-label="Tutup Detail"
+        <AnimatePresence>
+          {!isNavigating && viewMode !== "IDLE" && (
+            <motion.div
+              key="mobile-bottom-sheet"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+              className={`md:hidden fixed inset-x-0 bottom-[68px] z-[350] bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] border-t border-slate-200/80 flex flex-col overflow-hidden pointer-events-auto ${
+                sheetSnap === "min"
+                  ? "h-[85px]"
+                  : sheetSnap === "mid"
+                  ? "h-[45vh]"
+                  : "h-[calc(100dvh-170px)] max-h-[calc(100vh-100px)]"
+              }`}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={viewMode}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex flex-col h-full overflow-hidden select-none"
                 >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                  {renderMobileBottomSheetContent()}
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ============================================================== */}
+        {/* HUD NAVIGASI MODE: TOP MANEUVER BANNER ALA GOOGLE MAPS        */}
+        {/* ============================================================== */}
+        {isNavigating && activeNavRoute && (
+          <div
+            className="absolute top-3.5 inset-x-4 md:inset-x-auto md:left-6 md:w-[420px] z-[1200] bg-[#2D6A4F] text-white rounded-2xl p-4 shadow-2xl border border-emerald-600/40 flex items-center gap-4 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300"
+          >
+            {/* Maneuver Icon */}
+            <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+              {(() => {
+                const curStep = activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.steps?.[navStepIndex];
+                const mod = (curStep?.modifier || "").toLowerCase();
+                if (mod.includes("right")) {
+                  return <CornerUpRight className="w-8 h-8 text-white stroke-[2.8]" />;
+                }
+                if (mod.includes("left")) {
+                  return <CornerUpLeft className="w-8 h-8 text-white stroke-[2.8]" />;
+                }
+                return <ArrowUp className="w-8 h-8 text-white stroke-[2.8]" />;
+              })()}
+            </div>
+
+            {/* Instruction Details */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="text-3xl font-black text-white leading-none tracking-tight">
+                {formatNavDistance(navDistanceToNextStep)}
+              </div>
+              <p className="text-base font-medium text-white/90 truncate mt-1 leading-snug">
+                {(() => {
+                  const rawInst = activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.steps?.[navStepIndex]?.instruction || "Lurus terus di rute evakuasi";
+                  const cleanInst = rawInst
+                    .replace(/^Mulai dari titik Anda menuju\s+/i, "Menuju ")
+                    .replace(/^Mulai dari titik Anda\s+/i, "");
+                  return cleanInst;
+                })()}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* HUD NAVIGASI MODE: BOTTOM FLOATING ETA BAR ALA GOOGLE MAPS     */}
+        {/* Berada di atas Mobile Bottom Nav (bottom-[80px] di mobile)     */}
+        {/* ============================================================== */}
+        {isNavigating && activeNavRoute && (
+          <div
+            className="absolute bottom-5 md:bottom-6 inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[1200] bg-white rounded-full shadow-2xl px-6 py-3.5 flex items-center justify-between md:justify-center gap-6 border border-slate-200 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300 min-w-[320px] md:min-w-[420px]"
+            style={{ zIndex: 1200 }}
+          >
+            <div className="flex items-center gap-3">
+              <div>
+                <div className="text-lg font-black text-emerald-700 leading-tight">
+                  {formatNavDuration(navRemainingSeconds)} <span className="text-slate-400 font-normal text-sm">&bull;</span> {formatNavDistance(navRemainingMeters)}
+                </div>
+                <div className="text-xs font-medium text-slate-500 mt-0.5">
+                  Tiba pukul <strong>{new Date(Date.now() + navRemainingSeconds * 1000).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</strong>
+                </div>
               </div>
             </div>
 
-            {/* 2. Header Panel Sheet (Tampil saat medium / expanded) */}
-            {sheetSnap !== "compact" && (
-              <div className="px-3.5 pb-2 pt-0.5 flex items-center justify-between gap-2 border-b border-gray-100 shrink-0">
-                {activeNavRoute ? (
-                  <>
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={handleBackToShelterDetail}
-                        className="p-1 rounded-lg hover:bg-gray-100 text-[#2D6A4F] transition cursor-pointer"
-                        title="Kembali ke Detail Posko"
-                        aria-label="Kembali ke Detail Posko"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                      </button>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
-                          Petunjuk Arah Evakuasi
-                        </h4>
-                        <p className="text-[10px] text-[#4B635F] truncate">
-                          Menuju {activeNavRoute.shelter.name}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleClearNavRoute();
-                      }}
-                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                      title="Tutup Navigasi"
-                      aria-label="Tutup Navigasi"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div
-                        className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
-                          activeReportDetail
-                            ? activeReportDetail.severity === "CRITICAL"
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                            : activeTelemetryDetail
-                              ? "bg-sky-50 text-sky-700 border-sky-200"
-                              : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
-                        }`}
-                      >
-                        {activeReportDetail ? (
-                          <AlertTriangle className="w-4 h-4" />
-                        ) : activeTelemetryDetail ? (
-                          <Activity className="w-4 h-4 text-sky-600" />
-                        ) : (
-                          <Building2 className="w-4 h-4 text-[#2D6A4F]" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
-                          {activeReportDetail
-                            ? activeReportDetail.title
-                            : activeTelemetryDetail
-                              ? activeTelemetryDetail.name
-                              : "Detail Posko Evakuasi"}
-                        </h4>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearSelection();
-                      }}
-                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                      title="Tutup Detail"
-                      aria-label="Tutup Detail"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* 3. Isi Konten Detail (Bisa di-scroll) */}
-            <div className={`overflow-y-auto flex-1 min-h-0 scrollbar-none ${sheetSnap === "compact" ? "p-2" : "p-3 space-y-2"}`}>
-              {renderDetailContent(true)}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExitNavigation}
+                className="bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer border border-red-200 shadow-xs"
+                title="Keluar dari Mode Navigasi"
+              >
+                <X className="w-4 h-4 text-red-600" />
+                <span>Keluar</span>
+              </button>
             </div>
           </div>
         )}
@@ -3798,10 +5170,14 @@ export default function WargaSpatialMap({
         {/* ============================================================== */}
         <div
           className={`md:hidden absolute left-3.5 sm:left-4 z-30 flex flex-col gap-2.5 pointer-events-auto transition-all duration-300 ease-out ${
-            isDetailActive
-              ? sheetSnap === "expanded"
+            isNavigating
+              ? "bottom-[150px] flex"
+              : isDetailActive
+              ? sheetSnap === "full"
                 ? "hidden"
-                : "bottom-[calc(4rem+128px+env(safe-area-inset-bottom,0px))] flex"
+                : sheetSnap === "mid"
+                ? "bottom-[calc(42vh+76px)] flex"
+                : "bottom-[calc(64px+86px)] flex"
               : "bottom-20 flex"
           }`}
           aria-label="Kontrol Peta Sisi Kiri Bawah"
@@ -3825,11 +5201,10 @@ export default function WargaSpatialMap({
           <button
             type="button"
             onClick={handleToggleBasemap}
-            className={`w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 flex items-center justify-center cursor-pointer ${
-              basemap === "satellite"
-                ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
-                : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
-            }`}
+            className={`w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 flex items-center justify-center cursor-pointer ${basemap === "satellite"
+              ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
+              : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
+              }`}
             title={basemap === "satellite" ? "Beralih ke Peta Jalan OSM" : "Beralih ke Citra Satelit Esri"}
             aria-label="Ganti Tampilan Peta"
           >
@@ -3844,10 +5219,14 @@ export default function WargaSpatialMap({
         {/* ============================================================== */}
         <div
           className={`absolute right-3 sm:right-4 z-30 flex flex-col gap-2.5 pointer-events-auto transition-all duration-300 ease-out ${
-            isDetailActive
-              ? sheetSnap === "expanded"
+            isNavigating
+              ? "bottom-24 md:bottom-24 flex"
+              : isDetailActive
+              ? sheetSnap === "full"
                 ? "hidden md:flex md:bottom-12"
-                : "bottom-[calc(4rem+128px+env(safe-area-inset-bottom,0px))] md:bottom-12 flex"
+                : sheetSnap === "mid"
+                ? "bottom-[calc(45vh+76px)] md:bottom-12 flex"
+                : "bottom-[calc(85px+76px)] md:bottom-12 flex"
               : "bottom-20 md:bottom-12 flex"
           }`}
           aria-label="Kontrol Peta Spasial"
@@ -3893,6 +5272,7 @@ export default function WargaSpatialMap({
           </button>
 
           {/* Tombol 3: Pusatkan Peta ke Indramayu (Recenter) */}
+          {!isNavigating && (
           <button
             type="button"
             onClick={handleRecenter}
@@ -3902,16 +5282,16 @@ export default function WargaSpatialMap({
           >
             <MapPin className="w-5 h-5 text-[#2D6A4F]" />
           </button>
+          )}
 
           {/* Tombol 4 (Khusus Web Desktop): Beralih ke Citra Satelit */}
           <button
             type="button"
             onClick={handleToggleBasemap}
-            className={`hidden md:flex w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 items-center justify-center cursor-pointer ${
-              basemap === "satellite"
-                ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
-                : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
-            }`}
+            className={`hidden md:flex w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 items-center justify-center cursor-pointer ${basemap === "satellite"
+              ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
+              : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
+              }`}
             title={basemap === "satellite" ? "Beralih ke Peta Jalan OSM" : "Beralih ke Citra Satelit Esri"}
             aria-label="Ganti Tampilan Peta"
           >
@@ -3957,48 +5337,14 @@ export default function WargaSpatialMap({
         </div>
 
 
-        {/* ============================================================== */}
-        {/* 6. BANNER NAVIGASI AKTIF (FLOATING TOP BANNER DI DESKTOP)      */}
-        {/* ============================================================== */}
-        {activeNavRoute && (
-          <div
-            className="hidden md:flex absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-[#1B4D3E]/95 text-white rounded-2xl p-2.5 px-3.5 shadow-2xl backdrop-blur-md border border-emerald-400/30 items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto min-w-[380px]"
-            style={{ zIndex: 1100 }}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
-                <Navigation className="w-4 h-4 text-emerald-300 animate-pulse" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-xs text-white truncate">
-                    {activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.durationText || "11 mnt"} &bull; {activeNavRoute.routes[activeNavRoute.selectedRouteIndex]?.distanceText || "8.1 km"}
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[8.5px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
-                    Bebas Genangan
-                  </span>
-                </div>
-                <p className="text-[10.5px] text-emerald-100/90 truncate mt-0.5">
-                  Menuju {activeNavRoute.shelter.name} &bull; Menghindari Jalur Rawan Banjir
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleClearNavRoute}
-              className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer border border-white/10"
-              title="Selesai Navigasi"
-              aria-label="Selesai Navigasi"
-            >
-              <X className="w-3.5 h-3.5 text-emerald-200" />
-              <span>Selesai</span>
-            </button>
-          </div>
-        )}
 
-        {/* Custom CSS untuk Badge Rute Leaflet Transparan */}
+
+        {/* Custom CSS untuk Badge Rute Leaflet Transparan & Custom Cluster Badge */}
         <style jsx global>{`
-          .dermayu-route-badge {
+          .dermayu-route-badge,
+          .custom-nav-primary-callout,
+          .custom-nav-alt-callout,
+          .custom-nav-chevron-marker {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -4007,6 +5353,9 @@ export default function WargaSpatialMap({
           .dermayu-route-badge::before,
           .dermayu-route-badge::after {
             display: none !important;
+          }
+          .active-pin-marker {
+            z-index: 9999 !important;
           }
         `}</style>
 

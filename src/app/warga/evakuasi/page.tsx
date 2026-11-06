@@ -17,7 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
-import { fetchSchoolSheltersGeoJSON } from "@/lib/spatialGeojson";
+import { CURATED_POSKO_LIST, FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -214,282 +214,24 @@ export default function WargaEvakuasiPage() {
     },
   ]);
 
-  // Shelters Data (Posko)
-  const initialShelters: ShelterItem[] = [
-    {
-      id: "sh-1",
-      name: "Balai Desa Eretan Wetan",
-      location: "Jl. Raya Pantura No. 45, Kandanghaur",
-      district: "Eretan",
-      distance: "850 m (±4 menit jalan darat)",
-      capacityTotal: 250,
-      capacityFilled: 185,
-      facilities: ["Dapur Umum", "Posko Medis", "Ruang Lansia", "Genset Cadangan"],
-      contactPerson: "Bpk. Mulyadi (Kuwu)",
-      contactPhone: "0812-3456-7890",
-      status: "TERSEDIA",
-      lat: -6.342,
-      lng: 108.125,
-    },
-    {
-      id: "sh-2",
-      name: "SDN 1 Ilir Kandanghaur",
-      location: "Jl. Nelayan Blok Ilir, Kandanghaur",
-      district: "Kandanghaur",
-      distance: "1.4 km (±7 menit)",
-      capacityTotal: 150,
-      capacityFilled: 140,
-      facilities: ["Ruang Tidur Kelas", "Air Bersih", "Dapur Swadaya"],
-      contactPerson: "Ibu Nurhasanah (Kepsek)",
-      contactPhone: "0813-9876-5432",
-      status: "HAMPIR_PENUH",
-      lat: -6.349,
-      lng: 108.132,
-    },
-    {
-      id: "sh-3",
-      name: "Masjid Jami' Baiturrahim Losarang",
-      location: "Jl. Raya Losarang No. 102",
-      district: "Losarang",
-      distance: "3.2 km (±12 menit kendaraan)",
-      capacityTotal: 400,
-      capacityFilled: 120,
-      facilities: ["Serambi Luas", "Toilet 12 Pintu", "Ambulans Siaga", "Logistik Makanan"],
-      contactPerson: "H. Ahmad Syafei (DKM)",
-      contactPhone: "0821-2233-4455",
-      status: "TERSEDIA",
-      lat: -6.388,
-      lng: 108.152,
-    },
-    {
-      id: "sh-4",
-      name: "GOR Mini Kandanghaur",
-      location: "Jl. Olahraga Blok Barat No. 12, Kandanghaur",
-      district: "Kandanghaur",
-      distance: "1.8 km (±8 menit)",
-      capacityTotal: 500,
-      capacityFilled: 310,
-      facilities: ["Aula Terbuka Luas", "Sanitasi MCK (8 Unit)", "Tenda Pleton BNPB"],
-      contactPerson: "Ibu Ratna (Tagana)",
-      contactPhone: "0821-4433-2100",
-      status: "TERSEDIA",
-      lat: -6.352,
-      lng: 108.128,
-    },
-    {
-      id: "sh-5",
-      name: "Balai Desa Eretan Kulon",
-      location: "Jl. Muara Nelayan No. 08, Eretan Kulon",
-      district: "Eretan",
-      distance: "2.1 km (±9 menit)",
-      capacityTotal: 220,
-      capacityFilled: 110,
-      facilities: ["Dapur Umum", "Air Bersih PDAM", "Posko Bidan Siaga"],
-      contactPerson: "Bpk. Dedi (Kuwu)",
-      contactPhone: "0813-2211-9988",
-      status: "TERSEDIA",
-      lat: -6.338,
-      lng: 108.112,
-    },
-    {
-      id: "sh-6",
-      name: "SMP Negeri 1 Cantigi",
-      location: "Jl. Ki Hajar Dewantara No. 04, Cantigi",
-      district: "Cantigi",
-      distance: "4.8 km (±15 menit)",
-      capacityTotal: 200,
-      capacityFilled: 190,
-      facilities: ["Ruang Kelas Tidur", "Dokter Siaga", "Air Bersih"],
-      contactPerson: "Pak Hendra (Satlak Cantigi)",
-      contactPhone: "0852-7711-9022",
-      status: "HAMPIR_PENUH",
-      lat: -6.2842,
-      lng: 108.2635,
-    },
-    {
-      id: "sh-7",
-      name: "Balai Desa Cangkring Cantigi",
-      location: "Jl. Tanggul Sungai Cantigi No. 15",
-      district: "Cantigi",
-      distance: "5.3 km (±18 menit)",
-      capacityTotal: 180,
-      capacityFilled: 60,
-      facilities: ["Dapur Warga", "Ruang Balita", "Genset Cadangan"],
-      contactPerson: "Bpk. Tarkim (Kuwu)",
-      contactPhone: "0877-3344-5511",
-      status: "TERSEDIA",
-      lat: -6.291,
-      lng: 108.258,
-    },
-    {
-      id: "sh-8",
-      name: "Aula Kantor Kecamatan Losarang",
-      location: "Jl. Raya Pantura Losarang KM 68",
-      district: "Losarang",
-      distance: "4.5 km (±14 menit)",
-      capacityTotal: 350,
-      capacityFilled: 140,
-      facilities: ["Posko Logistik PMI", "Ambulans Siaga 24 Jam", "Dapur Umum Kemensos"],
-      contactPerson: "Drs. H. Suwandi (Camat)",
-      contactPhone: "0812-3344-5566",
-      status: "TERSEDIA",
-      lat: -6.402,
-      lng: 108.165,
-    },
-    {
-      id: "sh-9",
-      name: "Balai Desa Pasekan",
-      location: "Jl. Raya Pasekan No. 18, Pasekan",
-      district: "Pasekan",
-      distance: "6.2 km (±20 menit)",
-      capacityTotal: 200,
-      capacityFilled: 85,
-      facilities: ["Dapur Warga Mandiri", "Bidan Desa Siaga", "Ruang Balita & Anak"],
-      contactPerson: "Pak Carma (Satgas Desa)",
-      contactPhone: "0877-2233-4411",
-      status: "TERSEDIA",
-      lat: -6.315,
-      lng: 108.295,
-    },
-    {
-      id: "sh-10",
-      name: "Gedung Serbaguna Polindra Lohbener",
-      location: "Jl. Raya Lohbener No. 08, Lohbener",
-      district: "Lohbener",
-      distance: "7.5 km (±22 menit)",
-      capacityTotal: 600,
-      capacityFilled: 250,
-      facilities: ["Aula Terbuka", "Toilet Banyak", "Logistik Makanan", "Listrik Terpusat"],
-      contactPerson: "H. Sukirno (Koordinator)",
-      contactPhone: "0819-8877-6655",
-      status: "TERSEDIA",
-      lat: -6.388,
-      lng: 108.275,
-    },
-    {
-      id: "sh-11",
-      name: "GOR Singalodra Indramayu",
-      location: "Jl. MT Haryono No. 01, Sindang / Kota",
-      district: "Indramayu Kota",
-      distance: "9.2 km (±26 menit)",
-      capacityTotal: 800,
-      capacityFilled: 320,
-      facilities: ["Pusat Komando Utama BPBD", "Dapur Umum Terpadu", "Rumah Sakit Lapangan"],
-      contactPerson: "Drs. Dadang (BPBD)",
-      contactPhone: "0811-2345-6789",
-      status: "TERSEDIA",
-      lat: -6.326,
-      lng: 108.324,
-    },
-    {
-      id: "sh-12",
-      name: "Balai Desa Dermayu Sindang",
-      location: "Jl. Mayor Dasuki No. 22, Sindang",
-      district: "Sindang",
-      distance: "8.7 km (±24 menit)",
-      capacityTotal: 250,
-      capacityFilled: 110,
-      facilities: ["Serambi Posko", "Dapur Tagana", "Logistik Sembako"],
-      contactPerson: "Bpk. Waryono (Kuwu)",
-      contactPhone: "0813-6677-8899",
-      status: "TERSEDIA",
-      lat: -6.338,
-      lng: 108.310,
-    },
-  ];
-
-  const [shelters, setShelters] = useState<ShelterItem[]>(initialShelters);
-
-  // Muat data seluruh sekolah posko banjir dari GeoJSON
-  useEffect(() => {
-    fetchSchoolSheltersGeoJSON()
-      .then((data) => {
-        if (!data?.features || data.features.length === 0) return;
-
-        // Koordinat acuan default: Kandanghaur / Eretan Wetan (-6.3475, 108.1189)
-        const originLat = -6.3475;
-        const originLng = 108.1189;
-
-        const schoolShelters: ShelterItem[] = data.features.map((f, idx) => {
-          const p = f.properties;
-          const [lng, lat] = f.geometry.coordinates;
-          const kecClean = (p.kecamatan || "Indramayu").replace("Kec. ", "").trim();
-
-          // Hitung jarak Haversine (km)
-          const R = 6371;
-          const dLat = ((lat - originLat) * Math.PI) / 180;
-          const dLon = ((lng - originLng) * Math.PI) / 180;
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((originLat * Math.PI) / 180) *
-              Math.cos((lat * Math.PI) / 180) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const dKm = R * c;
-
-          const distanceStr =
-            dKm < 1 ? `${Math.round(dKm * 1000)} m` : `${dKm.toFixed(1)} km`;
-          const estMinutes = Math.max(3, Math.round(dKm * 3.5));
-
-          const capTotal = p.estimasi_kapasitas_pengungsi_jiwa || 150;
-          const fillRatio = 0.25 + ((idx * 13) % 55) / 100;
-          const capFilled = Math.min(capTotal, Math.round(capTotal * fillRatio));
-
-          const status: "TERSEDIA" | "HAMPIR_PENUH" | "PENUH" =
-            capFilled >= capTotal
-              ? "PENUH"
-              : capFilled / capTotal > 0.8
-              ? "HAMPIR_PENUH"
-              : "TERSEDIA";
-
-          let facilities = ["Ruang Kelas Belajar", "MCK & Sanitasi", "Akses Evakuasi Dekat Warga"];
-          if (p.bentuk_pendidikan === "SMA" || p.bentuk_pendidikan === "SMK") {
-            facilities = [
-              "Aula Serbaguna Luas",
-              "Dapur Umum Darurat",
-              "Ruang Medis / UKS",
-              "MCK Memadai",
-              "Listrik Cadangan",
-            ];
-          } else if (p.bentuk_pendidikan === "SMP") {
-            facilities = [
-              "Ruang Kelas Evakuasi",
-              "Halaman Terbuka",
-              "Toilet Guru & Siswa",
-              "Air Bersih",
-            ];
-          }
-
-          return {
-            id: p.id_posko || `sh-sek-${idx}`,
-            name: p.nama_sekolah,
-            location: p.alamat_jalan?.trim() || `${p.nama_sekolah}, Kec. ${kecClean}`,
-            district: kecClean,
-            distance: `${distanceStr} (±${estMinutes} menit)`,
-            capacityTotal: capTotal,
-            capacityFilled: capFilled,
-            facilities: facilities,
-            contactPerson: "Satgas Posko Sekolah",
-            contactPhone: "112 (Pusdalops BPBD)",
-            status: status,
-            lat: lat,
-            lng: lng,
-          };
-        });
-
-        // Filter agar nama posko tidak duplikat dengan initialShelters
-        const existingNames = new Set(initialShelters.map((s) => s.name.toLowerCase()));
-        const uniqueSchools = schoolShelters.filter(
-          (s) => !existingNames.has(s.name.toLowerCase())
-        );
-
-        setShelters([...initialShelters, ...uniqueSchools]);
-      })
-      .catch((err) => {
-        console.warn("Gagal memuat posko sekolah:", err);
-      });
-  }, []);
+  // Shelters Data: 100 Data Posko Evakuasi Terkurasi Aman dari Genangan
+  const [shelters] = useState<ShelterItem[]>(() =>
+    CURATED_POSKO_LIST.map((p) => ({
+      id: p.id,
+      name: p.nama,
+      location: p.alamat,
+      district: p.kecamatan,
+      distance: "Menghitung jarak GPS...",
+      capacityTotal: p.kapasitas,
+      capacityFilled: p.terisi,
+      facilities: p.fasilitas,
+      contactPerson: p.kontak.pj,
+      contactPhone: p.kontak.telp,
+      status: p.status,
+      lat: p.lat,
+      lng: p.lng,
+    }))
+  );
 
   // Telemetry Points
   const telemetryPoints: MapTelemetryPoint[] = [
@@ -676,7 +418,23 @@ export default function WargaEvakuasiPage() {
   };
 
   // Convert complaints to map points
+  // 20 Titik Simulasi Hambatan Genangan di Jalan Utama (Radius 200m)
+  const floodObstacleReports: MapReportPoint[] = FLOOD_OBSTACLES.map((obs, idx) => ({
+    id: obs.id,
+    ticketCode: `GEN-${String(idx + 1).padStart(3, "0")}`,
+    title: obs.title,
+    category: obs.zone === "PESISIR_ROB" ? "Banjir Rob" : "Luapan DAS Cimanuk",
+    severity: obs.severity,
+    waterLevelText: `${obs.depthCm} cm`,
+    status: obs.status,
+    location: obs.location,
+    lat: obs.lat,
+    lng: obs.lng,
+    timeAgo: "Aktif Terpantau",
+  }));
+
   const mapReportPoints: MapReportPoint[] = [
+    ...floodObstacleReports,
     ...complaints.map((c) => ({
       id: c.id,
       ticketCode: c.ticketCode,
@@ -684,7 +442,7 @@ export default function WargaEvakuasiPage() {
       category: c.categoryLabel,
       severity: c.severity,
       waterLevelText: c.waterLevelText,
-      status: c.status === "ASSIGNED" ? "Petugas Ditugaskan" : "Terverifikasi",
+      status: c.status,
       location: c.location,
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
@@ -705,20 +463,23 @@ export default function WargaEvakuasiPage() {
     })),
   ];
 
-  const mapShelterPoints: MapShelterPoint[] = shelters.map((s) => ({
-    id: s.id,
-    name: s.name,
-    location: s.location,
-    district: s.district,
-    distance: s.distance,
-    capacityTotal: s.capacityTotal,
-    capacityFilled: s.capacityFilled,
-    status: s.status,
-    contactPerson: s.contactPerson,
-    contactPhone: s.contactPhone,
-    lat: s.lat,
-    lng: s.lng,
-    facilities: s.facilities,
+  const mapShelterPoints: MapShelterPoint[] = CURATED_POSKO_LIST.map((p) => ({
+    id: p.id,
+    name: p.nama,
+    location: p.alamat,
+    district: p.kecamatan,
+    distance: "Menghitung jarak...",
+    capacityTotal: p.kapasitas,
+    capacityFilled: p.terisi,
+    status: p.status,
+    contactPerson: p.kontak.pj,
+    contactPhone: p.kontak.telp,
+    lat: p.lat,
+    lng: p.lng,
+    facilities: p.fasilitas,
+    kategori: p.kategori,
+    foto: p.foto,
+    tier: p.tier,
   }));
 
   return (

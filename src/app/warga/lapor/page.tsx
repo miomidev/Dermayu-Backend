@@ -322,6 +322,7 @@ export default function WargaLaporPage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("dermayu_reports_updated", { detail: updated }));
     } catch (err) {
       console.warn("Gagal menyimpan riwayat aduan ke localStorage:", err);
     }

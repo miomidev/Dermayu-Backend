@@ -84,6 +84,13 @@ export interface MapReportPoint {
   lat: number;
   lng: number;
   timeAgo: string;
+  photos?: string[];
+  note?: string;
+  aiScore?: {
+    label: string;
+    confidence: number;
+  };
+  urgentNeeds?: string[];
 }
 
 export interface MapShelterPoint {
@@ -1299,6 +1306,13 @@ export default function WargaSpatialMap({
 
         const popupContent = `
           <div style="font-family: inherit; width: 220px; padding: 2px; color: #132422;">
+            ${
+              rep.photos && rep.photos.length > 0
+                ? `<div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #EEF5F3;">
+                    <img src="${rep.photos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="Bukti Foto" />
+                   </div>`
+                : ""
+            }
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <span style="font-size: 10px; font-weight: 800; font-family: monospace; color: ${color}; background: #FFF1F2; padding: 2px 6px; border-radius: 6px; border: 1px solid #FECDD3;">
                 ${rep.ticketCode}
@@ -4550,6 +4564,17 @@ export default function WargaSpatialMap({
             </p>
           </div>
 
+          {/* Bukti Foto Laporan Warga / Kamera AI */}
+          {activeReportDetail.photos && activeReportDetail.photos.length > 0 && (
+            <div className="rounded-xl overflow-hidden border border-[#D5E4E0] bg-slate-100 max-h-36 w-full">
+              <img
+                src={activeReportDetail.photos[0]}
+                alt="Bukti Foto Aduan"
+                className="w-full h-32 object-cover"
+              />
+            </div>
+          )}
+
           {/* Parameter TMA & Status */}
           <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10.5px]">
             <div>
@@ -4566,6 +4591,14 @@ export default function WargaSpatialMap({
               </strong>
             </div>
           </div>
+
+          {/* Catatan / Keterangan Penanganan Petugas */}
+          {activeReportDetail.note && (
+            <div className="p-2 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10px] text-[#4B635F]">
+              <span className="font-extrabold text-[#132422] block mb-0.5">Catatan Aduan:</span>
+              <p className="leading-relaxed">{activeReportDetail.note}</p>
+            </div>
+          )}
 
           {/* Peringatan Petugas BPBD */}
           <div className="text-[9.5px] p-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-900 flex items-start gap-1">

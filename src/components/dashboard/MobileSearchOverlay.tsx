@@ -566,7 +566,7 @@ export function MobileSearchOverlay({ isOpen, onClose }: MobileSearchOverlayProp
                   <button
                     type="button"
                     onClick={() => handleSelect("/warga/dashboard")}
-                    className="text-[11px] font-bold text-[#155E45] hover:underline"
+                    className="text-[11px] font-bold text-[#38746D] hover:underline"
                   >
                     Pantau &gt;
                   </button>
@@ -602,7 +602,7 @@ export function MobileSearchOverlay({ isOpen, onClose }: MobileSearchOverlayProp
                           </div>
                           <div className="min-w-0 pr-2">
                             <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#155E45] transition-colors truncate">
+                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#38746D] transition-colors truncate">
                                 {item.title}
                               </h4>
                               {item.badge && (

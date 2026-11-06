@@ -180,7 +180,7 @@ export function FullscreenCameraModal({
               <button
                 type="button"
                 onClick={() => fallbackInputRef.current?.click()}
-                className="w-full py-3.5 rounded-full bg-emerald-600 text-white font-bold text-sm shadow-lg hover:bg-emerald-500 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-full bg-[#38746D] text-white font-bold text-sm shadow-lg hover:bg-[#24544E] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Camera className="w-4 h-4" />
                 <span>Buka Kamera Perangkat Bawaan</span>

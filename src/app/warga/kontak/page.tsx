@@ -89,7 +89,7 @@ const emergencyContacts: EmergencyContact[] = [
     is24Hours: true,
     priority: "utama",
     icon: HeartPulse,
-    badgeColor: "bg-emerald-600 text-white",
+    badgeColor: "bg-[#38746D] text-white",
   },
   {
     id: "pmi-indramayu",
@@ -251,7 +251,7 @@ export default function KontakDaruratPage() {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategory === cat.id
-                    ? "bg-[#1D443F] text-white shadow-xs"
+                    ? "bg-[#38746D] text-white shadow-xs"
                     : "bg-white text-[#4B635F] border border-[#D5E4E0] hover:bg-gray-50"
                 }`}
               >
@@ -350,7 +350,7 @@ export default function KontakDaruratPage() {
 
                     <a
                       href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
-                      className="px-4 py-2 rounded-xl bg-[#1D443F] hover:bg-[#38746D] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                      className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
                     >
                       <PhoneCall className="w-3.5 h-3.5" />
                       Panggil

@@ -146,8 +146,8 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
                 <div
                   className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 ${
                     isActive
-                      ? "bg-[#0E3D2D] text-white shadow-lg shadow-[#0E3D2D]/40 scale-105"
-                      : "bg-[#0E3D2D] text-white hover:bg-[#155E45] shadow-lg shadow-[#0E3D2D]/30"
+                      ? "bg-[#38746D] text-white shadow-lg shadow-[#38746D]/40 scale-105"
+                      : "bg-[#38746D] text-white hover:bg-[#24544E] shadow-lg shadow-[#38746D]/30"
                   }`}
                 >
                   <Icon className="w-7 h-7 text-white" />
@@ -155,8 +155,8 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
                 <span
                   className={`text-[11px] mt-1 tracking-tight text-center leading-none transition-colors ${
                     isActive
-                      ? "font-semibold text-[#0E3D2D]"
-                      : "font-medium text-slate-600 group-hover:text-[#0E3D2D]"
+                      ? "font-semibold text-[#38746D]"
+                      : "font-medium text-slate-600 group-hover:text-[#38746D]"
                   }`}
                 >
                   {item.label}
@@ -174,21 +174,21 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
               scroll={false}
               className={`flex flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95 cursor-pointer ${
                 isActive
-                  ? "text-[#0E3D2D]"
+                  ? "text-[#38746D]"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <Icon
                 className={`w-6 h-6 transition-transform ${
                   isActive
-                    ? "stroke-[2.3] text-[#0E3D2D] scale-105"
+                    ? "stroke-[2.3] text-[#38746D] scale-105"
                     : "stroke-[1.9] text-slate-500"
                 }`}
               />
               <span
                 className={`text-[11px] tracking-tight leading-tight mt-1 text-center truncate max-w-[68px] ${
                   isActive
-                    ? "font-semibold text-[#0E3D2D]"
+                    ? "font-semibold text-[#38746D]"
                     : "font-medium text-slate-500"
                 }`}
               >

@@ -6,6 +6,11 @@
   --font-serif: 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif;
   --color-deep-teal: #38746D;
   --color-pale-mint: #EEF5F3;
+  --color-dermayu-primary: #38746D;
+  --color-dermayu-hover: #24544E;
+  --color-dermayu-dark: #1D443F;
+  --color-dermayu-light: #EEF5F3;
+  --color-dermayu-border: #D5E4E0;
 }
 
 :root {

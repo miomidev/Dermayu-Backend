@@ -192,7 +192,7 @@ export default function WargaPoskoPage() {
             onClick={() => setIsFilterOpen((prev) => !prev)}
             className={`h-12 w-12 sm:w-auto sm:px-4.5 rounded-full border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer shrink-0 shadow-xs ${
               isFilterOpen || activeFilterCount > 0
-                ? "bg-[#1D443F] text-white border-[#1D443F]"
+                ? "bg-[#38746D] text-white border-[#38746D]"
                 : "bg-white hover:bg-[#F8FAF9] text-[#1D443F] border-[#D5E4E0]"
             }`}
             title="Filter Posko"
@@ -258,7 +258,7 @@ export default function WargaPoskoPage() {
                     onClick={() => setFilterStatus(st.id)}
                     className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       filterStatus === st.id
-                        ? "bg-[#1D443F] text-white shadow-xs"
+                        ? "bg-[#38746D] text-white shadow-xs"
                         : "bg-[#F8FAF9] text-[#4B635F] border border-[#D5E4E0] hover:bg-gray-100"
                     }`}
                   >
@@ -299,7 +299,7 @@ export default function WargaPoskoPage() {
               <button
                 type="button"
                 onClick={() => setIsFilterOpen(false)}
-                className="px-5 py-2 rounded-full bg-[#1D443F] hover:bg-[#132422] text-white font-bold text-xs transition cursor-pointer shadow-sm"
+                className="px-5 py-2 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs transition cursor-pointer shadow-sm"
               >
                 Terapkan
               </button>
@@ -398,7 +398,7 @@ export default function WargaPoskoPage() {
                             ? "bg-rose-500"
                             : percent >= 70
                             ? "bg-amber-500"
-                            : "bg-[#1D443F]"
+                            : "bg-[#38746D]"
                         }`}
                         style={{ width: `${percent}%` }}
                       />
@@ -468,7 +468,7 @@ export default function WargaPoskoPage() {
                       href={`https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1D443F] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
                       title="Buka Navigasi Rute di Google Maps"
                     >
                       <Navigation className="w-3.5 h-3.5 text-[#88BDB6]" />

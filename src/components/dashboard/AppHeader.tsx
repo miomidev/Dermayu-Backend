@@ -302,7 +302,7 @@ export function AppHeader({
             onClick={() => {
               setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
             }}
-            className="text-[10px] font-semibold text-[#155E45] hover:underline cursor-pointer"
+            className="text-[10px] font-semibold text-[#38746D] hover:underline cursor-pointer"
           >
             Tandai dibaca
           </button>

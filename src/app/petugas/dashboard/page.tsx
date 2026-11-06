@@ -556,7 +556,7 @@ export default function PetugasDashboard() {
                           <button
                             type="button"
                             onClick={() => handleResolveReport(item.id, item.ticketCode)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-colors cursor-pointer flex items-center gap-1 mx-auto"
+                            className="px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-[11px] shadow-2xs transition-colors cursor-pointer flex items-center gap-1 mx-auto"
                             title="Tandai evakuasi atau penanganan telah selesai (PRD FR-OPS-02)"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />

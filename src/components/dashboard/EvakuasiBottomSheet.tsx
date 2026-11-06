@@ -303,7 +303,7 @@ export function EvakuasiBottomSheet({
                           onSelectShelter(shelters[0]);
                         }
                       }}
-                      className="px-3.5 py-1.5 rounded-full bg-[#155E45] text-white text-xs font-bold hover:bg-[#1D443F] shadow-sm flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full bg-[#38746D] text-white text-xs font-bold hover:bg-[#24544E] shadow-sm flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
                     >
                       <Navigation className="w-3.5 h-3.5" />
                       <span>Pandu Rute Ini</span>
@@ -395,7 +395,7 @@ export function EvakuasiBottomSheet({
                           if (onSelectShelter) onSelectShelter(s);
                           setIsExpanded(false);
                         }}
-                        className="h-7 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[10.5px] font-black flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E]"
+                        className="h-7 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[10.5px] font-black flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
                       >
                         <Navigation className="w-3 h-3 text-emerald-300" />
                         <span>Arahkan Rute</span>

@@ -463,7 +463,7 @@ export default function PetugasTriagePage() {
                           <button
                             type="button"
                             onClick={() => handleResolve(rep)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
+                            className="px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             Selesaikan
@@ -616,7 +616,7 @@ export default function PetugasTriagePage() {
                   <button
                     type="button"
                     onClick={() => handleResolve(selectedReport)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Tandai Telah Selesai

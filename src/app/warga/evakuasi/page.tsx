@@ -831,7 +831,7 @@ export default function WargaEvakuasiPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-[#1D443F] hover:bg-[#24544E] text-white text-xs font-bold shadow-md transition cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-md transition cursor-pointer"
                   >
                     Kirim Laporan Sekarang
                   </button>
@@ -885,7 +885,7 @@ export default function WargaEvakuasiPage() {
 
                   <a
                     href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
-                    className="px-3 py-1.5 rounded-xl bg-[#1D443F] hover:bg-[#24544E] text-white text-xs font-bold shrink-0 transition"
+                    className="px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shrink-0 transition"
                   >
                     {contact.phone}
                   </a>

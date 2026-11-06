@@ -484,7 +484,7 @@ export default function WargaKomunitasPage() {
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#1D443F] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+          className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Buat Kabar Baru</span>
@@ -805,7 +805,7 @@ export default function WargaKomunitasPage() {
                       onClick={() => setSelectedCategory(tab.id)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                         selectedCategory === tab.id
-                          ? "bg-[#1D443F] text-white shadow-2xs"
+                          ? "bg-[#38746D] text-white shadow-2xs"
                           : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
                       }`}
                     >
@@ -1070,7 +1070,7 @@ export default function WargaKomunitasPage() {
             <div className="pt-2 flex flex-col gap-2">
               <Link
                 href="/warga/lapor"
-                className="w-full py-2.5 rounded-full bg-[#1D443F] hover:bg-[#38746D] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2"
               >
                 Buat Laporan Resmi BPBD
                 <ArrowRight className="w-3.5 h-3.5" />

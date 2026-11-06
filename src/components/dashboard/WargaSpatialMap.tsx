@@ -316,7 +316,7 @@ const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 
 
   const config = {
     posko: {
-      bg: "bg-[#2D6A4F]",
+      bg: "bg-[#38746D]",
       icon: (sz: string) => <Home className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     genangan: {
@@ -365,7 +365,7 @@ const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 
   const html = `
     <div class="relative flex flex-col items-center group cursor-pointer filter drop-shadow-md ${isActive ? "z-[999]" : ""}">
       <div class="${circleSize} ${config.bg} rounded-full border-2 border-white shadow-md flex items-center justify-center relative z-10 transition-transform ${isActive
-      ? "scale-110 ring-2 ring-[#2D6A4F] shadow-lg"
+      ? "scale-110 ring-2 ring-[#38746D] shadow-lg"
       : "group-hover:scale-105"
     }">
         ${renderToStaticMarkup(config.icon(iconSizeCls))}
@@ -1193,7 +1193,7 @@ export default function WargaSpatialMap({
       style: {
         fill: false,
         fillOpacity: 0,
-        color: "#1B4D3E",
+        color: "#24544E",
         weight: 2.5,
         opacity: 0.95,
         dashArray: "6, 6",
@@ -2751,7 +2751,7 @@ export default function WargaSpatialMap({
         key={sh.id}
         onClick={() => handleSelectShelterItem(sh)}
         className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-left ${isSelected
-          ? "bg-emerald-50/90 border-[#2D6A4F] shadow-xs"
+          ? "bg-emerald-50/90 border-[#38746D] shadow-xs"
           : "bg-white hover:bg-emerald-50/40 border-gray-100 hover:border-emerald-200"
           }`}
       >
@@ -2763,7 +2763,7 @@ export default function WargaSpatialMap({
               {sh.name}
             </h5>
             {showClosestBadge && index === 0 && (
-              <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-[#2D6A4F] text-white shrink-0 tracking-wider">
+              <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-[#38746D] text-white shrink-0 tracking-wider">
                 POSKO TERDEKAT
               </span>
             )}
@@ -2788,7 +2788,7 @@ export default function WargaSpatialMap({
                 drawSafeRoute(sh);
                 if (onSelectShelter) onSelectShelter(sh);
               }}
-              className="h-6.5 px-2.5 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[9.5px] font-bold flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E]"
+              className="h-6.5 px-2.5 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white text-[9.5px] font-bold flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
             >
               <Navigation className="w-2.5 h-2.5 text-emerald-300" />
               <span>Arahkan Rute</span>
@@ -2895,7 +2895,7 @@ export default function WargaSpatialMap({
                     e.stopPropagation();
                     handleBackToShelterDetail();
                   }}
-                  className="p-1 -ml-1 rounded-lg hover:bg-emerald-50 text-[#2D6A4F] transition active:scale-95 cursor-pointer shrink-0"
+                  className="p-1 -ml-1 rounded-lg hover:bg-emerald-50 text-[#38746D] transition active:scale-95 cursor-pointer shrink-0"
                   title="Kembali ke Detail Posko"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -2919,7 +2919,7 @@ export default function WargaSpatialMap({
                         e.stopPropagation();
                         handleStartTurnByTurnNavigation();
                       }}
-                      className="h-7 px-2.5 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                      className="h-7 px-2.5 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
                     >
                       <Navigation className="w-3 h-3 text-emerald-300" />
                       <span>Mulai</span>
@@ -3008,7 +3008,7 @@ export default function WargaSpatialMap({
                 </div>
                 <div className="grid grid-cols-3 gap-2 bg-slate-100/70 p-1 rounded-xl">
                   <div className="py-2 flex flex-col items-center justify-center gap-1 bg-white rounded-lg shadow-2xs">
-                    <Bike className="w-4 h-4 text-[#2D6A4F]" />
+                    <Bike className="w-4 h-4 text-[#38746D]" />
                     <div className="w-8 h-2.5 bg-emerald-100 rounded" />
                   </div>
                   <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
@@ -3065,7 +3065,7 @@ export default function WargaSpatialMap({
                 onClick={() => handleSelectTransportMode("motorcycle")}
                 className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
                   activeNavRoute.transportMode === "motorcycle"
-                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    ? "bg-white text-[#38746D] shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -3077,7 +3077,7 @@ export default function WargaSpatialMap({
                 onClick={() => handleSelectTransportMode("car")}
                 className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
                   activeNavRoute.transportMode === "car"
-                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    ? "bg-white text-[#38746D] shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -3097,7 +3097,7 @@ export default function WargaSpatialMap({
                 onClick={() => handleSelectTransportMode("walking")}
                 className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition text-xs font-bold cursor-pointer ${
                   activeNavRoute.transportMode === "walking"
-                    ? "bg-white text-[#2D6A4F] shadow-xs"
+                    ? "bg-white text-[#38746D] shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -3151,7 +3151,7 @@ export default function WargaSpatialMap({
                     onClick={() => handleSelectRouteIndex(idx)}
                     className={`rounded-xl p-3 cursor-pointer transition-all ${
                       isSelected
-                        ? "bg-emerald-50/30 border-2 border-[#2D6A4F] shadow-xs"
+                        ? "bg-emerald-50/30 border-2 border-[#38746D] shadow-xs"
                         : "bg-white border border-slate-200 hover:border-slate-300"
                     }`}
                   >
@@ -3182,7 +3182,7 @@ export default function WargaSpatialMap({
                           </span>
                         )}
                         {isSelected && (
-                          <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                          <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
                             <Check className="w-2.5 h-2.5 stroke-[3]" />
                           </div>
                         )}
@@ -3198,7 +3198,7 @@ export default function WargaSpatialMap({
               <button
                 type="button"
                 onClick={handleStartTurnByTurnNavigation}
-                className="w-full py-3 px-4 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md cursor-pointer border border-[#1B4D3E]"
+                className="w-full py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md cursor-pointer border border-[#24544E]"
               >
                 <Navigation className="w-4 h-4 text-emerald-300" />
                 <span>Mulai Panduan Langkah Demi Langkah</span>
@@ -3357,7 +3357,7 @@ export default function WargaSpatialMap({
                     customWaypoint
                   )
                 }
-                className="h-9 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E] flex-1 min-w-0"
+                className="h-9 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
               >
                 <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
                 <span className="truncate">Arahkan Rute</span>
@@ -3422,7 +3422,7 @@ export default function WargaSpatialMap({
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
                 <div
-                  className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500"
+                  className="h-full bg-[#38746D] rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.min(
                       100,
@@ -3460,7 +3460,7 @@ export default function WargaSpatialMap({
                   }}
                   className={`rounded-xl p-3 cursor-pointer transition-all ${
                     selectedRouteClassification === 1
-                      ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                      ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
                       : "bg-white border border-slate-200 hover:border-slate-300"
                   }`}
                 >
@@ -3478,7 +3478,7 @@ export default function WargaSpatialMap({
                         Bebas Banjir
                       </span>
                       {selectedRouteClassification === 1 && (
-                        <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                        <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                       )}
@@ -3609,7 +3609,7 @@ export default function WargaSpatialMap({
                     setIsPickingWaypoint(true);
                     setToastMessage("Klik jalan pada peta untuk menentukan titik singgah");
                   }}
-                  className="text-xs font-medium text-[#2D6A4F] hover:text-[#23533E] py-2 flex items-center justify-center gap-1.5 w-full border border-dashed border-emerald-300 rounded-xl bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer transition-colors"
+                  className="text-xs font-medium text-[#38746D] hover:text-[#23533E] py-2 flex items-center justify-center gap-1.5 w-full border border-dashed border-emerald-300 rounded-xl bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer transition-colors"
                 >
                   <span>Pilih rute manual di peta ✏️</span>
                 </button>
@@ -3816,7 +3816,7 @@ export default function WargaSpatialMap({
             </div>
             <div className="grid grid-cols-3 gap-1 bg-slate-100/70 p-1 rounded-xl">
               <div className="py-2 flex flex-col items-center justify-center gap-1 bg-white rounded-lg shadow-2xs">
-                <Bike className="w-4 h-4 text-[#2D6A4F]" />
+                <Bike className="w-4 h-4 text-[#38746D]" />
                 <div className="w-8 h-2.5 bg-emerald-100 rounded animate-pulse" />
               </div>
               <div className="py-2 flex flex-col items-center justify-center gap-1 opacity-60">
@@ -3868,7 +3868,7 @@ export default function WargaSpatialMap({
         return (
           <div className="flex items-center justify-between gap-2 p-1 animate-in fade-in duration-150">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-[#2D6A4F] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-[#38746D] flex items-center justify-center shrink-0">
                 {activeNavRoute.transportMode === "motorcycle" ? (
                   <Bike className="w-5 h-5" />
                 ) : activeNavRoute.transportMode === "car" ? (
@@ -3898,7 +3898,7 @@ export default function WargaSpatialMap({
                   e.stopPropagation();
                   setSheetSnap("mid");
                 }}
-                className="h-8 px-2.5 rounded-lg bg-emerald-50 text-[#2D6A4F] text-[10.5px] font-extrabold hover:bg-emerald-100 border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center gap-1"
+                className="h-8 px-2.5 rounded-lg bg-emerald-50 text-[#38746D] text-[10.5px] font-extrabold hover:bg-emerald-100 border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center gap-1"
               >
                 <Milestone className="w-3.5 h-3.5" />
                 <span>Langkah</span>
@@ -3934,7 +3934,7 @@ export default function WargaSpatialMap({
               type="button"
               onClick={() => handleSelectTransportMode("motorcycle")}
               className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "motorcycle"
-                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                ? "border-[#38746D] text-[#38746D] bg-emerald-50/50 font-black"
                 : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
                 }`}
             >
@@ -3947,7 +3947,7 @@ export default function WargaSpatialMap({
               type="button"
               onClick={() => handleSelectTransportMode("car")}
               className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "car"
-                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                ? "border-[#38746D] text-[#38746D] bg-emerald-50/50 font-black"
                 : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
                 }`}
             >
@@ -3966,7 +3966,7 @@ export default function WargaSpatialMap({
               type="button"
               onClick={() => handleSelectTransportMode("walking")}
               className={`flex-1 py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer border-b-2 ${activeNavRoute.transportMode === "walking"
-                ? "border-[#2D6A4F] text-[#2D6A4F] bg-emerald-50/50 font-black"
+                ? "border-[#38746D] text-[#38746D] bg-emerald-50/50 font-black"
                 : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold"
                 }`}
             >
@@ -4020,7 +4020,7 @@ export default function WargaSpatialMap({
                   onClick={() => handleSelectRouteIndex(idx)}
                   className={`rounded-xl p-3 cursor-pointer transition-all text-left ${
                     isSelected
-                      ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                      ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
                       : "bg-white border border-slate-200 hover:border-slate-300"
                   }`}
                 >
@@ -4051,7 +4051,7 @@ export default function WargaSpatialMap({
                         </span>
                       )}
                       {isSelected && (
-                        <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                        <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                       )}
@@ -4065,7 +4065,7 @@ export default function WargaSpatialMap({
             {activeNavRoute.showingSteps && (
               <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 animate-in fade-in duration-200">
                 <h6 className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                  <Milestone className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                  <Milestone className="w-3.5 h-3.5 text-[#38746D]" />
                   <span>Panduan Langkah Demi Langkah</span>
                 </h6>
                 <div className="space-y-1.5">
@@ -4092,7 +4092,7 @@ export default function WargaSpatialMap({
             <button
               type="button"
               onClick={handleStartTurnByTurnNavigation}
-              className="w-full py-2.5 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-xs cursor-pointer border border-[#1B4D3E]"
+              className="w-full py-2.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-xs cursor-pointer border border-[#24544E]"
             >
               <Navigation className="w-4 h-4 fill-white text-white" />
               <span>Mulai Panduan Langkah Demi Langkah</span>
@@ -4141,7 +4141,7 @@ export default function WargaSpatialMap({
                 {activeShelterDetail.name}
               </h4>
               <p className="text-[10px] text-[#4B635F] truncate flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3 h-3 text-[#2D6A4F] shrink-0" />
+                <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
                 <span>{activeShelterDetail.distance.split("(")[0].trim()} &bull; Siaga 24 Jam</span>
               </p>
               <div className="text-[9.5px] text-slate-500 font-semibold mt-0.5 truncate">
@@ -4157,7 +4157,7 @@ export default function WargaSpatialMap({
                   e.stopPropagation();
                   drawSafeRoute(activeShelterDetail);
                 }}
-                className="h-8.5 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[11px] font-black flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E]"
+                className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
               >
                 <Navigation className="w-3.5 h-3.5 text-emerald-300" />
                 <span>Rute</span>
@@ -4168,7 +4168,7 @@ export default function WargaSpatialMap({
                   e.stopPropagation();
                   setSheetSnap("mid");
                 }}
-                className="h-8.5 w-8.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#2D6A4F] border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center justify-center"
+                className="h-8.5 w-8.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#38746D] border border-emerald-200/80 transition active:scale-95 cursor-pointer flex items-center justify-center"
                 title="Buka Detail Lengkap"
                 aria-label="Buka Detail Lengkap"
               >
@@ -4226,7 +4226,7 @@ export default function WargaSpatialMap({
                   customWaypoint
                 )
               }
-              className="h-8.5 px-3 rounded-xl bg-[#2D6A4F] hover:bg-[#1B4D3E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#1B4D3E] flex-1 min-w-0"
+              className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
             >
               <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
               <span className="truncate">Arahkan Rute</span>
@@ -4291,7 +4291,7 @@ export default function WargaSpatialMap({
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
               <div
-                className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500"
+                className="h-full bg-[#38746D] rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.min(
                     100,
@@ -4320,7 +4320,7 @@ export default function WargaSpatialMap({
                 }}
                 className={`rounded-xl p-3 cursor-pointer transition-all ${
                   selectedRouteClassification === 1
-                    ? "bg-emerald-50/40 border-2 border-[#2D6A4F] shadow-xs"
+                    ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
                     : "bg-white border border-slate-200 hover:border-slate-300"
                 }`}
               >
@@ -4338,7 +4338,7 @@ export default function WargaSpatialMap({
                       Bebas Banjir
                     </span>
                     {selectedRouteClassification === 1 && (
-                      <div className="w-4 h-4 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center shrink-0">
+                      <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </div>
                     )}
@@ -4792,7 +4792,7 @@ export default function WargaSpatialMap({
                       setToastMessage("Fitur pencarian suara (Microphone) aktif");
                       setTimeout(() => setToastMessage(null), 2500);
                     }}
-                    className="p-1 rounded-lg hover:bg-slate-100 hover:text-[#2D6A4F] transition cursor-pointer"
+                    className="p-1 rounded-lg hover:bg-slate-100 hover:text-[#38746D] transition cursor-pointer"
                     title="Pencarian Suara"
                     aria-label="Pencarian Suara"
                   >
@@ -4804,7 +4804,7 @@ export default function WargaSpatialMap({
                       setShowAllShelters((prev) => !prev);
                       if (!poskoExpanded) setPoskoExpanded(true);
                     }}
-                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || activeFilterChip !== "terdekat" ? "text-[#2D6A4F]" : "text-slate-400 hover:text-[#2D6A4F]"
+                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || activeFilterChip !== "terdekat" ? "text-[#38746D]" : "text-slate-400 hover:text-[#38746D]"
                       }`}
                     title="Filter Posko"
                     aria-label="Filter Posko"
@@ -4846,12 +4846,12 @@ export default function WargaSpatialMap({
                         if (!poskoExpanded) setPoskoExpanded(true);
                       }}
                       className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer ${isActive
-                        ? "bg-[#2D6A4F] text-white font-medium shadow-sm"
+                        ? "bg-[#38746D] text-white font-medium shadow-sm"
                         : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                         }`}
                     >
                       {chip.id === "terdekat" && (
-                        <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#2D6A4F]"}`} />
+                        <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#38746D]"}`} />
                       )}
                       <span>{chip.label}</span>
                     </button>
@@ -4884,7 +4884,7 @@ export default function WargaSpatialMap({
                       <button
                         type="button"
                         onClick={handleBackToShelterDetail}
-                        className="p-1.5 rounded-xl hover:bg-emerald-50 text-[#2D6A4F] transition cursor-pointer"
+                        className="p-1.5 rounded-xl hover:bg-emerald-50 text-[#38746D] transition cursor-pointer"
                         title="Kembali ke Detail Posko"
                         aria-label="Kembali ke Detail Posko"
                       >
@@ -4926,7 +4926,7 @@ export default function WargaSpatialMap({
                   <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                        <Building2 className="w-4 h-4 text-[#2D6A4F]" />
+                        <Building2 className="w-4 h-4 text-[#38746D]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
@@ -4967,7 +4967,7 @@ export default function WargaSpatialMap({
                       onClick={() => setPoskoExpanded((prev) => !prev)}
                     >
                       <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                        <Building2 className="w-4 h-4 text-[#2D6A4F]" />
+                        <Building2 className="w-4 h-4 text-[#38746D]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
@@ -4988,7 +4988,7 @@ export default function WargaSpatialMap({
                           transition={{ duration: 0.3, ease: "easeInOut" }}
                           className="flex items-center justify-center"
                         >
-                          <ChevronDown className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                          <ChevronDown className="w-3.5 h-3.5 text-[#38746D]" />
                         </motion.div>
                       </button>
                     </div>
@@ -5018,7 +5018,7 @@ export default function WargaSpatialMap({
                               setActiveFilterChip("terdekat");
                               setShowAllShelters(false);
                             }}
-                            className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#2D6A4F] font-bold text-[11px] border border-emerald-200 transition cursor-pointer"
+                            className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#38746D] font-bold text-[11px] border border-emerald-200 transition cursor-pointer"
                           >
                             Reset Filter &amp; Pencarian
                           </button>
@@ -5032,7 +5032,7 @@ export default function WargaSpatialMap({
                               onClick={() => {
                                 setShowAllShelters((prev) => !prev);
                               }}
-                              className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2.5 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
+                              className="w-full bg-slate-50 hover:bg-slate-100 text-[#38746D] font-semibold text-xs py-2.5 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                             >
                               <span>
                                 {showAllShelters
@@ -5053,7 +5053,7 @@ export default function WargaSpatialMap({
                               setShowAllShelters(false);
                               setSearchQuery("");
                             }}
-                            className="w-full bg-slate-50 hover:bg-slate-100 text-[#2D6A4F] font-semibold text-xs py-2 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
+                            className="w-full bg-slate-50 hover:bg-slate-100 text-[#38746D] font-semibold text-xs py-2 rounded-xl border border-dashed border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
                           >
                             <span>Kembali ke 3 Posko Terdekat</span>
                             <ChevronUp className="w-3.5 h-3.5" />
@@ -5109,7 +5109,7 @@ export default function WargaSpatialMap({
         {/* ============================================================== */}
         {isNavigating && activeNavRoute && (
           <div
-            className="absolute top-3.5 inset-x-4 md:inset-x-auto md:left-6 md:w-[420px] z-[1200] bg-[#2D6A4F] text-white rounded-2xl p-4 shadow-2xl border border-emerald-600/40 flex items-center gap-4 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300"
+            className="absolute top-3.5 inset-x-4 md:inset-x-auto md:left-6 md:w-[420px] z-[1200] bg-[#38746D] text-white rounded-2xl p-4 shadow-2xl border border-emerald-600/40 flex items-center gap-4 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300"
           >
             {/* Maneuver Icon */}
             <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
@@ -5224,9 +5224,9 @@ export default function WargaSpatialMap({
             aria-label={isFullscreen ? "Kecilkan Peta" : "Perbesar Layar Penuh"}
           >
             {isFullscreen ? (
-              <Minimize2 className="w-5 h-5 text-[#2D6A4F]" />
+              <Minimize2 className="w-5 h-5 text-[#38746D]" />
             ) : (
-              <Maximize2 className="w-5 h-5 text-[#2D6A4F]" />
+              <Maximize2 className="w-5 h-5 text-[#38746D]" />
             )}
           </button>
 
@@ -5235,7 +5235,7 @@ export default function WargaSpatialMap({
             type="button"
             onClick={handleToggleBasemap}
             className={`w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 flex items-center justify-center cursor-pointer ${basemap === "satellite"
-              ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
+              ? "bg-[#38746D] text-white border-[#24544E]"
               : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
               }`}
             title={basemap === "satellite" ? "Beralih ke Peta Jalan OSM" : "Beralih ke Citra Satelit Esri"}
@@ -5298,9 +5298,9 @@ export default function WargaSpatialMap({
             aria-label="Lokasi Saya Saat Ini"
           >
             {locating ? (
-              <Loader2 className="w-5 h-5 text-[#2D6A4F] animate-spin" />
+              <Loader2 className="w-5 h-5 text-[#38746D] animate-spin" />
             ) : (
-              <Crosshair className="w-5 h-5 text-[#2D6A4F]" />
+              <Crosshair className="w-5 h-5 text-[#38746D]" />
             )}
           </button>
 
@@ -5313,7 +5313,7 @@ export default function WargaSpatialMap({
             title="Pusatkan Peta ke Indramayu"
             aria-label="Pusatkan Peta ke Indramayu"
           >
-            <MapPin className="w-5 h-5 text-[#2D6A4F]" />
+            <MapPin className="w-5 h-5 text-[#38746D]" />
           </button>
           )}
 
@@ -5322,7 +5322,7 @@ export default function WargaSpatialMap({
             type="button"
             onClick={handleToggleBasemap}
             className={`hidden md:flex w-11 h-11 rounded-full shadow-lg border transition-transform active:scale-95 items-center justify-center cursor-pointer ${basemap === "satellite"
-              ? "bg-[#2D6A4F] text-white border-[#1B4D3E]"
+              ? "bg-[#38746D] text-white border-[#24544E]"
               : "bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50"
               }`}
             title={basemap === "satellite" ? "Beralih ke Peta Jalan OSM" : "Beralih ke Citra Satelit Esri"}
@@ -5340,9 +5340,9 @@ export default function WargaSpatialMap({
             aria-label={isFullscreen ? "Kecilkan Peta" : "Perbesar Layar Penuh"}
           >
             {isFullscreen ? (
-              <Minimize2 className="w-5 h-5 text-[#2D6A4F]" />
+              <Minimize2 className="w-5 h-5 text-[#38746D]" />
             ) : (
-              <Maximize2 className="w-5 h-5 text-[#2D6A4F]" />
+              <Maximize2 className="w-5 h-5 text-[#38746D]" />
             )}
           </button>
 

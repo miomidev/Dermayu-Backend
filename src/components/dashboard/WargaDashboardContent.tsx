@@ -153,7 +153,7 @@ export function WargaDashboardContent() {
             href="/warga/evakuasi"
             replace
             scroll={false}
-            className="text-xs font-bold text-[#155E45] hover:underline flex items-center gap-0.5"
+            className="text-xs font-bold text-[#38746D] hover:underline flex items-center gap-0.5"
           >
             <span>Lihat Semua</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -338,7 +338,7 @@ export function WargaDashboardContent() {
             href="/warga/aduan"
             replace
             scroll={false}
-            className="text-xs font-bold text-[#155E45] hover:underline flex items-center gap-0.5"
+            className="text-xs font-bold text-[#38746D] hover:underline flex items-center gap-0.5"
           >
             <span>Lihat Semua</span>
             <ChevronRight className="w-3.5 h-3.5" />

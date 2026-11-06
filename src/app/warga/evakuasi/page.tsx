@@ -120,6 +120,9 @@ export default function WargaEvakuasiPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
 
+  // Data Posko Warga (Real-time sync dari PoskoService dengan filter isActive: true)
+  const [wargaPoskoData, setWargaPoskoData] = useState(() => getWargaPosko());
+
   // Report form state
   const [reportCategory, setReportCategory] = useState<ReportCategoryCode>("FLOOD");
   const [reportTitle, setReportTitle] = useState("");
@@ -377,7 +380,7 @@ export default function WargaEvakuasiPage() {
     },
   ];
 
-  // Session sync
+  // Session sync & Posko update listener
   useEffect(() => {
     try {
       const active = getActiveSession();
@@ -390,6 +393,18 @@ export default function WargaEvakuasiPage() {
         });
       }
     } catch {}
+
+    const handlePoskoUpdate = () => {
+      setWargaPoskoData(getWargaPosko());
+    };
+
+    window.addEventListener("dermayu_posko_updated", handlePoskoUpdate);
+    window.addEventListener("storage", handlePoskoUpdate);
+
+    return () => {
+      window.removeEventListener("dermayu_posko_updated", handlePoskoUpdate);
+      window.removeEventListener("storage", handlePoskoUpdate);
+    };
   }, []);
 
   const toggleUrgentNeed = (item: string) => {
@@ -571,7 +586,7 @@ export default function WargaEvakuasiPage() {
     })),
   ];
 
-  const mapShelterPoints: MapShelterPoint[] = getWargaPosko().map((p) => ({
+  const mapShelterPoints: MapShelterPoint[] = wargaPoskoData.map((p) => ({
     id: p.id,
     name: p.nama,
     location: p.alamat,
@@ -586,7 +601,7 @@ export default function WargaEvakuasiPage() {
     lng: p.lng,
     facilities: p.fasilitas,
     kategori: p.kategori,
-    foto: p.foto,
+    foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
     tier: p.tier,
   }));
 

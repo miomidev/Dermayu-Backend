@@ -2,6 +2,19 @@
 // 1. Tepat 100 Data Posko Evakuasi Terkurasi Aman dari Genangan
 // 2. Tepat 20 Titik Simulasi Hambatan Genangan Jalan Utama (Radius 200m)
 
+export interface PengungsiItem {
+  id: string;
+  nama: string;
+  jenisKelamin: "L" | "P";
+  usia: number;
+  kategoriUsia?: "Balita" | "Anak" | "Dewasa" | "Lansia";
+  alamatAsal: string;
+  kondisiKesehatan: "Sehat" | "Sakit" | "Bumil" | "Disabilitas" | "Lansia Rentan";
+  isAnonim?: boolean;
+  registeredAt?: string;
+  catatan?: string;
+}
+
 export interface PoskoItem {
   id: string;
   nama: string;
@@ -16,9 +29,11 @@ export interface PoskoItem {
   fasilitas: string[];
   kontak: { pj: string; telp: string };
   foto: string;
+  fotos?: string[];
   tier: 1 | 2 | 3 | 4 | 5;
   petugasId?: string;
   isActive?: boolean;
+  pengungsi?: PengungsiItem[];
 }
 
 export interface FloodObstacle {

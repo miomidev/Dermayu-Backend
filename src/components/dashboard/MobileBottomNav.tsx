@@ -79,14 +79,14 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
       icon: LayoutDashboard,
     },
     {
-      label: "Triage",
-      href: "/petugas/triage",
-      icon: ClipboardList,
-    },
-    {
       label: "Peta SAR",
       href: "/petugas/peta-sar",
       icon: Map,
+    },
+    {
+      label: "Triage",
+      href: "/petugas/triage",
+      icon: ClipboardList,
     },
     {
       label: "Posko",
@@ -97,6 +97,11 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
       label: "Telemetri",
       href: "/petugas/telemetri",
       icon: Activity,
+    },
+    {
+      label: "Komunitas",
+      href: "/petugas/komunitas",
+      icon: Users,
     },
   ];
 
@@ -127,7 +132,12 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
         paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="grid grid-cols-5 items-center px-2 h-16 max-w-md mx-auto">
+      <div
+        className="grid items-center px-1.5 h-16 max-w-lg mx-auto"
+        style={{
+          gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+        }}
+      >
         {items.map((item) => {
           const isActive = isItemActive(item.href);
           const Icon = item.icon;

@@ -63,6 +63,7 @@ import {
   ShieldSafeIllustration,
 } from "@/components/dashboard/StatusSiagaCard";
 import { getActiveSession } from "@/utils/authSession";
+import { updatePosko, getAllPosko } from "@/utils/poskoService";
 import {
   CURATED_POSKO_LIST,
   FLOOD_OBSTACLES,
@@ -110,6 +111,8 @@ export interface MapShelterPoint {
   kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
   foto?: string;
   tier?: 1 | 2 | 3 | 4 | 5;
+  petugasId?: string;
+  isActive?: boolean;
 }
 
 export interface MapTelemetryPoint {
@@ -163,6 +166,7 @@ export interface PetugasSpatialMapProps {
   reports?: MapReportPoint[];
   shelters?: MapShelterPoint[];
   telemetry?: MapTelemetryPoint[];
+  currentUserId?: string;
   onSelectShelter?: (shelter: MapShelterPoint) => void;
   onSelectReport?: (report: MapReportPoint) => void;
   onOpenReport?: () => void;
@@ -517,6 +521,7 @@ export default function PetugasSpatialMap({
   reports = [],
   shelters = [],
   telemetry = [],
+  currentUserId,
   onSelectShelter,
   onSelectReport,
   onOpenReport,
@@ -534,6 +539,24 @@ export default function PetugasSpatialMap({
   const routesLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+
+  // RBAC Petugas: deteksi ID petugas yang sedang login
+  const [activeOfficerId, setActiveOfficerId] = useState<string>(() => {
+    if (currentUserId) return currentUserId;
+    const session = getActiveSession();
+    return session?.id || "petugas-01";
+  });
+
+  useEffect(() => {
+    if (currentUserId) {
+      setActiveOfficerId(currentUserId);
+    } else {
+      const session = getActiveSession();
+      if (session?.id) {
+        setActiveOfficerId(session.id);
+      }
+    }
+  }, [currentUserId]);
 
   const [activeLayer, setActiveLayer] = useState<"ALL" | "REPORTS" | "SHELTERS" | "TELEMETRY">("ALL");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -590,60 +613,110 @@ export default function PetugasSpatialMap({
   activeShelterRef.current = activeShelterDetail || activeNavRoute?.shelter || null;
   const handleMapClickForWaypointRef = useRef<(lat: number, lng: number) => void>(() => { });
 
-  // State Search & Kategori Filter Baris 1 & 2
+  // Sinkronisasi lokal dataset posko dengan poskoService
+  const [internalShelters, setInternalShelters] = useState<MapShelterPoint[]>(shelters);
+
+  useEffect(() => {
+    setInternalShelters(shelters);
+  }, [shelters]);
+
+  useEffect(() => {
+    const handlePoskoUpdated = () => {
+      const all = getAllPosko();
+      setInternalShelters((prev) =>
+        all.map((p) => {
+          const existing = prev.find((s) => s.id === p.id);
+          return {
+            id: p.id,
+            name: p.nama,
+            location: p.alamat,
+            district: p.kecamatan,
+            distance: existing?.distance || "Menghitung jarak...",
+            capacityTotal: p.kapasitas,
+            capacityFilled: p.terisi,
+            status: p.status,
+            contactPerson: p.kontak.pj,
+            contactPhone: p.kontak.telp,
+            lat: p.lat,
+            lng: p.lng,
+            facilities: p.fasilitas,
+            kategori: p.kategori,
+            foto: p.foto,
+            tier: p.tier,
+            petugasId: p.petugasId,
+            isActive: p.isActive,
+          };
+        })
+      );
+    };
+
+    window.addEventListener("dermayu_posko_updated", handlePoskoUpdated);
+    window.addEventListener("storage", handlePoskoUpdated);
+    return () => {
+      window.removeEventListener("dermayu_posko_updated", handlePoskoUpdated);
+      window.removeEventListener("storage", handlePoskoUpdated);
+    };
+  }, []);
+
+  // State Inline Edit Posko & Draggable Map Marker
+  const [editingPoskoId, setEditingPoskoId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<{
+    nama: string;
+    alamat: string;
+    kapasitas: number;
+    terisi: number;
+    status: "TERSEDIA" | "HAMPIR_PENUH" | "PENUH";
+    fasilitas: string[];
+    isActive: boolean;
+    lat: number;
+    lng: number;
+  }>({
+    nama: "",
+    alamat: "",
+    kapasitas: 100,
+    terisi: 0,
+    status: "TERSEDIA",
+    fasilitas: [],
+    isActive: true,
+    lat: -6.356,
+    lng: 108.138,
+  });
+
+  // Memuat dataset laporan dan 20 titik hambatan genangan rob & DAS Cimanuk
+  const allReports: MapReportPoint[] = useMemo(() => {
+    if (reports && reports.length > 0) return reports;
+    return FLOOD_OBSTACLES.map((obs, idx) => ({
+      id: obs.id,
+      ticketCode: `GEN-${String(idx + 1).padStart(3, "0")}`,
+      title: obs.title,
+      category: obs.zone === "PESISIR_ROB" ? "Banjir Rob" : "Luapan DAS Cimanuk",
+      severity: obs.severity,
+      waterLevelText: `${obs.depthCm} cm`,
+      status: obs.status,
+      location: obs.location,
+      lat: obs.lat,
+      lng: obs.lng,
+      timeAgo: "Aktif Terpantau",
+      note: obs.description,
+    }));
+  }, [reports]);
+
+  // State Search & Filter Toggles Khusus Petugas: "Semua Posko Aktif" vs "Posko Saya" vs "Laporan & Genangan"
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilterChip, setActiveFilterChip] = useState<string>("terdekat");
+  const [poskoFilter, setPoskoFilter] = useState<"ALL_ACTIVE" | "MINE" | "REPORTS">("ALL_ACTIVE");
   const [showAllShelters, setShowAllShelters] = useState(false);
-  const [selectedDistrict, setSelectedDistrict] = useState("SEMUA");
-  const [sortByClosest, setSortByClosest] = useState(true);
-  const [filterAvailableOnly, setFilterAvailableOnly] = useState(false);
-  const [filter24Hours, setFilter24Hours] = useState(false);
 
-  const FILTER_CHIPS = [
-    { id: "terdekat", label: "Terdekat (GPS)", type: "default" },
-    { id: "semua", label: "Semua Posko", type: "category" },
-    { id: "medis", label: "Posko Medis", type: "category" },
-    { id: "dapur", label: "Dapur Umum", type: "category" },
-    { id: "gor", label: "GOR/Gedung Besar", type: "category" },
-    { id: "Kandanghaur", label: "Kandanghaur", type: "district" },
-    { id: "Eretan", label: "Eretan", type: "district" },
-    { id: "Cantigi", label: "Cantigi", type: "district" },
-    { id: "Losarang", label: "Losarang", type: "district" },
-    { id: "Lohbener", label: "Lohbener", type: "district" },
-    { id: "Indramayu Kota", label: "Indramayu Kota", type: "district" },
-  ] as const;
-
-  const DISTRICT_LIST = [
-    "SEMUA",
-    "Kandanghaur",
-    "Eretan",
-    "Cantigi",
-    "Losarang",
-    "Pasekan",
-    "Lohbener",
-    "Indramayu Kota",
-    "Sindang",
-  ];
-
-  const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number; zoom: number }> = {
-    SEMUA: { lat: -6.365, lng: 108.235, zoom: 11 },
-    Kandanghaur: { lat: -6.346, lng: 108.125, zoom: 14 },
-    Eretan: { lat: -6.340, lng: 108.115, zoom: 14 },
-    Cantigi: { lat: -6.284, lng: 108.263, zoom: 14 },
-    Losarang: { lat: -6.395, lng: 108.158, zoom: 14 },
-    Pasekan: { lat: -6.315, lng: 108.295, zoom: 14 },
-    Lohbener: { lat: -6.388, lng: 108.275, zoom: 14 },
-    "Indramayu Kota": { lat: -6.326, lng: 108.324, zoom: 14 },
-    Sindang: { lat: -6.338, lng: 108.310, zoom: 14 },
-  };
-
-  const handleSelectDistrict = (dist: string) => {
-    setSelectedDistrict(dist);
-    const center = DISTRICT_COORDINATES[dist];
-    if (center && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([center.lat, center.lng], center.zoom, { duration: 1 });
-    }
-  };
+  const displayedReports = useMemo(() => {
+    if (!searchQuery.trim()) return allReports;
+    const q = searchQuery.toLowerCase().trim();
+    return allReports.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.location.toLowerCase().includes(q) ||
+        r.ticketCode.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q)
+    );
+  }, [allReports, searchQuery]);
 
   // User GPS Coordinates & Dynamic Proximity States
   const [userCoords, setUserCoords] = useState<[number, number]>([-6.3475, 108.1189]);
@@ -796,7 +869,7 @@ export default function PetugasSpatialMap({
   const processedShelters = useMemo(() => {
     const [uLat, uLng] = userCoords;
 
-    const list = shelters.map((sh) => {
+    const list = internalShelters.map((sh) => {
       const distMeters = calculateDistanceInMeters(uLat, uLng, sh.lat, sh.lng);
       const distStr = formatDistanceText(distMeters);
       const etaStr = formatEtaText(distMeters);
@@ -868,13 +941,19 @@ export default function PetugasSpatialMap({
         tier: (orig.tier as 1 | 2 | 3 | 4 | 5) || assignedTiers.get(sh.id) || (4 as 1 | 2 | 3 | 4 | 5),
       };
     });
-  }, [shelters, userCoords]);
+  }, [internalShelters, userCoords]);
 
-  // Urutan Posko Terdekat & Hasil Filter Dinamis (Search, Kategori, Wilayah)
+  // Urutan Posko Terdekat & Hasil Filter Dinamis (Search, Toggle "Semua Posko Aktif" vs "Posko Saya")
   const displayedShelters = useMemo(() => {
-    let list = [...processedShelters];
+    // 1. Filter posko aktif (isActive !== false)
+    let list = processedShelters.filter((sh) => sh.isActive !== false);
 
-    // 1. Text Search query (fuzzy match name, location, district, facilities)
+    // 2. Filter RBAC Petugas: Jika "MINE", HANYA tampilkan posko yang dibuat/dikelola petugas aktif
+    if (poskoFilter === "MINE") {
+      list = list.filter((sh) => sh.petugasId === activeOfficerId);
+    }
+
+    // 3. Text Search query (fuzzy match name, location, district, facilities)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((sh) => {
@@ -886,71 +965,19 @@ export default function PetugasSpatialMap({
       });
     }
 
-    // 2. Chip Filter Kategori & Wilayah
-    if (activeFilterChip === "medis") {
-      list = list.filter((sh) => {
-        const meta = SHELTER_METADATA[sh.id];
-        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
-        return (
-          text.includes("medis") ||
-          text.includes("kesehatan") ||
-          text.includes("pmi") ||
-          text.includes("dokter") ||
-          text.includes("bidan") ||
-          text.includes("obat") ||
-          text.includes("ambulans")
-        );
-      });
-    } else if (activeFilterChip === "dapur") {
-      list = list.filter((sh) => {
-        const meta = SHELTER_METADATA[sh.id];
-        const text = `${sh.name} ${sh.location} ${(sh.facilities || []).join(" ")} ${meta?.emergencyNeeds?.join(" ") || ""}`.toLowerCase();
-        return (
-          text.includes("dapur") ||
-          text.includes("makanan") ||
-          text.includes("sembako") ||
-          text.includes("logistik") ||
-          text.includes("beras") ||
-          text.includes("air")
-        );
-      });
-    } else if (activeFilterChip === "gor") {
-      list = list.filter((sh) => {
-        const text = `${sh.name} ${sh.location}`.toLowerCase();
-        return (
-          text.includes("gor") ||
-          text.includes("gedung") ||
-          text.includes("aula") ||
-          text.includes("masjid") ||
-          text.includes("balai") ||
-          sh.capacityTotal >= 200 ||
-          SHELTER_METADATA[sh.id]?.rating === "Kapasitas Besar"
-        );
-      });
-    } else if (activeFilterChip !== "terdekat" && activeFilterChip !== "semua") {
-      // Wilayah / Kecamatan Filter
-      const d = activeFilterChip.toLowerCase();
-      list = list.filter((sh) => {
-        const shDist = (sh.district || "").toLowerCase();
-        const shLoc = sh.location.toLowerCase();
-        const shName = sh.name.toLowerCase();
-        return shDist.includes(d) || shLoc.includes(d) || shName.includes(d);
-      });
-    }
-
     // Urutkan posko terdekat dari koordinat user (jarak terkecil ke terbesar)
     return list.sort((a, b) => a.distMeters - b.distMeters);
-  }, [processedShelters, searchQuery, activeFilterChip]);
+  }, [processedShelters, searchQuery, poskoFilter, activeOfficerId]);
 
-  // Skema 5 Level Kemunculan Bertahap (LoD by Zoom Level) ala Google Maps:
+  // Skema Kemunculan Titik Peta (LoD by Zoom Level):
   const mapVisibleShelters = useMemo(() => {
-    // 0. Jika User Melakukan Filter (Search / Kategori / Kecamatan):
-    const isFiltered = Boolean(searchQuery.trim() || activeFilterChip !== "terdekat");
-    if (isFiltered) {
+    // Jika User memilih "Posko Saya" atau melakukan text search, render seluruh marker yang relevan di viewport/peta
+    if (poskoFilter === "MINE" || searchQuery.trim()) {
       if (mapBounds && mapZoom >= 11) {
-        return displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)));
+        const inView = displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)));
+        return inView.length > 0 ? inView : displayedShelters;
       }
-      return displayedShelters.slice(0, 30);
+      return displayedShelters;
     }
 
     // Viewport Bounding Box: HANYA data yang koordinatnya berada di dalam area layar aktif
@@ -960,34 +987,29 @@ export default function PetugasSpatialMap({
 
     let result: typeof displayedShelters = [];
 
-    // LEVEL 1: Zoom Sangat Luar (Zoom <= 10) - Gambar 1
+    // LEVEL 1: Zoom Sangat Luar (Zoom <= 10)
     // Persebaran merata: Tampilkan HANYA 1 posko utama per kecamatan besar (Tier 1: ~8-10 pin penting)
     if (mapZoom <= 10) {
       result = inView.filter((sh) => sh.tier === 1);
-      // Jika inView belum mencakup seluruh daratan karena zoom inisial, ambil langsung dari displayedShelters Tier 1
       if (result.length < 5) {
         result = displayedShelters.filter((sh) => sh.tier === 1);
       }
     }
-    // LEVEL 2: Zoom Tingkat Kawasan (Zoom 11) - Gambar 2
-    // Posko sekunder lapis kedua (Tier 1 + Tier 2: ~18-25 pin tersebar seimbang)
+    // LEVEL 2: Zoom Tingkat Kawasan (Zoom 11)
     else if (mapZoom === 11) {
       result = inView.filter((sh) => sh.tier <= 2);
     }
-    // LEVEL 3: Zoom Tingkat Kecamatan (Zoom 12) - Gambar 3
-    // Tier 1, 2, 3 dengan batas minimum jarak (~1.2 km) agar tidak bertumpuk
+    // LEVEL 3: Zoom Tingkat Kecamatan (Zoom 12)
     else if (mapZoom === 12) {
       const candidates = inView.filter((sh) => sh.tier <= 3);
       result = filterMinDistance(candidates, 1.2);
     }
-    // LEVEL 4: Zoom Lingkungan / Desa (Zoom 13 - 14) - Gambar 4
-    // Posko lokal tingkat RW / sekolah dasar / masjid di area pandang
+    // LEVEL 4: Zoom Lingkungan / Desa (Zoom 13 - 14)
     else if (mapZoom <= 14) {
       const candidates = inView.filter((sh) => sh.tier <= 4);
       result = filterMinDistance(candidates, 0.4);
     }
-    // LEVEL 5: Zoom Maksimal Dekat (Zoom >= 15) - Gambar 5
-    // Render SEMUA posko evakuasi secara lengkap di dalam area layar aktif
+    // LEVEL 5: Zoom Maksimal Dekat (Zoom >= 15)
     else {
       result = inView;
     }
@@ -1001,35 +1023,23 @@ export default function PetugasSpatialMap({
     }
 
     return result;
-  }, [displayedShelters, searchQuery, activeFilterChip, mapZoom, mapBounds, activeShelterDetail]);
+  }, [displayedShelters, searchQuery, poskoFilter, mapZoom, mapBounds, activeShelterDetail]);
 
-  // Status tampilan default (3-5 posko terdekat) vs mode dinamis/ekspansi
-  const isDefaultView = activeFilterChip === "terdekat" && !showAllShelters && !searchQuery.trim();
+  // Status tampilan default vs mode dinamis/ekspansi
+  const isDefaultView = !showAllShelters && !searchQuery.trim();
 
-  // Judul dinamis untuk header Card Posko Evakuasi
+  // Judul dinamis untuk header Card Posko / Laporan Petugas
   const getCardHeaderTitle = () => {
     if (searchQuery.trim()) {
-      return `Hasil Pencarian: "${searchQuery}"`;
+      return `Hasil Pencarian: "${searchQuery}" (${poskoFilter === "REPORTS" ? displayedReports.length : displayedShelters.length})`;
     }
-    if (activeFilterChip === "medis") {
-      return "Posko Medis";
+    if (poskoFilter === "REPORTS") {
+      return `Laporan & Titik Genangan (${displayedReports.length})`;
     }
-    if (activeFilterChip === "dapur") {
-      return "Dapur Umum";
+    if (poskoFilter === "MINE") {
+      return `Daftar Posko Saya (${displayedShelters.length})`;
     }
-    if (activeFilterChip === "gor") {
-      return "GOR / Gedung Besar";
-    }
-    if (activeFilterChip === "semua") {
-      return "Semua Posko Evakuasi";
-    }
-    if (activeFilterChip !== "terdekat") {
-      return `Posko Wilayah ${activeFilterChip}`;
-    }
-    if (showAllShelters) {
-      return `Posko Terdekat Lainnya (${Math.min(20, displayedShelters.length)} Terdekat)`;
-    }
-    return "Posko Evakuasi Terdekat";
+    return `Semua Posko Aktif (${displayedShelters.length})`;
   };
 
   const [selectedMarker, setSelectedMarker] = useState<
@@ -1297,25 +1307,21 @@ export default function PetugasSpatialMap({
     telemetryLayerRef.current.clearLayers();
     routesLayerRef.current.clearLayers();
 
-    // 1. PLOT FLOOD REPORTS
-    if (activeLayer === "ALL" || activeLayer === "REPORTS") {
-      reports.forEach((rep) => {
+    // ==============================================================
+    // KASUS 1: FILTER "LAPORAN & GENANGAN" AKTIF
+    // ==============================================================
+    if (poskoFilter === "REPORTS") {
+      displayedReports.forEach((rep) => {
         const isCritical = rep.severity === "CRITICAL";
         const isHigh = rep.severity === "HIGH";
         const color = isCritical ? "#DC2626" : isHigh ? "#EA580C" : "#D97706";
+        const isSelected = activeReportDetail?.id === rep.id;
 
-        const icon = createPinIcon(isCritical ? "kritis" : "genangan", false, mapZoom);
+        const icon = createPinIcon(isCritical ? "kritis" : "genangan", isSelected, mapZoom);
 
         const popupContent = `
-          <div style="font-family: inherit; width: 220px; padding: 2px; color: #132422;">
-            ${
-              rep.photos && rep.photos.length > 0
-                ? `<div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #EEF5F3;">
-                    <img src="${rep.photos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="Bukti Foto" />
-                   </div>`
-                : ""
-            }
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="font-family: inherit; width: 230px; padding: 3px; color: #132422;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
               <span style="font-size: 10px; font-weight: 800; font-family: monospace; color: ${color}; background: #FFF1F2; padding: 2px 6px; border-radius: 6px; border: 1px solid #FECDD3;">
                 ${rep.ticketCode}
               </span>
@@ -1324,183 +1330,265 @@ export default function PetugasSpatialMap({
             <div style="font-size: 12px; font-weight: 800; margin-bottom: 4px; line-height: 1.35; color: #132422;">
               ${rep.title}
             </div>
-            <div style="font-size: 11px; color: #4B635F; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-              📍 <span>${rep.location}</span>
+            <div style="font-size: 10.5px; color: #4B635F; margin-bottom: 6px;">
+              📍 ${rep.location}
             </div>
-            ${rep.waterLevelText
-            ? `<div style="font-size: 11px; font-weight: 700; color: #991B1B; background: #FEF2F2; padding: 4px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #FEE2E2;">
+            ${
+              rep.waterLevelText
+                ? `<div style="font-size: 11px; font-weight: 700; color: #991B1B; background: #FEF2F2; padding: 4px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #FEE2E2;">
                     Ketinggian Air: ${rep.waterLevelText}
                   </div>`
-            : ""
-          }
+                : ""
+            }
             <div style="font-size: 10px; color: #38746D; font-weight: 700;">
               Status: ${rep.status}
             </div>
           </div>
         `;
 
-        const marker = L.marker([rep.lat, rep.lng], { icon }).bindPopup(popupContent);
+        const marker = L.marker([rep.lat, rep.lng], { icon, title: rep.title }).bindPopup(popupContent);
 
         // Lingkaran Radius Hambatan Genangan (200 meter)
-        if (rep.waterLevelText || rep.ticketCode.startsWith("GEN-")) {
-          const floodCircle = L.circle([rep.lat, rep.lng], {
-            radius: 200,
-            color: isCritical ? "#DC2626" : "#F59E0B",
-            fillColor: isCritical ? "#EF4444" : "#FBBF24",
-            fillOpacity: 0.16,
-            weight: 1.5,
-            dashArray: "4, 6",
-          }).bindTooltip(
-            `<div style="font-size: 10px; font-weight: bold; color: ${color};">Radius Hambatan 200m: ${rep.title} (${rep.waterLevelText || "Air Pasang"})</div>`,
-            { direction: "top", offset: [0, -10] }
-          );
-          reportsLayerRef.current?.addLayer(floodCircle);
-        }
-        marker.on("click", () => {
-          setActiveReportDetail(rep);
-          setActiveShelterDetail(null);
-          setActiveTelemetryDetail(null);
-          setSelectedMarker({ type: "report", data: rep });
-          setSiagaExpanded(false);
-          setPoskoExpanded(true);
-          setSheetSnap("mid");
-          clearRadarGlow();
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([rep.lat, rep.lng], 16, { duration: 1.2 });
-          }
-          if (onSelectReport) onSelectReport(rep);
+        const floodCircle = L.circle([rep.lat, rep.lng], {
+          radius: 200,
+          color: isCritical ? "#DC2626" : "#EA580C",
+          fillColor: isCritical ? "#EF4444" : "#F97316",
+          fillOpacity: 0.18,
+          weight: 1.5,
+          dashArray: "4, 6",
         });
+        reportsLayerRef.current?.addLayer(floodCircle);
+
+        marker.on("click", () => {
+          handleSelectReportItem(rep);
+        });
+
         reportsLayerRef.current?.addLayer(marker);
       });
-    }
-
-    // 2. PLOT SHELTERS (POSKO PENGUNGSIAN) BERSIH & STATIS ALA GOOGLE MAPS
-    if (activeLayer === "ALL" || activeLayer === "SHELTERS") {
+    } else {
+      // ==============================================================
+      // KASUS 2: FILTER "SEMUA POSKO AKTIF" ATAU "POSKO SAYA"
+      // ==============================================================
       mapVisibleShelters.forEach((sh) => {
+        const isEditingThis = sh.id === editingPoskoId;
         const sisaKapasitas = sh.capacityTotal - sh.capacityFilled;
         const isFull = sh.status === "PENUH";
-        const isSelected = activeShelterDetail?.id === sh.id;
+        const isSelected = activeShelterDetail?.id === sh.id || isEditingThis;
 
-        const icon = createPinIcon("posko", isSelected, mapZoom);
+        let icon: L.DivIcon;
 
-        const popupContent = `
-          <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
-                POSKO EVAKUASI
-              </span>
-              <span style="font-size: 10px; font-weight: 700; color: ${isFull ? "#DC2626" : "#059669"};">
-                ${sh.status}
-              </span>
-            </div>
-            <div style="font-size: 13px; font-weight: 800; margin-bottom: 2px; color: #132422;">
-              ${sh.name}
-            </div>
-            <div style="font-size: 10px; color: #4B635F; margin-bottom: 6px;">
-              📍 ${sh.location} (${sh.distance})
-            </div>
-            <div style="font-size: 11px; background: #F8FAF9; padding: 6px 8px; border-radius: 8px; border: 1px solid #E2E8F0; margin-bottom: 6px;">
-              <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 11px;">
-                <span>Kapasitas:</span>
-                <span style="color: #059669;">${sh.capacityFilled} / ${sh.capacityTotal} Jiwa</span>
+        if (isEditingThis) {
+          // Indikator Visual Khusus Marker Draggable:
+          // Membesar, efek pulse & ping, teks petunjuk 'Geser Pin'
+          const editIconHtml = `
+            <div class="relative flex flex-col items-center cursor-grab active:cursor-grabbing group filter drop-shadow-xl z-[9999]">
+              <span class="absolute -inset-3 rounded-full bg-emerald-500/35 animate-ping pointer-events-none"></span>
+              <span class="absolute -inset-5 rounded-full bg-[#38746D]/20 animate-pulse pointer-events-none"></span>
+              <div class="bg-[#132422] text-white text-[9.5px] font-black px-2.5 py-1 rounded-full shadow-lg border-2 border-emerald-400 mb-1 whitespace-nowrap animate-bounce flex items-center gap-1.5 z-20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>Geser Pin Lokasi</span>
               </div>
-              <div style="font-size: 10px; color: #64748B; margin-top: 2px;">
-                Tersedia ${sisaKapasitas} kuota tempat
+              <div class="w-10 h-10 rounded-full bg-[#38746D] border-[3px] border-white shadow-2xl flex items-center justify-center text-white scale-110 ring-4 ring-emerald-400/80 z-10 transition-transform">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v20M2 12h20" />
+                </svg>
               </div>
+              <div class="w-0 h-0 border-l-[7px] border-r-[7px] border-t-[9px] border-l-transparent border-r-transparent border-t-[#38746D] -mt-[1px]"></div>
             </div>
-            <div style="font-size: 10px; color: #1E3A8A; font-weight: 700;">
-              📞 Kontak: ${sh.contactPerson} (${sh.contactPhone})
-            </div>
-          </div>
-        `;
+          `;
+          icon = L.divIcon({
+            html: editIconHtml,
+            className: "custom-editing-posko-marker",
+            iconSize: [140, 90],
+            iconAnchor: [70, 84],
+            popupAnchor: [0, -84],
+          });
+        } else {
+          icon = createPinIcon("posko", isSelected, mapZoom);
+        }
 
-        const marker = L.marker([sh.lat, sh.lng], { icon, title: sh.name }).bindPopup(popupContent);
-        marker.on("click", () => {
-          handleSelectShelterItem(sh);
+        const lat = isEditingThis ? editFormData.lat : sh.lat;
+        const lng = isEditingThis ? editFormData.lng : sh.lng;
+
+        const marker = L.marker([lat, lng], {
+          icon,
+          title: sh.name,
+          draggable: isEditingThis,
+          zIndexOffset: isEditingThis ? 5000 : undefined,
         });
 
-        // Tooltip nama ringkas saat di-hover
-        marker.bindTooltip(
-          `<div style="font-family: inherit; font-size: 11px; font-weight: 800; color: #1D443F; padding: 2px 4px;">${sh.name}</div>`,
-          { direction: "top", offset: [0, -36], opacity: 0.95 }
-        );
+        if (isEditingThis) {
+          // Event Listener onDragEnd: Tangkap koordinat baru saat pin selesai digeser
+          marker.on("dragend", (e: any) => {
+            const newPos = e.target.getLatLng();
+            const newLat = parseFloat(newPos.lat.toFixed(6));
+            const newLng = parseFloat(newPos.lng.toFixed(6));
+            setEditFormData((prev) => ({
+              ...prev,
+              lat: newLat,
+              lng: newLng,
+            }));
+            setToastMessage(`Koordinat baru: ${newLat}, ${newLng}`);
+            setTimeout(() => setToastMessage(null), 2500);
+          });
+        } else {
+          const popupContent = `
+            <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
+                  POSKO EVAKUASI
+                </span>
+                <span style="font-size: 10px; font-weight: 700; color: ${isFull ? "#DC2626" : "#059669"};">
+                  ${sh.status}
+                </span>
+              </div>
+              <div style="font-size: 13px; font-weight: 800; margin-bottom: 2px; color: #132422;">
+                ${sh.name}
+              </div>
+              <div style="font-size: 10px; color: #4B635F; margin-bottom: 6px;">
+                📍 ${sh.location} (${sh.distance})
+              </div>
+              <div style="font-size: 11px; background: #F8FAF9; padding: 6px 8px; border-radius: 8px; border: 1px solid #E2E8F0; margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 11px;">
+                  <span>Kapasitas:</span>
+                  <span style="color: #059669;">${sh.capacityFilled} / ${sh.capacityTotal} Jiwa</span>
+                </div>
+                <div style="font-size: 10px; color: #64748B; margin-top: 2px;">
+                  Tersedia ${sisaKapasitas} kuota tempat
+                </div>
+              </div>
+              <div style="font-size: 10px; color: #1E3A8A; font-weight: 700;">
+                📞 Kontak: ${sh.contactPerson} (${sh.contactPhone})
+              </div>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+          marker.on("click", () => {
+            handleSelectShelterItem(sh);
+          });
+          marker.bindTooltip(
+            `<div style="font-family: inherit; font-size: 11px; font-weight: 800; color: #1D443F; padding: 2px 4px;">${sh.name}</div>`,
+            { direction: "top", offset: [0, -36], opacity: 0.95 }
+          );
+        }
 
         sheltersLayerRef.current?.addLayer(marker);
       });
     }
 
-    // 3. PLOT SAFE EVACUATION ROUTE POLYLINES (Eretan coast to Balai Desa & GOR)
-    const safeRoute1: [number, number][] = [
-      [-6.3475, 108.1189], // Titik Banjir Eretan
-      [-6.3468, 108.1192], // Simpang Tanggul
-      [-6.3460, 108.1195], // Balai Desa Eretan Wetan
-    ];
-
-    const polyline = L.polyline(safeRoute1, {
-      color: "#059669",
-      weight: 4,
-      dashArray: "6, 8",
-      opacity: 0.85,
-    }).bindTooltip("Jalur Evakuasi Darat Bebas Air", { sticky: true });
-
-    routesLayerRef.current?.addLayer(polyline);
-
-    // 4. PLOT TELEMETRY STATIONS
-    if (activeLayer === "ALL" || activeLayer === "TELEMETRY") {
-      telemetry.forEach((tel) => {
-        const isWaspada = tel.status === "WASPADA" || tel.status === "SIAGA";
-        const color = isWaspada ? "#D97706" : "#0284C7";
-
-        const icon = createPinIcon("sensor", false, mapZoom);
-
-        const popupContent = `
-          <div style="font-family: inherit; width: 210px; padding: 2px; color: #132422;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <span style="font-size: 10px; font-weight: 800; color: #0284C7; background: #F0F9FF; padding: 2px 6px; border-radius: 6px; border: 1px solid #BAE6FD;">
-                SENSOR TELEMETRI
-              </span>
-              <span style="font-size: 10px; font-weight: 800; color: ${color};">
-                ${tel.status}
-              </span>
-            </div>
-            <div style="font-size: 12px; font-weight: 800; margin-bottom: 4px; color: #132422;">
-              ${tel.name}
-            </div>
-            <div style="font-size: 11px; background: #F8FAF9; padding: 5px 8px; border-radius: 6px; border: 1px solid #E2E8F0; margin-bottom: 4px; display: flex; justify-content: space-between;">
-              <span style="color: #64748B;">Level TMA:</span>
-              <span style="font-weight: 800; color: #132422;">${tel.waterLevel}</span>
-            </div>
-            <div style="font-size: 10px; color: #64748B;">
-              Tren: <strong>${tel.trend}</strong> • Update: ${tel.lastUpdate}
-            </div>
-          </div>
-        `;
-
-        const marker = L.marker([tel.lat, tel.lng], { icon }).bindPopup(popupContent);
-        marker.on("click", () => {
-          setActiveTelemetryDetail(tel);
-          setActiveShelterDetail(null);
-          setActiveReportDetail(null);
-          setSelectedMarker({ type: "telemetry", data: tel });
-          setSiagaExpanded(false);
-          setPoskoExpanded(true);
-          setSheetSnap("mid");
-          clearRadarGlow();
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([tel.lat, tel.lng], 16, { duration: 1.2 });
-          }
-        });
-        telemetryLayerRef.current?.addLayer(marker);
-      });
-    }
-
     // Pastikan titik "Lokasi Anda" selalu aktif dan terpasang di layer teratas peta
     updateUserMarkerOnMap(userCoords[0], userCoords[1]);
-  }, [reports, mapVisibleShelters, telemetry, activeLayer, mapZoom, onSelectReport, onSelectShelter, userCoords]);
+  }, [
+    poskoFilter,
+    displayedReports,
+    mapVisibleShelters,
+    editingPoskoId,
+    editFormData.lat,
+    editFormData.lng,
+    mapZoom,
+    onSelectReport,
+    onSelectShelter,
+    userCoords,
+  ]);
 
   // Marker seleksi statis ala Google Maps (animasi radar/uap dihapus total)
   const showRadarGlow = (_lat: number, _lng: number) => { };
   const clearRadarGlow = () => { };
+
+  // Handler Masuk Mode Edit Posko (Inline View & Draggable Pin)
+  const handleStartEditPosko = (sh: MapShelterPoint) => {
+    setEditingPoskoId(sh.id);
+    setEditFormData({
+      nama: sh.name,
+      alamat: sh.location,
+      kapasitas: sh.capacityTotal,
+      terisi: sh.capacityFilled,
+      status: sh.status,
+      fasilitas: sh.facilities || [],
+      isActive: sh.isActive !== false,
+      lat: sh.lat,
+      lng: sh.lng,
+    });
+    setActiveShelterDetail(null);
+    setActiveNavRoute(null);
+    setPoskoExpanded(true);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([sh.lat, sh.lng], 16, { duration: 1 });
+    }
+    setToastMessage("Mode Edit: Geser pin hijau di peta untuk memindahkan lokasi posko");
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Handler Simpan Perubahan Edit Posko
+  const handleSaveEditPosko = () => {
+    if (!editingPoskoId) return;
+    try {
+      const updated = updatePosko(
+        editingPoskoId,
+        {
+          nama: editFormData.nama,
+          alamat: editFormData.alamat,
+          kapasitas: Number(editFormData.kapasitas),
+          terisi: Number(editFormData.terisi),
+          status: editFormData.status,
+          fasilitas: editFormData.fasilitas,
+          isActive: editFormData.isActive,
+          lat: editFormData.lat,
+          lng: editFormData.lng,
+        },
+        { id: activeOfficerId }
+      );
+
+      setInternalShelters((prev) =>
+        prev.map((s) =>
+          s.id === editingPoskoId
+            ? {
+                ...s,
+                name: updated.nama,
+                location: updated.alamat,
+                capacityTotal: updated.kapasitas,
+                capacityFilled: updated.terisi,
+                status: updated.status,
+                facilities: updated.fasilitas,
+                isActive: updated.isActive,
+                lat: updated.lat,
+                lng: updated.lng,
+              }
+            : s
+        )
+      );
+
+      setToastMessage(`Posko "${updated.nama}" berhasil diperbarui!`);
+      setTimeout(() => setToastMessage(null), 3000);
+      setEditingPoskoId(null);
+    } catch (err: any) {
+      console.error("Gagal update posko:", err);
+      setToastMessage(err.message || "Gagal menyimpan perubahan posko");
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
+
+  // Handler Batal Edit Posko
+  const handleCancelEditPosko = () => {
+    setEditingPoskoId(null);
+    setToastMessage("Mode edit dibatalkan");
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  // Handler Pilih Titik Laporan Genangan
+  const handleSelectReportItem = (rep: MapReportPoint) => {
+    setActiveReportDetail(rep);
+    setActiveShelterDetail(null);
+    setActiveTelemetryDetail(null);
+    setSelectedMarker({ type: "report", data: rep });
+    setSiagaExpanded(false);
+    setPoskoExpanded(true);
+    setSheetSnap("mid");
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([rep.lat, rep.lng], 16, { duration: 1 });
+    }
+    if (onSelectReport) onSelectReport(rep);
+  };
 
   // Bersihkan Seleksi Marker & Kembalikan ke Tampilan Posko Awal
   const clearSelection = () => {
@@ -2760,10 +2848,14 @@ export default function PetugasSpatialMap({
         {/* Sisi Kiri: Nama, Status, Jarak & Tombol Aksi */}
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            
             <h5 className="font-extrabold text-[12px] text-[#132422] truncate leading-tight">
               {sh.name}
             </h5>
+            {poskoFilter === "ALL_ACTIVE" && sh.petugasId === activeOfficerId && (
+              <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-emerald-100 text-[#38746D] border border-emerald-300 shrink-0 tracking-wider">
+                POSKO SAYA
+              </span>
+            )}
             {showClosestBadge && index === 0 && (
               <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-[#38746D] text-white shrink-0 tracking-wider">
                 POSKO TERDEKAT
@@ -2781,8 +2873,36 @@ export default function PetugasSpatialMap({
             <span className="text-[#718783] font-normal">&bull; Estimasi {meta.eta}</span>
           </div>
 
-          {/* Tombol Arahkan Rute & Tombol Icon Cepat */}
-          <div className="flex items-center gap-1 pt-1">
+          {/* Tombol Aksi Petugas: Fokus Manajemen & RBAC */}
+          <div className="flex items-center gap-1.5 pt-1">
+            {sh.petugasId === activeOfficerId ? (
+              // Posko Milik Sendiri: Tombol Utama "Edit Posko"
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStartEditPosko(sh);
+                }}
+                className="h-7 px-3 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white text-[10px] font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
+                title="Edit Data & Geser Pin Lokasi Posko"
+              >
+                <Pencil className="w-3 h-3 text-emerald-200" />
+                <span>Edit Posko</span>
+              </button>
+            ) : (
+              // Posko Milik Petugas Lain: Tombol Sekunder "Hubungi PJ"
+              <a
+                href={`tel:${sh.contactPhone.replace(/[^0-9]/g, "")}`}
+                onClick={(e) => e.stopPropagation()}
+                title={`Hubungi PJ ${sh.contactPerson} (${sh.contactPhone})`}
+                className="h-7 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#38746D] border border-emerald-200 text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+              >
+                <Phone className="w-2.5 h-2.5 text-[#38746D]" />
+                <span>Hubungi PJ</span>
+              </a>
+            )}
+
+            {/* Tombol Sekunder: Rute SAR & Logistik */}
             <button
               type="button"
               onClick={(e) => {
@@ -2790,20 +2910,12 @@ export default function PetugasSpatialMap({
                 drawSafeRoute(sh);
                 if (onSelectShelter) onSelectShelter(sh);
               }}
-              className="h-6.5 px-2.5 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white text-[9.5px] font-bold flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
+              title="Arahkan Rute Lapangan"
+              className="h-7 px-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[9.5px] font-semibold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
             >
-              <Navigation className="w-2.5 h-2.5 text-emerald-300" />
-              <span>Arahkan Rute</span>
+              <Navigation className="w-2.5 h-2.5 text-slate-500" />
+              <span>Rute</span>
             </button>
-
-            <a
-              href={`tel:${sh.contactPhone.replace(/[^0-9]/g, "")}`}
-              onClick={(e) => e.stopPropagation()}
-              title={`Hubungi ${sh.contactPerson} (${sh.contactPhone})`}
-              className="w-6.5 h-6.5 rounded-lg bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
-            >
-              <Phone className="w-3 h-3 text-emerald-700" />
-            </a>
 
             <button
               type="button"
@@ -2814,7 +2926,7 @@ export default function PetugasSpatialMap({
                 setTimeout(() => setToastMessage(null), 3500);
               }}
               title="Cek Kebutuhan Logistik"
-              className="w-6.5 h-6.5 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
+              className="w-7 h-7 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
             >
               <Package className="w-3 h-3 text-amber-600" />
             </button>
@@ -2836,7 +2948,7 @@ export default function PetugasSpatialMap({
                 }
               }}
               title="Bagikan Lokasi Posko"
-              className="w-6.5 h-6.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
+              className="w-7 h-7 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
             >
               <Share2 className="w-3 h-3 text-sky-600" />
             </button>
@@ -2851,6 +2963,285 @@ export default function PetugasSpatialMap({
             className="w-full h-full object-cover"
             loading="lazy"
           />
+        </div>
+      </div>
+    );
+  };
+
+  // Render Item Card Laporan Genangan & Titik Banjir
+  const renderReportCardItem = (rep: MapReportPoint, index: number) => {
+    const isCritical = rep.severity === "CRITICAL";
+    const isHigh = rep.severity === "HIGH";
+    const isSelected = activeReportDetail?.id === rep.id;
+
+    return (
+      <div
+        key={rep.id}
+        onClick={() => handleSelectReportItem(rep)}
+        className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col gap-2 text-left ${
+          isSelected
+            ? "bg-rose-50/90 border-rose-500 shadow-xs ring-1 ring-rose-400"
+            : "bg-white hover:bg-rose-50/40 border-gray-100 hover:border-rose-200"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`px-2 py-0.5 rounded-md text-[8.5px] font-black font-mono tracking-wider ${
+                isCritical
+                  ? "bg-rose-100 text-rose-700 border border-rose-300"
+                  : isHigh
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : "bg-yellow-100 text-yellow-800 border border-yellow-300"
+              }`}
+            >
+              {rep.ticketCode}
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-rose-600 text-white tracking-wider">
+              {rep.category}
+            </span>
+          </div>
+          <span className="text-[9.5px] font-bold text-slate-400">{rep.timeAgo}</span>
+        </div>
+
+        <div className="space-y-0.5">
+          <h5 className="font-extrabold text-[12px] text-slate-800 leading-tight">
+            {rep.title}
+          </h5>
+          <p className="text-[10px] text-slate-500 flex items-center gap-1 truncate">
+            <MapPin className="w-3 h-3 text-rose-600 shrink-0" />
+            <span>{rep.location}</span>
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100/90">
+          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+            TMA: {rep.waterLevelText || "Air Pasang Rob"}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSelectReportItem(rep);
+            }}
+            className="text-[10.5px] font-bold text-[#38746D] hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>Pusatkan Peta</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Inline Form Edit Posko & Pindah Pin Manual
+  const renderInlineEditForm = () => {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
+        {/* Header Panel Edit */}
+        <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#EEF5F3] border-b border-[#D5E4E0]">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Pencil className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
+                  Edit Data Posko Lapangan
+                </h4>
+                <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-[#38746D] font-extrabold text-[8px] uppercase tracking-wider">
+                  Akses PJ
+                </span>
+              </div>
+              <p className="text-[10px] text-[#4B635F] truncate">
+                ID: {editingPoskoId}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelEditPosko}
+            className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+            title="Batal Edit"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body Form */}
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 sm:p-4 space-y-3 text-left">
+          {/* Banner Petunjuk Geser Pin */}
+          <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 flex items-start gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#38746D] animate-ping mt-1 shrink-0" />
+            <div className="text-[10.5px] leading-tight text-[#1D443F]">
+              <strong className="block font-bold mb-0.5">Fitur Pindah Pin Aktif:</strong>
+              Klik dan tahan pin hijau besar di peta untuk menggeser koordinat posko secara akurat.
+            </div>
+          </div>
+
+          {/* Input Nama Posko */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Nama Posko Evakuasi
+            </label>
+            <input
+              type="text"
+              value={editFormData.nama}
+              onChange={(e) => setEditFormData((prev) => ({ ...prev, nama: e.target.value }))}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] font-semibold text-slate-800 transition"
+              placeholder="Contoh: SMKN 1 Kandanghaur"
+            />
+          </div>
+
+          {/* Input Alamat */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Alamat Lengkap / Patokan Lokasi
+            </label>
+            <input
+              type="text"
+              value={editFormData.alamat}
+              onChange={(e) => setEditFormData((prev) => ({ ...prev, alamat: e.target.value }))}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] text-slate-800 transition"
+              placeholder="Jl. Raya Pantura..."
+            />
+          </div>
+
+          {/* Kapasitas & Keterisian */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Kapasitas Maksimal (Jiwa)
+              </label>
+              <input
+                type="number"
+                value={editFormData.kapasitas}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, kapasitas: Number(e.target.value) }))}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] font-bold text-slate-800 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Penghuni Terisi (Jiwa)
+              </label>
+              <input
+                type="number"
+                value={editFormData.terisi}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, terisi: Number(e.target.value) }))}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] font-bold text-emerald-700 transition"
+              />
+            </div>
+          </div>
+
+          {/* Status Operasional & Status Aktif */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Status Daya Tampung
+              </label>
+              <select
+                value={editFormData.status}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    status: e.target.value as "TERSEDIA" | "HAMPIR_PENUH" | "PENUH",
+                  }))
+                }
+                className="w-full px-2.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] font-bold text-slate-800 transition"
+              >
+                <option value="TERSEDIA">Tersedia</option>
+                <option value="HAMPIR_PENUH">Hampir Penuh</option>
+                <option value="PENUH">Penuh</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Visibilitas Warga
+              </label>
+              <button
+                type="button"
+                onClick={() => setEditFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
+                className={`w-full py-2 px-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  editFormData.isActive
+                    ? "bg-emerald-50 text-[#38746D] border-emerald-300"
+                    : "bg-rose-50 text-rose-700 border-rose-300"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${editFormData.isActive ? "bg-emerald-500" : "bg-rose-500"}`} />
+                <span>{editFormData.isActive ? "Posko Aktif" : "Nonaktif"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Fasilitas */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Fasilitas Utama (Pisahkan Koma)
+            </label>
+            <input
+              type="text"
+              value={editFormData.fasilitas.join(", ")}
+              onChange={(e) =>
+                setEditFormData((prev) => ({
+                  ...prev,
+                  fasilitas: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                }))
+              }
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#38746D] text-slate-800 transition"
+              placeholder="Dapur Umum, Toilet 10 Pintu, Genset"
+            />
+          </div>
+
+          {/* Koordinat Presisi */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                Koordinat Presisi Pin
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (mapInstanceRef.current) {
+                    mapInstanceRef.current.flyTo([editFormData.lat, editFormData.lng], 16, { duration: 0.8 });
+                  }
+                }}
+                className="text-[10px] font-bold text-[#38746D] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Crosshair className="w-3 h-3" />
+                <span>Pusatkan Pin</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                <span className="text-[9px] text-slate-400 block font-sans">Latitude</span>
+                <span className="font-bold text-slate-800">{editFormData.lat}</span>
+              </div>
+              <div className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                <span className="text-[9px] text-slate-400 block font-sans">Longitude</span>
+                <span className="font-bold text-slate-800">{editFormData.lng}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Aksi */}
+        <div className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleCancelEditPosko}
+            className="flex-1 py-2.5 px-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer text-center"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveEditPosko}
+            className="flex-1 py-2.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black transition active:scale-95 cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>Simpan Perubahan</span>
+          </button>
         </div>
       </div>
     );
@@ -3347,8 +3738,30 @@ export default function PetugasSpatialMap({
               sheetSnap === "min" ? "hidden" : "block"
             }`}
           >
-            {/* Baris Tombol Aksi Fungsional */}
+            {/* Baris Tombol Aksi Petugas: Fokus Manajemen & RBAC */}
             <div className="flex items-center gap-1.5 py-0.5 shrink-0">
+              {activeShelterDetail.petugasId === activeOfficerId ? (
+                <button
+                  type="button"
+                  onClick={() => handleStartEditPosko(activeShelterDetail)}
+                  className="h-9 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+                  title="Edit Data Posko & Geser Pin"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+                  <span className="truncate">Edit Posko (Pindah Pin)</span>
+                </button>
+              ) : (
+                <a
+                  href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Hubungi PJ ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
+                  className="h-9 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#38746D] border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs flex-1 min-w-0"
+                >
+                  <Phone className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+                  <span className="truncate">Hubungi PJ</span>
+                </a>
+              )}
+
               <button
                 type="button"
                 onClick={() =>
@@ -3359,10 +3772,11 @@ export default function PetugasSpatialMap({
                     customWaypoint
                   )
                 }
-                className="h-9 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+                title="Arahkan Rute Lapangan"
+                className="h-9 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer shrink-0"
               >
-                <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                <span className="truncate">Arahkan Rute</span>
+                <Navigation className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span>Rute</span>
               </button>
 
               <a
@@ -4216,8 +4630,30 @@ export default function PetugasSpatialMap({
             </p>
           </div>
 
-          {/* 3. Baris Tombol Aksi Fungsional */}
+          {/* 3. Baris Tombol Aksi Petugas: Fokus Manajemen & RBAC */}
           <div className="flex items-center gap-1.5 pt-0.5">
+            {activeShelterDetail.petugasId === activeOfficerId ? (
+              <button
+                type="button"
+                onClick={() => handleStartEditPosko(activeShelterDetail)}
+                className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+                title="Edit Data Posko & Geser Pin Lokasi di Peta"
+              >
+                <Pencil className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+                <span className="truncate">Edit Posko (Pindah Pin)</span>
+              </button>
+            ) : (
+              <a
+                href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
+                onClick={(e) => e.stopPropagation()}
+                title={`Hubungi PJ ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
+                className="h-8.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#38746D] border border-emerald-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs flex-1 min-w-0"
+              >
+                <Phone className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+                <span className="truncate">Hubungi PJ</span>
+              </a>
+            )}
+
             <button
               type="button"
               onClick={() =>
@@ -4228,16 +4664,17 @@ export default function PetugasSpatialMap({
                   customWaypoint
                 )
               }
-              className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+              title="Arahkan Rute Lapangan"
+              className="h-8.5 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer shrink-0"
             >
-              <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span className="truncate">Arahkan Rute</span>
+              <Navigation className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Rute</span>
             </button>
 
             <a
               href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
               onClick={(e) => e.stopPropagation()}
-              title={`Hubungi ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
+              title={`Telepon PJ (${activeShelterDetail.contactPhone})`}
               className="w-8.5 h-8.5 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
             >
               <Phone className="w-3.5 h-3.5 text-emerald-700" />
@@ -4806,7 +5243,7 @@ export default function PetugasSpatialMap({
                       setShowAllShelters((prev) => !prev);
                       if (!poskoExpanded) setPoskoExpanded(true);
                     }}
-                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || activeFilterChip !== "terdekat" ? "text-[#38746D]" : "text-slate-400 hover:text-[#38746D]"
+                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || poskoFilter === "MINE" ? "text-[#38746D]" : "text-slate-400 hover:text-[#38746D]"
                       }`}
                     title="Filter Posko"
                     aria-label="Filter Posko"
@@ -4816,62 +5253,86 @@ export default function PetugasSpatialMap({
                 </div>
               </motion.div>
 
-              {/* Baris 2: Card Chip Kategori & Filter Wilayah */}
+              {/* Baris 2: Filter Toggles Petugas ("Semua Posko Aktif", "Posko Saya", "Laporan & Genangan") */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
                 className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 shrink-0"
               >
-                {FILTER_CHIPS.map((chip) => {
-                  const isActive = activeFilterChip === chip.id && (chip.id !== "terdekat" || !showAllShelters);
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => {
-                        if (chip.id === "terdekat") {
-                          setActiveFilterChip("terdekat");
-                          setShowAllShelters(false);
-                          setSearchQuery("");
-                          if (mapInstanceRef.current && userMarkerRef.current) {
-                            const uPos = userMarkerRef.current.getLatLng();
-                            mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
-                          }
-                        } else {
-                          setActiveFilterChip(chip.id);
-                          setShowAllShelters(true);
-                          if (chip.type === "district") {
-                            handleSelectDistrict(chip.id);
-                          }
-                        }
-                        if (!poskoExpanded) setPoskoExpanded(true);
-                      }}
-                      className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer ${isActive
-                        ? "bg-[#38746D] text-white font-medium shadow-sm"
-                        : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-                        }`}
-                    >
-                      {chip.id === "terdekat" && (
-                        <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#38746D]"}`} />
-                      )}
-                      <span>{chip.label}</span>
-                    </button>
-                  );
-                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPoskoFilter("ALL_ACTIVE");
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer font-medium ${
+                    poskoFilter === "ALL_ACTIVE"
+                      ? "bg-[#38746D] text-white shadow-xs font-bold"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300"
+                  }`}
+                >
+                  <span>Semua Posko Aktif</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPoskoFilter("MINE");
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer font-medium ${
+                    poskoFilter === "MINE"
+                      ? "bg-[#38746D] text-white shadow-xs font-bold"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300"
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Posko Saya</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPoskoFilter("REPORTS");
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer font-medium ${
+                    poskoFilter === "REPORTS"
+                      ? "bg-rose-600 text-white shadow-xs font-bold"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300"
+                  }`}
+                >
+                  <AlertTriangle className={`w-3.5 h-3.5 ${poskoFilter === "REPORTS" ? "text-amber-200" : "text-rose-500"}`} />
+                  <span>Laporan &amp; Genangan ({displayedReports.length})</span>
+                </button>
               </motion.div>
             </>
           )}
 
-          {/* Card Utama: Full Height Saat DETAIL / ROUTE, atau Compact Saat IDLE */}
+          {/* Card Utama: Full Height Saat DETAIL / ROUTE / EDIT, atau Compact Saat IDLE */}
           <div
-            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden flex flex-col ${viewMode === "IDLE"
-              ? "shrink-0 h-auto"
-              : "h-full flex-1 min-h-0"
-              }`}
+            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden flex flex-col ${
+              editingPoskoId
+                ? "h-full flex-1 min-h-0"
+                : viewMode === "IDLE"
+                ? "shrink-0 h-auto"
+                : "h-full flex-1 min-h-0"
+            }`}
           >
             <AnimatePresence mode="wait">
-              {viewMode === "ROUTE" ? (
+              {editingPoskoId ? (
+                <motion.div
+                  key="inline-edit-panel"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                >
+                  {renderInlineEditForm()}
+                </motion.div>
+              ) : viewMode === "ROUTE" ? (
                 <motion.div
                   key="route-mode-panel"
                   initial={{ opacity: 0, y: 6 }}
@@ -5004,7 +5465,21 @@ export default function PetugasSpatialMap({
                     className="overflow-hidden"
                   >
                     <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
-                      {displayedShelters.length === 0 ? (
+                      {poskoFilter === "REPORTS" ? (
+                        displayedReports.length === 0 ? (
+                          <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-500">
+                              <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <div className="text-xs font-bold text-slate-700">Tidak ada laporan genangan aktif</div>
+                            <p className="text-[10.5px] text-slate-500 max-w-[200px] leading-relaxed">
+                              Tidak ditemukan titik genangan yang cocok dengan pencarian Anda.
+                            </p>
+                          </div>
+                        ) : (
+                          displayedReports.map((rep, index) => renderReportCardItem(rep, index))
+                        )
+                      ) : displayedShelters.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
                           <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
                             <Building2 className="w-6 h-6" />
@@ -5017,7 +5492,7 @@ export default function PetugasSpatialMap({
                             type="button"
                             onClick={() => {
                               setSearchQuery("");
-                              setActiveFilterChip("terdekat");
+                              setPoskoFilter("ALL_ACTIVE");
                               setShowAllShelters(false);
                             }}
                             className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#38746D] font-bold text-[11px] border border-emerald-200 transition cursor-pointer"
@@ -5047,11 +5522,10 @@ export default function PetugasSpatialMap({
                         </>
                       ) : (
                         <>
-                          {displayedShelters.slice(0, showAllShelters ? 25 : 10).map((sh, index) => renderShelterCardItem(sh, index, activeFilterChip === "terdekat"))}
+                          {displayedShelters.slice(0, showAllShelters ? 25 : 10).map((sh, index) => renderShelterCardItem(sh, index, false))}
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveFilterChip("terdekat");
                               setShowAllShelters(false);
                               setSearchQuery("");
                             }}
@@ -5075,7 +5549,7 @@ export default function PetugasSpatialMap({
         {/* 2. DRAGGABLE MULTI-SNAP BOTTOM SHEET (MOBILE VIEWPORT KHUSUS)  */}
         {/* ============================================================== */}
         <AnimatePresence>
-          {!isNavigating && viewMode !== "IDLE" && (
+          {!isNavigating && (viewMode !== "IDLE" || editingPoskoId) && (
             <motion.div
               key="mobile-bottom-sheet"
               initial={{ y: "100%", opacity: 0 }}
@@ -5083,7 +5557,9 @@ export default function PetugasSpatialMap({
               exit={{ y: "100%", opacity: 0 }}
               transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
               className={`md:hidden fixed inset-x-0 bottom-[68px] z-[350] bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] border-t border-slate-200/80 flex flex-col overflow-hidden pointer-events-auto ${
-                sheetSnap === "min"
+                editingPoskoId
+                  ? "h-[70vh] max-h-[calc(100vh-100px)]"
+                  : sheetSnap === "min"
                   ? "h-[85px]"
                   : sheetSnap === "mid"
                   ? "h-[45vh]"
@@ -5092,14 +5568,14 @@ export default function PetugasSpatialMap({
             >
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={viewMode}
+                  key={editingPoskoId ? "mobile-edit-posko" : viewMode}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
                   className="flex flex-col h-full overflow-hidden select-none"
                 >
-                  {renderMobileBottomSheetContent()}
+                  {editingPoskoId ? renderInlineEditForm() : renderMobileBottomSheetContent()}
                 </motion.div>
               </AnimatePresence>
             </motion.div>

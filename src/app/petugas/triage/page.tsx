@@ -244,389 +244,407 @@ export default function PetugasTriagePage() {
 
   return (
     <div className="space-y-6">
-        {/* Banner Alert Sukses */}
-        {notification && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="font-semibold">{notification}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNotification(null)}
-              className="text-xs font-bold text-emerald-700 underline"
-            >
-              Tutup
-            </button>
+      {/* Banner Alert Sukses */}
+      {notification && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{notification}</span>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-xs font-bold text-emerald-700 underline cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
-        {/* METRIK RINGKAS TRIAGE */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase">Menunggu Verifikasi</p>
-              <h3 className="text-2xl font-black text-amber-600 mt-1">{countSubmitted}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
-              <Clock className="w-5 h-5" />
-            </div>
+      {/* METRIK RINGKAS TRIAGE */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-500 uppercase">Menunggu Verifikasi</p>
+            <h3 className="text-2xl font-black text-amber-600 mt-1">{countSubmitted}</h3>
           </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase">Diproses SAR</p>
-              <h3 className="text-2xl font-black text-blue-600 mt-1">{countDispatched}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
-              <Ship className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase">Selesai Ditangani</p>
-              <h3 className="text-2xl font-black text-emerald-600 mt-1">{countResolved}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase">Ditolak / Duplikat</p>
-              <h3 className="text-2xl font-black text-rose-600 mt-1">{countRejected}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold">
-              <XCircle className="w-5 h-5" />
-            </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
+            <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        {/* CONTROLS: TABS & SEARCH */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            {[
-              { id: "ALL", label: "Semua", count: reports.length },
-              { id: "PENDING", label: "Perlu Verifikasi", count: countSubmitted },
-              { id: "DISPATCHED", label: "SAR Aktif", count: countDispatched },
-              { id: "RESOLVED", label: "Selesai", count: countResolved },
-              { id: "REJECTED", label: "Ditolak", count: countRejected },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedStatus(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+        <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-500 uppercase">Diproses SAR</p>
+            <h3 className="text-2xl font-black text-blue-600 mt-1">{countDispatched}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
+            <Ship className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-500 uppercase">Selesai Ditangani</p>
+            <h3 className="text-2xl font-black text-emerald-600 mt-1">{countResolved}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-500 uppercase">Ditolak / Duplikat</p>
+            <h3 className="text-2xl font-black text-rose-600 mt-1">{countRejected}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold">
+            <XCircle className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* CONTROLS: TABS & SEARCH */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          {[
+            { id: "ALL", label: "Semua", count: reports.length },
+            { id: "PENDING", label: "Perlu Verifikasi", count: countSubmitted },
+            { id: "DISPATCHED", label: "SAR Aktif", count: countDispatched },
+            { id: "RESOLVED", label: "Selesai", count: countResolved },
+            { id: "REJECTED", label: "Ditolak", count: countRejected },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSelectedStatus(tab.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedStatus === tab.id
+                  ? "bg-[#38746D] text-white shadow-xs"
+                  : "bg-white text-slate-600 border border-[#D5E4E0] hover:bg-slate-50"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] ${
                   selectedStatus === tab.id
-                    ? "bg-[#1D443F] text-white shadow-xs"
-                    : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-50"
+                    ? "bg-white/20 text-white font-medium"
+                    : "bg-slate-100 text-slate-600 font-medium"
                 }`}
               >
-                <span>{tab.label}</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                    selectedStatus === tab.id
-                      ? "bg-white/20 text-white"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="relative min-w-[260px]">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari kode tiket, nama pelapor, desa..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] transition-colors"
-            />
-          </div>
+                {tab.count}
+              </span>
+            </button>
+          ))}
         </div>
 
-        {/* TABEL DAFTAR ADUAN */}
-        <div className="bg-white rounded-3xl border border-[#D5E4E0] shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-700">
-              <thead className="bg-[#EEF5F3] text-[#1D443F] font-bold uppercase tracking-wider text-[11px] border-b border-[#D5E4E0]">
-                <tr>
-                  <th className="px-5 py-3.5">Tiket & Waktu</th>
-                  <th className="px-5 py-3.5">Pelapor & Lokasi</th>
-                  <th className="px-5 py-3.5">Ketinggian & Kategori</th>
-                  <th className="px-5 py-3.5">AI CNN Verifikasi</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Tindakan Cepat</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredReports.map((rep) => (
-                  <tr
-                    key={rep.id}
-                    className="hover:bg-gray-50/80 transition-colors cursor-pointer"
-                    onClick={() => setSelectedReport(rep)}
-                  >
-                    {/* Tiket */}
-                    <td className="px-5 py-4">
-                      <div className="font-extrabold text-[#1D443F]">{rep.ticketCode}</div>
-                      <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        {rep.timeReceived}
-                      </div>
-                    </td>
-
-                    {/* Pelapor & Lokasi */}
-                    <td className="px-5 py-4">
-                      <div className="font-bold text-gray-900">{rep.reporterName}</div>
-                      <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
-                        <span className="truncate max-w-[200px]">
-                          {rep.location}, {rep.district}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Ketinggian & Kategori */}
-                    <td className="px-5 py-4">
-                      <div className="font-semibold text-gray-900">{rep.waterLevel}</div>
-                      <div className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-[#1D443F] border border-teal-200">
-                        {rep.disasterCategory}
-                      </div>
-                    </td>
-
-                    {/* AI CNN */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                        <span className="font-bold text-teal-700">{rep.aiConfidence}%</span>
-                      </div>
-                      <div className="text-[10px] text-gray-500 truncate max-w-[140px]">
-                        {rep.aiClassification}
-                      </div>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="px-5 py-4">
-                      {rep.status === "SUBMITTED" && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
-                          Menunggu Triage
-                        </span>
-                      )}
-                      {rep.status === "ARMADA_DIKERAHKAN" && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300">
-                          SAR Bergerak
-                        </span>
-                      )}
-                      {rep.status === "SELESAI" && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          Selesai
-                        </span>
-                      )}
-                      {rep.status === "DITOLAK" && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
-                          Ditolak
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
-                        {rep.status === "SUBMITTED" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleVerifyAndDispatch(rep)}
-                              className="px-2.5 py-1.5 rounded-xl bg-[#1D443F] hover:bg-[#38746D] text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
-                              title="Verifikasi & Luncurkan SAR"
-                            >
-                              <Ship className="w-3.5 h-3.5" />
-                              Kirim SAR
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleReject(rep)}
-                              className="px-2 py-1.5 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-bold transition-all"
-                              title="Tolak Aduan"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-
-                        {rep.status === "ARMADA_DIKERAHKAN" && (
-                          <button
-                            type="button"
-                            onClick={() => handleResolve(rep)}
-                            className="px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Selesaikan
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedReport(rep)}
-                          className="p-1.5 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                          title="Lihat Detail Aduan"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="relative min-w-[260px]">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Cari kode tiket, nama pelapor, desa..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] transition-colors"
+          />
         </div>
+      </div>
 
-        {/* MODAL DETAIL ADUAN */}
-        {selectedReport && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
-              {/* Header Modal */}
-              <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-[#1D443F] text-base">
-                      Detail Aduan #{selectedReport.ticketCode}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 font-bold text-gray-700">
-                      {selectedReport.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5">Diterima: {selectedReport.timeReceived}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedReport(null)}
-                  className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+      {/* TABEL DAFTAR ADUAN */}
+      <div className="bg-white rounded-3xl border border-[#D5E4E0] shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-gray-700">
+            <thead className="bg-[#EEF5F3] text-[#24544E] font-semibold uppercase tracking-wider text-[11px] border-b border-[#D5E4E0]">
+              <tr>
+                <th className="px-4 py-3">Tiket & Waktu</th>
+                <th className="px-4 py-3">Pelapor & Lokasi</th>
+                <th className="px-4 py-3">Ketinggian & Kategori</th>
+                <th className="px-4 py-3">Verifikasi AI</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredReports.map((rep) => (
+                <tr
+                  key={rep.id}
+                  className="hover:bg-gray-50/80 transition-colors cursor-pointer"
+                  onClick={() => setSelectedReport(rep)}
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+                  {/* Tiket */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="font-mono text-xs font-semibold text-slate-800">
+                      #{rep.ticketCode.replace(/^DMY-\d{4}-/, "DMY-")}
+                    </div>
+                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                      {rep.timeReceived}
+                    </div>
+                  </td>
 
-              {/* Body Modal */}
-              <div className="p-5 sm:p-6 space-y-5">
-                {/* AI Detection Banner */}
-                <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs space-y-1">
-                    <div className="font-bold text-[#1D443F] flex items-center gap-2">
-                      <span>Klasifikasi AI Vision CNN: {selectedReport.aiClassification}</span>
-                      <span className="px-2 py-0.2 rounded-full bg-white text-teal-800 font-extrabold text-[10px]">
-                        {selectedReport.aiConfidence}% Akurasi
+                  {/* Pelapor & Lokasi */}
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-slate-900 text-xs">{rep.reporterName}</div>
+                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate max-w-[200px]">
+                        {rep.location}, {rep.district}
                       </span>
                     </div>
-                    <p className="text-gray-600 leading-relaxed">
-                      Model memverifikasi visual air rob dengan ketinggian terestimasi {selectedReport.waterLevel}.
-                    </p>
-                  </div>
-                </div>
+                  </td>
 
-                {/* Deskripsi & Foto */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-gray-900 uppercase">Keterangan Pelapor</h4>
-                  <p className="text-xs text-gray-700 bg-gray-50 p-3 rounded-2xl border border-gray-200 leading-relaxed">
-                    "{selectedReport.description}"
+                  {/* Ketinggian & Kategori */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="font-semibold text-slate-900 text-xs">
+                      {rep.waterLevel.replace(/\s*\(.*?\)/g, "").trim()}
+                    </div>
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                      {rep.disasterCategory}
+                    </span>
+                  </td>
+
+                  {/* Verifikasi AI */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles
+                        className={`w-3.5 h-3.5 ${
+                          rep.aiConfidence >= 90
+                            ? "text-emerald-600"
+                            : rep.aiConfidence >= 75
+                            ? "text-amber-600"
+                            : "text-rose-500"
+                        }`}
+                      />
+                      <span
+                        className={`font-semibold text-xs ${
+                          rep.aiConfidence >= 90
+                            ? "text-emerald-600"
+                            : rep.aiConfidence >= 75
+                            ? "text-amber-600"
+                            : "text-rose-500"
+                        }`}
+                      >
+                        {rep.aiConfidence}%
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Status Badge */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {rep.status === "SUBMITTED" && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center">
+                        Menunggu Triage
+                      </span>
+                    )}
+                    {rep.status === "ARMADA_DIKERAHKAN" && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center">
+                        SAR Bergerak
+                      </span>
+                    )}
+                    {rep.status === "SELESAI" && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center">
+                        Selesai
+                      </span>
+                    )}
+                    {rep.status === "DITOLAK" && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center">
+                        Ditolak
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Action */}
+                  <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {rep.status === "SUBMITTED" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleVerifyAndDispatch(rep)}
+                            className="px-2.5 py-1 rounded-lg border border-[#38746D] text-[#38746D] hover:bg-[#38746D] hover:text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                            title="Verifikasi & Luncurkan SAR"
+                          >
+                            <Ship className="w-3.5 h-3.5" />
+                            <span>SAR</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(rep)}
+                            className="p-1.5 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-colors cursor-pointer"
+                            title="Tolak Aduan"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+
+                      {rep.status === "ARMADA_DIKERAHKAN" && (
+                        <button
+                          type="button"
+                          onClick={() => handleResolve(rep)}
+                          className="px-2.5 py-1 rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Selesai</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReport(rep)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="Lihat Detail Aduan"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MODAL DETAIL ADUAN */}
+      {selectedReport && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
+            {/* Header Modal */}
+            <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-[#24544E] text-base">
+                    Detail Aduan #{selectedReport.ticketCode}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 font-bold text-gray-700">
+                    {selectedReport.status}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">Diterima: {selectedReport.timeReceived}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body Modal */}
+            <div className="p-5 sm:p-6 space-y-5">
+              {/* AI Detection Banner */}
+              <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-[#1D443F] flex items-center gap-2">
+                    <span>Klasifikasi AI Vision CNN: {selectedReport.aiClassification}</span>
+                    <span className="px-2 py-0.2 rounded-full bg-white text-teal-800 font-extrabold text-[10px]">
+                      {selectedReport.aiConfidence}% Akurasi
+                    </span>
+                  </div>
+                  <p className="text-gray-600 leading-relaxed">
+                    Model memverifikasi visual air rob dengan ketinggian terestimasi {selectedReport.waterLevel}.
                   </p>
                 </div>
-
-                {/* Info Korban Rentan & Lokasi */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 rounded-2xl border border-gray-200 space-y-1">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Lokasi Kejadian</span>
-                    <p className="text-xs font-bold text-gray-900">{selectedReport.location}</p>
-                    <p className="text-[11px] text-gray-500">Kecamatan {selectedReport.district}</p>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl border border-gray-200 space-y-1">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Kelompok Rentan</span>
-                    <p className="text-xs font-bold text-gray-900">
-                      {selectedReport.vulnerableCount.elderly} Lansia • {selectedReport.vulnerableCount.children} Anak-anak • {selectedReport.vulnerableCount.sick} Sakit
-                    </p>
-                    <p className="text-[11px] text-amber-700 font-semibold">Prioritas Evakuasi Tinggi</p>
-                  </div>
-                </div>
-
-                {/* Info Kontak Pelapor */}
-                <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <PhoneCall className="w-4 h-4 text-[#38746D]" />
-                    <span className="text-xs font-bold text-gray-900">{selectedReport.reporterName}</span>
-                    <span className="text-xs text-gray-500">({selectedReport.reporterPhone})</span>
-                  </div>
-                  <a
-                    href={`tel:${selectedReport.reporterPhone.replace(/[^0-9]/g, "")}`}
-                    className="px-3 py-1.5 rounded-xl bg-[#1D443F] text-white text-xs font-bold hover:bg-[#38746D] transition-colors"
-                  >
-                    Hubungi Pelapor
-                  </a>
-                </div>
-
-                {/* Alasan Penolakan (Jika ada) */}
-                {selectedReport.rejectionReason && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900">
-                    <span className="font-bold">Alasan Penolakan: </span>
-                    {selectedReport.rejectionReason}
-                  </div>
-                )}
               </div>
 
-              {/* Footer Modal Actions */}
-              <div className="p-5 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50/50">
-                <button
-                  type="button"
-                  onClick={() => setSelectedReport(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100"
+              {/* Deskripsi & Foto */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-gray-900 uppercase">Keterangan Pelapor</h4>
+                <p className="text-xs text-gray-700 bg-gray-50 p-3 rounded-2xl border border-gray-200 leading-relaxed">
+                  "{selectedReport.description}"
+                </p>
+              </div>
+
+              {/* Info Korban Rentan & Lokasi */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-2xl border border-gray-200 space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase">Lokasi Kejadian</span>
+                  <p className="text-xs font-bold text-gray-900">{selectedReport.location}</p>
+                  <p className="text-[11px] text-gray-500">Kecamatan {selectedReport.district}</p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl border border-gray-200 space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase">Kelompok Rentan</span>
+                  <p className="text-xs font-bold text-gray-900">
+                    {selectedReport.vulnerableCount.elderly} Lansia • {selectedReport.vulnerableCount.children} Anak-anak • {selectedReport.vulnerableCount.sick} Sakit
+                  </p>
+                  <p className="text-[11px] text-amber-700 font-semibold">Prioritas Evakuasi Tinggi</p>
+                </div>
+              </div>
+
+              {/* Info Kontak Pelapor */}
+              <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <PhoneCall className="w-4 h-4 text-[#38746D]" />
+                  <span className="text-xs font-bold text-gray-900">{selectedReport.reporterName}</span>
+                  <span className="text-xs text-gray-500">({selectedReport.reporterPhone})</span>
+                </div>
+                <a
+                  href={`tel:${selectedReport.reporterPhone.replace(/[^0-9]/g, "")}`}
+                  className="px-3 py-1.5 rounded-xl bg-[#38746D] text-white text-xs font-bold hover:bg-[#24544E] transition-colors"
                 >
-                  Tutup
-                </button>
+                  Hubungi Pelapor
+                </a>
+              </div>
 
-                {selectedReport.status === "SUBMITTED" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleReject(selectedReport)}
-                      className="px-4 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold"
-                    >
-                      Tolak Aduan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleVerifyAndDispatch(selectedReport)}
-                      className="px-4 py-2 rounded-xl bg-[#1D443F] hover:bg-[#38746D] text-white text-xs font-bold flex items-center gap-1.5"
-                    >
-                      <Ship className="w-4 h-4" />
-                      Verifikasi & Kerahkan SAR
-                    </button>
-                  </>
-                )}
+              {/* Alasan Penolakan (Jika ada) */}
+              {selectedReport.rejectionReason && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900">
+                  <span className="font-bold">Alasan Penolakan: </span>
+                  {selectedReport.rejectionReason}
+                </div>
+              )}
+            </div>
 
-                {selectedReport.status === "ARMADA_DIKERAHKAN" && (
+            {/* Footer Modal Actions */}
+            <div className="p-5 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50/50">
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+              >
+                Tutup
+              </button>
+
+              {selectedReport.status === "SUBMITTED" && (
+                <>
                   <button
                     type="button"
-                    onClick={() => handleResolve(selectedReport)}
-                    className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1.5"
+                    onClick={() => handleReject(selectedReport)}
+                    className="px-4 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold cursor-pointer"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Tandai Telah Selesai
+                    Tolak Aduan
                   </button>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyAndDispatch(selectedReport)}
+                    className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Ship className="w-4 h-4" />
+                    Verifikasi & Kerahkan SAR
+                  </button>
+                </>
+              )}
+
+              {selectedReport.status === "ARMADA_DIKERAHKAN" && (
+                <button
+                  type="button"
+                  onClick={() => handleResolve(selectedReport)}
+                  className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Tandai Telah Selesai
+                </button>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
   );
 }
-

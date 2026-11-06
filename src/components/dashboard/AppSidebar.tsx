@@ -64,10 +64,11 @@ export function AppSidebar({
     role === "petugas"
       ? [
           { label: "Ringkasan Dasbor", href: "/petugas/dashboard", icon: LayoutDashboard },
-          { label: "Triage & Verifikasi Aduan", href: "/petugas/triage", icon: ClipboardList, badge: "3" },
           { label: "Peta Spasial & SAR", href: "/petugas/peta-sar", icon: Map },
+          { label: "Triage & Verifikasi Aduan", href: "/petugas/triage", icon: ClipboardList, badge: "3" },
           { label: "Manajemen Posko", href: "/petugas/posko", icon: PoskoShelterIcon },
           { label: "Telemetri TMA & Rob", href: "/petugas/telemetri", icon: Activity },
+          { label: "Komunitas", href: "/petugas/komunitas", icon: Users },
         ]
       : [
           { label: "Dasbor Kesiapsiagaan", href: "/warga/dashboard", icon: Home },

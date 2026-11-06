@@ -40,6 +40,7 @@ const PetugasSpatialMap = dynamic(
 );
 
 interface UserSession {
+  id?: string;
   name: string;
   email: string;
   role: string;
@@ -93,7 +94,8 @@ interface EmergencyContactItem {
 export default function PetugasPetaSarPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [, setSession] = useState<UserSession>({
+  const [session, setSession] = useState<UserSession>({
+    id: "petugas-01",
     name: "Petugas BPBD Indramayu",
     email: "petugas@dermayu.id",
     role: "petugas",
@@ -103,6 +105,9 @@ export default function PetugasPetaSarPage() {
   // Modals state
   const [showReportModal, setShowReportModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
+
+  // Data Posko Terkini (Real-time sync dari PoskoService)
+  const [sheltersData, setSheltersData] = useState(() => getAllPosko());
 
   // Report form state
   const [reportCategory, setReportCategory] = useState<ReportCategoryCode>("FLOOD");
@@ -225,10 +230,11 @@ export default function PetugasPetaSarPage() {
     const active = getActiveSession();
     if (active) {
       setSession({
+        id: active.id || "petugas-01",
         name: active.fullName || active.name,
         email: active.email,
         role: active.role,
-        district: active.district || "Pusdalops BPBD Indramayu",
+        district: active.district || "Pusdalops PB Indramayu",
       });
     }
 
@@ -236,13 +242,19 @@ export default function PetugasPetaSarPage() {
 
     const handleStorageChange = () => {
       syncReportsFromStorage();
+      setSheltersData(getAllPosko());
+    };
+    const handlePoskoChange = () => {
+      setSheltersData(getAllPosko());
     };
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("dermayu_reports_updated", handleStorageChange);
+    window.addEventListener("dermayu_posko_updated", handlePoskoChange);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("dermayu_reports_updated", handleStorageChange);
+      window.removeEventListener("dermayu_posko_updated", handlePoskoChange);
     };
   }, []);
 
@@ -376,7 +388,7 @@ export default function PetugasPetaSarPage() {
   ];
 
   // Untuk Petugas, tampilkan seluruh posko aktif dan yang dikelola
-  const mapShelterPoints: MapShelterPoint[] = getAllPosko().map((p) => ({
+  const mapShelterPoints: MapShelterPoint[] = sheltersData.map((p) => ({
     id: p.id,
     name: p.nama,
     location: p.alamat,
@@ -391,8 +403,10 @@ export default function PetugasPetaSarPage() {
     lng: p.lng,
     facilities: p.fasilitas,
     kategori: p.kategori,
-    foto: p.foto,
+    foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
     tier: p.tier,
+    petugasId: p.petugasId,
+    isActive: p.isActive,
   }));
 
   return (
@@ -403,6 +417,7 @@ export default function PetugasPetaSarPage() {
           reports={mapReportPoints}
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
+          currentUserId={session.id || "petugas-01"}
           onOpenReport={() => setShowReportModal(true)}
           onOpenContacts={() => setShowContactsModal(true)}
         />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users,
@@ -43,6 +44,7 @@ interface CommentItem {
   id: string;
   author: string;
   authorDistrict?: string;
+  authorRole?: "WARGA" | "APARAT" | "RELAWAN" | "PETUGAS";
   text: string;
   time: string;
   media?: MediaAttachment[];
@@ -52,7 +54,7 @@ interface CommunityPost {
   id: string;
   authorName: string;
   authorDistrict: string;
-  authorRole?: "WARGA" | "APARAT" | "RELAWAN";
+  authorRole?: "WARGA" | "APARAT" | "RELAWAN" | "PETUGAS";
   timeAgo: string;
   category: "ROB" | "LOGISTIK" | "GOTONG_ROYONG" | "RUTE";
   categoryLabel: string;
@@ -194,7 +196,8 @@ const DISTRICT_FILTERS = [
   { id: "Pasekan", label: "Pasekan" },
 ];
 
-export default function WargaKomunitasPage() {
+export function KomunitasView() {
+  const pathname = usePathname();
   const [posts, setPosts] = useState<CommunityPost[]>(initialMockPosts);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedDistrict, setSelectedDistrict] = useState<string>("ALL");
@@ -224,10 +227,13 @@ export default function WargaKomunitasPage() {
   const modalFileInputRef = useRef<HTMLInputElement>(null);
   const commentFileInputRef = useRef<HTMLInputElement>(null);
 
-  // User session
+  // User session & RBAC Role Detection
   const session = getActiveSession();
-  const currentUserName = session?.name || "Warga Indramayu";
-  const currentUserDistrict = session?.district || "Kandanghaur - Eretan Wetan";
+  const isPetugasRoute = pathname?.startsWith("/petugas");
+  const rawRole = (session?.role || (isPetugasRoute ? "petugas" : "warga")).toLowerCase();
+  const isPetugas = isPetugasRoute || rawRole.includes("petugas") || rawRole.includes("officer") || rawRole.includes("admin");
+  const currentUserName = session?.name || (isPetugas ? "Petugas TRC BPBD" : "Warga Indramayu");
+  const currentUserDistrict = session?.district || (isPetugas ? "Pusdalops PB Indramayu" : "Kandanghaur - Eretan Wetan");
 
   // Click outside listener untuk dropdown filter
   useEffect(() => {
@@ -437,6 +443,7 @@ export default function WargaKomunitasPage() {
       id: `post-${Date.now()}`,
       authorName: currentUserName,
       authorDistrict: currentUserDistrict,
+      authorRole: isPetugas ? "PETUGAS" : "WARGA",
       timeAgo: "Baru saja",
       category: modalCategory,
       categoryLabel: CATEGORY_MAP[modalCategory].label,
@@ -473,6 +480,7 @@ export default function WargaKomunitasPage() {
       id: `c-${Date.now()}`,
       author: currentUserName,
       authorDistrict: currentUserDistrict,
+      authorRole: isPetugas ? "PETUGAS" : "WARGA",
       text: commentText.trim(),
       time: "Baru saja",
       media: commentMedia.length > 0 ? commentMedia : undefined,
@@ -622,11 +630,22 @@ export default function WargaKomunitasPage() {
                 <form onSubmit={handleCreatePost} className="space-y-5 text-xs sm:text-sm">
                   {/* Identitas Pengirim */}
                   <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#F8FAF9] border border-gray-100">
-                    <div className="w-9 h-9 rounded-2xl bg-[#1D443F] text-white font-bold text-sm flex items-center justify-center shrink-0">
-                      {currentUserName.charAt(0).toUpperCase()}
+                    <div
+                      className={`w-9 h-9 rounded-2xl ${
+                        isPetugas ? "bg-[#38746D] text-white" : "bg-[#1D443F] text-white"
+                      } font-bold text-sm flex items-center justify-center shrink-0`}
+                    >
+                      {isPetugas ? "P" : currentUserName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-[#132422] truncate">{currentUserName}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-[#132422] truncate">{currentUserName}</p>
+                        {isPetugas && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#38746D] text-white shadow-2xs">
+                            Petugas TRC BPBD
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
                         {currentUserDistrict}
@@ -808,13 +827,42 @@ export default function WargaKomunitasPage() {
                 {/* Header Post */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 text-[#1D443F] font-bold text-base flex items-center justify-center shrink-0">
-                      {activePost.authorName.charAt(0).toUpperCase()}
+                    <div
+                      className={`w-11 h-11 rounded-2xl ${
+                        activePost.authorRole === "PETUGAS" ||
+                        activePost.authorName.toLowerCase().includes("petugas")
+                          ? "bg-[#38746D] text-white"
+                          : "bg-[#EEF5F3] border border-[#38746D]/20 text-[#1D443F]"
+                      } font-bold text-base flex items-center justify-center shrink-0`}
+                    >
+                      {activePost.authorRole === "PETUGAS" ||
+                      activePost.authorName.toLowerCase().includes("petugas")
+                        ? "P"
+                        : activePost.authorName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-sm sm:text-base font-bold text-[#132422]">
-                        {activePost.authorName}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-bold text-[#132422]">
+                          {activePost.authorName}
+                        </h3>
+                        {(activePost.authorRole === "PETUGAS" ||
+                          activePost.authorName.toLowerCase().includes("petugas") ||
+                          activePost.authorDistrict.toLowerCase().includes("pusdalops")) && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-[#38746D] border border-teal-200">
+                            Petugas TRC BPBD
+                          </span>
+                        )}
+                        {activePost.authorRole === "APARAT" && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            Aparat Desa
+                          </span>
+                        )}
+                        {activePost.authorRole === "RELAWAN" && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Relawan
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
                         <span>{activePost.authorDistrict.split(",")[0].trim()} • {formatShortTime(activePost.timeAgo)}</span>
@@ -938,8 +986,15 @@ export default function WargaKomunitasPage() {
                         className="p-4 rounded-2xl bg-[#F8FAF9] border border-gray-100 space-y-2 text-xs"
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-[#132422]">{c.author}</span>
+                            {(c.authorRole === "PETUGAS" ||
+                              c.author.toLowerCase().includes("petugas") ||
+                              c.authorDistrict?.toLowerCase().includes("pusdalops")) && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-teal-50 text-[#38746D] border border-teal-200">
+                                Petugas TRC BPBD
+                              </span>
+                            )}
                             {c.authorDistrict && (
                               <span className="text-[11px] text-gray-400">
                                 • {c.authorDistrict}
@@ -983,7 +1038,15 @@ export default function WargaKomunitasPage() {
 
                 {/* Form Kirim Komentar dengan Dukungan Media */}
                 <div className="pt-4 border-t border-gray-100 space-y-3">
-                  <p className="text-xs font-bold text-gray-700">Tulis Tanggapan Anda:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-gray-700">Tulis Tanggapan Anda:</p>
+                    <span className="text-[11px] text-gray-500">
+                      Sebagai: <strong className="text-[#132422]">{currentUserName}</strong>{" "}
+                      {isPetugas && (
+                        <span className="text-[#38746D] font-bold">(Petugas TRC BPBD)</span>
+                      )}
+                    </span>
+                  </div>
 
                   <div className="space-y-2">
                     <textarea
@@ -1250,13 +1313,42 @@ export default function WargaKomunitasPage() {
                           onClick={() => setSelectedPostId(post.id)}
                           className="flex items-start gap-3 cursor-pointer group/author"
                         >
-                          <div className="w-10 h-10 rounded-2xl bg-[#EEF5F3] text-[#1D443F] font-bold text-sm flex items-center justify-center shrink-0 mt-0.5 group-hover/author:bg-[#D5E4E0] transition-colors">
-                            {post.authorName.charAt(0).toUpperCase()}
+                          <div
+                            className={`w-10 h-10 rounded-2xl ${
+                              post.authorRole === "PETUGAS" ||
+                              post.authorName.toLowerCase().includes("petugas")
+                                ? "bg-[#38746D] text-white"
+                                : "bg-[#EEF5F3] text-[#1D443F]"
+                            } font-bold text-sm flex items-center justify-center shrink-0 mt-0.5 group-hover/author:bg-[#D5E4E0] transition-colors`}
+                          >
+                            {post.authorRole === "PETUGAS" ||
+                            post.authorName.toLowerCase().includes("petugas")
+                              ? "P"
+                              : post.authorName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors">
-                              {post.authorName}
-                            </h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors">
+                                {post.authorName}
+                              </h4>
+                              {(post.authorRole === "PETUGAS" ||
+                                post.authorName.toLowerCase().includes("petugas") ||
+                                post.authorDistrict.toLowerCase().includes("pusdalops")) && (
+                                <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-teal-50 text-[#38746D] border border-teal-200">
+                                  Petugas TRC BPBD
+                                </span>
+                              )}
+                              {post.authorRole === "APARAT" && (
+                                <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  Aparat Desa
+                                </span>
+                              )}
+                              {post.authorRole === "RELAWAN" && (
+                                <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Relawan
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                               <MapPin className="w-3 h-3 text-[#38746D]" />
                               <span>{post.authorDistrict.split(",")[0].trim()} • {formatShortTime(post.timeAgo)}</span>
@@ -1424,7 +1516,7 @@ export default function WargaKomunitasPage() {
             </div>
 
             <Link
-              href="/warga/posko"
+              href={isPetugas ? "/petugas/posko" : "/warga/posko"}
               className="w-full py-2.5 rounded-2xl border border-[#D5E4E0] text-xs font-bold text-[#1D443F] hover:bg-[#EEF5F3] transition-colors flex items-center justify-center gap-1.5"
             >
               <span>Lihat Pantauan Posko Resmi</span>
@@ -1480,3 +1572,5 @@ export default function WargaKomunitasPage() {
     </div>
   );
 }
+
+export default KomunitasView;

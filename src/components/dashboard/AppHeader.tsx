@@ -14,6 +14,7 @@ import {
   MapPin,
   ArrowRight,
   ArrowLeft,
+  ClipboardList,
 } from "lucide-react";
 import { ForkedRouteIcon, BeaconAlertIcon } from "@/components/ui/Icons";
 import { LogoDermayu } from "@/components/ui/LogoDermayu";
@@ -248,6 +249,13 @@ export function AppHeader({
       pathname === "/dashboard" ||
       pathname === "/warga" ||
       pathname === "/");
+
+  const isPetugasDashboard =
+    role === "petugas" &&
+    (pathname === "/petugas/dashboard" ||
+      pathname === "/petugas");
+
+  const isDashboard = isWargaDashboard || isPetugasDashboard;
 
   // Hasil filter pencarian desktop
   const filteredDesktopResults = desktopQuery.trim()
@@ -570,7 +578,7 @@ export function AppHeader({
             paddingTop: "env(safe-area-inset-top, 0px)",
           }}
           className={`sticky top-0 z-10 w-full pointer-events-none transition-colors duration-300 ${
-            isWargaDashboard && isScrolled
+            isDashboard && isScrolled
               ? "bg-[#1D443F]/95 backdrop-blur-md border-b border-[#38746D]/30 shadow-md"
               : "bg-white border-b border-slate-100 shadow-2xs"
           }`}
@@ -582,14 +590,14 @@ export function AppHeader({
         <motion.div
           initial={false}
           animate={{
-            height: isWargaDashboard ? "calc(285px + env(safe-area-inset-top, 0px))" : 0,
+            height: isDashboard ? "calc(285px + env(safe-area-inset-top, 0px))" : 0,
           }}
           transition={{
             duration: 0.38,
             ease: [0.32, 0.72, 0, 1] as const,
           }}
-          className={`w-full overflow-hidden absolute top-0 left-0 right-0 z-20 rounded-b-[36px] transition-[box-shadow] duration-300 ${
-            isWargaDashboard ? "shadow-lg pointer-events-auto" : "shadow-none pointer-events-none"
+          className={`w-full overflow-hidden absolute top-0 left-0 right-0 z-20 rounded-b-[40px] transition-[box-shadow] duration-300 ${
+            isDashboard ? "shadow-lg pointer-events-auto" : "shadow-none pointer-events-none"
           }`}
         >
           <div
@@ -602,60 +610,117 @@ export function AppHeader({
             {/* Ornamen Geometri Abstrak Identik 100% dengan Halaman Auth/Login */}
             <AuthBackgroundDecor />
 
-            <motion.div
-              animate={{ y: isWargaDashboard ? 0 : -60 }}
-              transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
-              className="relative z-10 w-full flex flex-col justify-start mt-2"
-            >
-              {/* Dropdown Lokasi Warga */}
-              <div className="flex items-center gap-1.5 text-xs text-white/90 mb-4">
-                <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                <span className="text-white/70 text-[11px]">Lokasi Anda:</span>
-                <div className="flex items-center gap-1 font-bold text-white text-xs cursor-pointer hover:text-emerald-200">
-                  <span>Kandanghaur, Indramayu</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-white/80" />
-                </div>
-              </div>
-
-              {/* Bagian Hero Content: Berjarak Simetris */}
-              <div className="flex items-center justify-between gap-2.5">
-                <div className="flex-1 min-w-0 pr-1">
-                  <h2 className="text-[17px] sm:text-lg font-black tracking-tight text-white leading-tight uppercase">
-                    TANGGAP BANJIR, SATU SENTUHAN!
-                  </h2>
-                  <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-2 leading-relaxed line-clamp-2">
-                    Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu.
-                  </p>
-                  <div className="flex items-center gap-2 mt-4.5">
-                    {/* 1. Tombol Rute (Lingkaran dengan Ikon ForkedRouteIcon dari Navbar) */}
-                    <Link
-                      href="/warga/evakuasi"
-                      replace
-                      scroll={false}
-                      className="w-9.5 h-9.5 rounded-full bg-white text-[#1D443F] shadow-md hover:bg-emerald-50 flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer"
-                      aria-label="Cek Rute Evakuasi"
-                      title="Cek Rute Evakuasi"
-                    >
-                      <ForkedRouteIcon className="w-5 h-5 text-[#1D443F]" />
-                    </Link>
-
-                    {/* 2. Tombol Lapor (Ikon BeaconAlertIcon dari Navbar di Kiri & Tanpa Panah Kanan) */}
-                    <Link
-                      href="/warga/lapor"
-                      replace
-                      scroll={false}
-                      className="h-9.5 inline-flex items-center gap-1.5 px-3.5 sm:px-4 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                    >
-                      <BeaconAlertIcon className="w-4 h-4 shrink-0 text-[#1D443F]" />
-                      <span>Laporkan Banjir</span>
-                    </Link>
+            {isPetugasDashboard ? (
+              /* KONTEN HERO OPERASIONAL PETUGAS (PUSDALOPS) */
+              <motion.div
+                animate={{ y: isDashboard ? 0 : -60 }}
+                transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
+                className="relative z-10 w-full flex flex-col justify-start mt-2"
+              >
+                {/* Info Lokasi Pusat Kendali Petugas */}
+                <div className="flex items-center gap-1.5 text-xs text-white/90 mb-3.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                  <span className="text-white/70 text-[11px]">Lokasi Anda:</span>
+                  <div className="flex items-center gap-1 font-bold text-white text-xs">
+                    <span>Pusat Kendali (PUSDALOPS) Indramayu</span>
                   </div>
                 </div>
 
-                {/* Gambar Hero 3D Parallax & Floating Animation */}
-                <Hero3DImage className="w-34 h-34 sm:w-38 sm:h-38" />
-              </div>
-            </motion.div>
+                {/* Hero Content Petugas */}
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex-1 min-w-0 pr-1">
+                    <h2 className="text-[15px] sm:text-base font-black tracking-tight text-white leading-tight uppercase">
+                      PUSAT KENDALI OPERASI (PUSDALOPS)
+                    </h2>
+                    <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-1.5 leading-relaxed line-clamp-2">
+                      Pantau laporan masuk, kerahkan armada SAR, dan kelola kapasitas posko evakuasi.
+                    </p>
+                    <div className="flex items-center gap-2 mt-4">
+                      {/* Tombol 1: Solid Putih / Teks Hijau */}
+                      <Link
+                        href="/petugas/telemetri"
+                        replace
+                        scroll={false}
+                        className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-[#1D443F] shrink-0" />
+                        <span>Peta SAR &amp; Evakuasi</span>
+                      </Link>
+
+                      {/* Tombol 2: Outline Putih */}
+                      <Link
+                        href="/petugas/triage"
+                        replace
+                        scroll={false}
+                        className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-full bg-transparent border border-white/80 hover:bg-white/10 text-white text-[11px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                      >
+                        <ClipboardList className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span>Antrean Triage</span>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Gambar Hero 3D */}
+                  <Hero3DImage className="w-34 h-34 sm:w-38 sm:h-38 shrink-0" />
+                </div>
+              </motion.div>
+            ) : (
+              /* KONTEN HERO KESIAPSIAGAAN WARGA */
+              <motion.div
+                animate={{ y: isDashboard ? 0 : -60 }}
+                transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
+                className="relative z-10 w-full flex flex-col justify-start mt-2"
+              >
+                {/* Dropdown Lokasi Warga */}
+                <div className="flex items-center gap-1.5 text-xs text-white/90 mb-4">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                  <span className="text-white/70 text-[11px]">Lokasi Anda:</span>
+                  <div className="flex items-center gap-1 font-bold text-white text-xs cursor-pointer hover:text-emerald-200">
+                    <span>Kandanghaur, Indramayu</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-white/80" />
+                  </div>
+                </div>
+
+                {/* Bagian Hero Content: Berjarak Simetris */}
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex-1 min-w-0 pr-1">
+                    <h2 className="text-[17px] sm:text-lg font-black tracking-tight text-white leading-tight uppercase">
+                      TANGGAP BANJIR, SATU SENTUHAN!
+                    </h2>
+                    <p className="text-[11px] sm:text-xs text-[#D1E5E2] mt-2 leading-relaxed line-clamp-2">
+                      Layanan cepat, aman &amp; terpercaya untuk keselamatan warga Indramayu.
+                    </p>
+                    <div className="flex items-center gap-2 mt-4.5">
+                      {/* 1. Tombol Rute (Lingkaran dengan Ikon ForkedRouteIcon dari Navbar) */}
+                      <Link
+                        href="/warga/evakuasi"
+                        replace
+                        scroll={false}
+                        className="w-9.5 h-9.5 rounded-full bg-white text-[#1D443F] shadow-md hover:bg-emerald-50 flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer"
+                        aria-label="Cek Rute Evakuasi"
+                        title="Cek Rute Evakuasi"
+                      >
+                        <ForkedRouteIcon className="w-5 h-5 text-[#1D443F]" />
+                      </Link>
+
+                      {/* 2. Tombol Lapor (Ikon BeaconAlertIcon dari Navbar di Kiri & Tanpa Panah Kanan) */}
+                      <Link
+                        href="/warga/lapor"
+                        replace
+                        scroll={false}
+                        className="h-9.5 inline-flex items-center gap-1.5 px-3.5 sm:px-4 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                      >
+                        <BeaconAlertIcon className="w-4 h-4 shrink-0 text-[#1D443F]" />
+                        <span>Laporkan Banjir</span>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Gambar Hero 3D Parallax & Floating Animation */}
+                  <Hero3DImage className="w-34 h-34 sm:w-38 sm:h-38" />
+                </div>
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
@@ -679,7 +744,7 @@ export function AppHeader({
               <div className="relative w-8.5 h-8.5 shrink-0">
                 <div
                   className={`absolute inset-0 transition-opacity duration-300 ${
-                    isWargaDashboard ? "opacity-100" : "opacity-0"
+                    isDashboard ? "opacity-100" : "opacity-0"
                   }`}
                 >
                   <LogoDermayu
@@ -692,7 +757,7 @@ export function AppHeader({
                 </div>
                 <div
                   className={`absolute inset-0 transition-opacity duration-300 ${
-                    isWargaDashboard ? "opacity-0" : "opacity-100"
+                    isDashboard ? "opacity-0" : "opacity-100"
                   }`}
                 >
                   <LogoDermayu
@@ -706,7 +771,7 @@ export function AppHeader({
               </div>
               <span
                 className={`text-xl font-black tracking-wider transition-colors duration-300 ${
-                  isWargaDashboard ? "text-white" : "text-[#1D443F]"
+                  isDashboard ? "text-white" : "text-[#1D443F]"
                 }`}
               >
                 DERMAYU
@@ -722,7 +787,7 @@ export function AppHeader({
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer ${
-                  isWargaDashboard
+                  isDashboard
                     ? "bg-white text-[#1D443F] shadow-sm hover:bg-slate-100"
                     : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 hover:bg-slate-100"
                 }`}
@@ -740,7 +805,7 @@ export function AppHeader({
                 type="button"
                 onClick={() => setMobileNotifOpen(!mobileNotifOpen)}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer relative ${
-                  isWargaDashboard
+                  isDashboard
                     ? "bg-white text-[#1D443F] shadow-sm hover:bg-slate-100"
                     : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20 hover:bg-slate-100"
                 }`}
@@ -766,7 +831,7 @@ export function AppHeader({
               >
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-[#38746D] shrink-0 shadow-xs transition-all duration-300 ${
-                    isWargaDashboard
+                    isDashboard
                       ? "bg-[#EEF5F3] border border-white/30"
                       : "bg-[#EEF5F3] border border-[#38746D]/20"
                   }`}
@@ -783,7 +848,7 @@ export function AppHeader({
         {/* 2D. SIBLING 4: SPACER DALAM FLOW DOKUMEN AGAR KONTEN BAWAH MELUNCUR HALUS */}
         <motion.div
           initial={false}
-          animate={{ height: isWargaDashboard ? 225 : 0 }}
+          animate={{ height: isDashboard ? 225 : 0 }}
           transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] as const }}
           className="w-full pointer-events-none"
         />

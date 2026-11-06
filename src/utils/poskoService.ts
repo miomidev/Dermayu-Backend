@@ -184,3 +184,52 @@ export function deletePosko(
   savePoskoDataset(nextList);
 }
 
+/**
+ * CREATE POSKO BARU (Petugas):
+ * Menambahkan posko baru langsung ke dataset simulasi dengan kepemilikan petugas yang login.
+ */
+export function createPosko(
+  data: {
+    nama: string;
+    kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
+    alamat: string;
+    kecamatan: string;
+    lat: number;
+    lng: number;
+    kapasitas: number;
+    fasilitas: string[];
+    kontak: { pj: string; telp: string };
+  },
+  currentUser: { id: string; role?: string }
+): PoskoRecord {
+  const all = getAllPosko();
+  const nextNumber = all.length + 1;
+  const newId = `sh-${String(nextNumber).padStart(3, "0")}-${Date.now().toString().slice(-4)}`;
+
+  const newRecord: PoskoRecord = {
+    id: newId,
+    nama: data.nama,
+    kategori: data.kategori || "balai_desa",
+    alamat: data.alamat,
+    kecamatan: data.kecamatan,
+    lat: data.lat,
+    lng: data.lng,
+    kapasitas: Number(data.kapasitas) || 100,
+    terisi: 0,
+    status: "TERSEDIA",
+    fasilitas: data.fasilitas.length > 0 ? data.fasilitas : ["Aula", "Toilet"],
+    kontak: {
+      pj: data.kontak.pj || "Petugas Jaga",
+      telp: data.kontak.telp || "0812-3456-7890",
+    },
+    foto: "/shelters/default.jpg",
+    tier: 1,
+    petugasId: currentUser.id,
+    isActive: true,
+  };
+
+  const nextList = [newRecord, ...all];
+  savePoskoDataset(nextList);
+  return newRecord;
+}
+

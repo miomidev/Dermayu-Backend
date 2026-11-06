@@ -746,23 +746,11 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Akun Demo Cepat (Klik untuk Isi):</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickFill("superadmin@dermayu.id", "AdminDermayu2026!")}
-                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                    >
-                      <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                        <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                        <span>Superadmin</span>
-                      </div>
-                      <div className="text-[10px] text-[#4B635F] truncate">superadmin@dermayu.id</div>
-                    </button>
-
+                  <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => handleQuickFill("petugas@dermayu.id", "AdminDermayu2026!")}
-                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                      className="p-2.5 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
                     >
                       <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
                         <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
@@ -774,7 +762,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                     <button
                       type="button"
                       onClick={() => handleQuickFill("warga@dermayu.id", "WargaDermayu2026!")}
-                      className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                      className="p-2.5 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
                     >
                       <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
                         <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
@@ -1399,43 +1387,31 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Akun Demo Cepat (Klik untuk Isi):</span>
               </div>
-              <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("superadmin@dermayu.id", "AdminDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Superadmin</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">superadmin@dermayu.id</div>
-                  </button>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill("petugas@dermayu.id", "AdminDermayu2026!")}
+                  className="p-2.5 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
+                    <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
+                    <span>Petugas</span>
+                  </div>
+                  <div className="text-[10px] text-[#4B635F] truncate">petugas@dermayu.id</div>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("petugas@dermayu.id", "AdminDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Petugas</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">petugas@dermayu.id</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill("warga@dermayu.id", "WargaDermayu2026!")}
-                    className="p-2 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
-                      <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
-                      <span>Warga</span>
-                    </div>
-                    <div className="text-[10px] text-[#4B635F] truncate">warga@dermayu.id</div>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill("warga@dermayu.id", "WargaDermayu2026!")}
+                  className="p-2.5 rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-[#1D443F] flex items-center space-x-1 truncate">
+                    <UserCheck className="w-3.5 h-3.5 text-[#38746D]" />
+                    <span>Warga</span>
+                  </div>
+                  <div className="text-[10px] text-[#4B635F] truncate">warga@dermayu.id</div>
+                </button>
+              </div>
             </motion.div>
           </div>
         </motion.div>

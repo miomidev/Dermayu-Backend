@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   Building2,
   MapPin,
@@ -19,15 +20,72 @@ import {
   HeartPulse,
   Package,
   Layers,
+  SlidersHorizontal,
+  Plus,
+  ArrowLeft,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { getActiveSession, type UserSession } from "@/utils/authSession";
 import {
   getAllPosko,
+  createPosko,
   updatePosko,
   deletePosko,
   toggleActivePosko,
   type PoskoRecord,
 } from "@/utils/poskoService";
+
+const PoskoMapPicker = dynamic(
+  () => import("@/components/posko/PoskoMapPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[320px] sm:h-[380px] rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400">
+        <Building2 className="w-8 h-8 animate-pulse text-[#38746D]" />
+        <span className="text-xs font-medium">Memuat Peta Interaktif Penentuan Titik...</span>
+      </div>
+    ),
+  }
+);
+
+const DISTRICT_LIST_OPTIONS = [
+  "Kandanghaur",
+  "Cantigi",
+  "Losarang",
+  "Pasekan",
+  "Indramayu",
+  "Jatibarang",
+  "Anjatan",
+  "Haurgeulis",
+  "Juntinyuat",
+  "Karangampel",
+];
+
+const DISTRICT_COORDS: Record<string, [number, number]> = {
+  Kandanghaur: [-6.356, 108.138],
+  Cantigi: [-6.335, 108.252],
+  Losarang: [-6.402, 108.156],
+  Pasekan: [-6.302, 108.318],
+  Indramayu: [-6.326, 108.324],
+  Jatibarang: [-6.474, 108.311],
+  Anjatan: [-6.375, 108.025],
+  Haurgeulis: [-6.458, 107.971],
+  Juntinyuat: [-6.417, 108.435],
+  Karangampel: [-6.467, 108.452],
+};
+
+const FACILITY_OPTIONS = [
+  "Aula",
+  "Dapur Umum",
+  "Toilet",
+  "Genset",
+  "Posko Medis",
+  "Ambulans",
+  "Ruang Anak",
+  "Logistik",
+  "Air Bersih",
+];
 
 export default function PetugasPoskoPage() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
@@ -35,6 +93,7 @@ export default function PetugasPoskoPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [districtFilter, setDistrictFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState<"ALL" | "MINE">("ALL");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Pagination State
@@ -49,6 +108,82 @@ export default function PetugasPoskoPage() {
     terisi: 0,
     status: "TERSEDIA" as PoskoRecord["status"],
   });
+
+  // Tambah Posko Baru (Inline View State)
+  const [isCreatingPosko, setIsCreatingPosko] = useState(false);
+  const [isSubmittingPosko, setIsSubmittingPosko] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    nama: "",
+    alamat: "",
+    kecamatan: "Kandanghaur",
+    pj: "",
+    telp: "",
+    kapasitas: 200,
+    lat: -6.356,
+    lng: 108.138,
+    fasilitas: ["Aula", "Dapur Umum", "Toilet", "Genset"],
+  });
+
+  // Handler: Submit Tambah Posko Baru
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.nama.trim()) {
+      alert("Silakan masukkan nama posko.");
+      return;
+    }
+    if (!createForm.alamat.trim()) {
+      alert("Silakan masukkan alamat posko.");
+      return;
+    }
+
+    setIsSubmittingPosko(true);
+    try {
+      const created = createPosko(
+        {
+          nama: createForm.nama,
+          alamat: createForm.alamat,
+          kecamatan: createForm.kecamatan,
+          kapasitas: Number(createForm.kapasitas) || 100,
+          lat: createForm.lat,
+          lng: createForm.lng,
+          fasilitas: createForm.fasilitas,
+          kontak: {
+            pj: createForm.pj || "Petugas Pusdalops",
+            telp: createForm.telp || "0812-3456-7890",
+          },
+        },
+        { id: officerId }
+      );
+
+      // Refresh data posko lokal
+      setShelters(getAllPosko());
+      setNotification({
+        type: "success",
+        text: `Posko "${created.nama}" di Kec. ${created.kecamatan} berhasil ditambahkan dan aktif pada sistem!`,
+      });
+      setIsCreatingPosko(false);
+      setCreateForm({
+        nama: "",
+        alamat: "",
+        kecamatan: "Kandanghaur",
+        pj: "",
+        telp: "",
+        kapasitas: 200,
+        lat: -6.356,
+        lng: 108.138,
+        fasilitas: ["Aula", "Dapur Umum", "Toilet", "Genset"],
+      });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        text: err.message || "Gagal membuat posko baru.",
+      });
+      setTimeout(() => setNotification(null), 4000);
+    } finally {
+      setIsSubmittingPosko(false);
+    }
+  };
 
   // Muat Sesi Petugas & Dataset 100 Posko
   useEffect(() => {
@@ -86,6 +221,28 @@ export default function PetugasPoskoPage() {
   const totalAvailable = totalCapacity - totalOccupants;
   const occupancyRate = totalCapacity > 0 ? Math.round((totalOccupants / totalCapacity) * 100) : 0;
   const myPoskoCount = shelters.filter((s) => s.petugasId === officerId).length;
+
+  const availableDistricts = useMemo(() => {
+    const list = [
+      "ALL",
+      "Kandanghaur",
+      "Cantigi",
+      "Losarang",
+      "Pasekan",
+      "Indramayu",
+      "Jatibarang",
+      "Anjatan",
+      "Haurgeulis",
+      "Juntinyuat",
+      "Karangampel",
+    ];
+    shelters.forEach((s) => {
+      if (s.kecamatan && !list.includes(s.kecamatan)) {
+        list.push(s.kecamatan);
+      }
+    });
+    return list;
+  }, [shelters]);
 
   // Filter Data
   const filteredShelters = useMemo(() => {
@@ -280,121 +437,488 @@ export default function PetugasPoskoPage() {
         </div>
       )}
 
-      {/* METRIK KAPASITAS PENGUNGSI KABUPATEN */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Total Pengungsi Terdata
-          </span>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-black text-[#1D443F]">{totalOccupants.toLocaleString("id-ID")}</h3>
-            <span className="text-xs text-gray-500">jiwa</span>
-          </div>
-          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mt-2">
-            <div
-              className="bg-[#38746D] h-full rounded-full transition-all duration-300"
-              style={{ width: `${occupancyRate}%` }}
-            />
-          </div>
-          <p className="text-[11px] text-[#4B635F]">Tingkat keterisian: {occupancyRate}%</p>
-        </div>
-
-        <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Sisa Ruang Kosong
-          </span>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-black text-[#38746D]">{totalAvailable.toLocaleString("id-ID")}</h3>
-            <span className="text-xs text-gray-500">jiwa tersisa</span>
-          </div>
-          <p className="text-[11px] text-gray-500">Daya tampung maksimum {totalCapacity.toLocaleString("id-ID")} jiwa di {shelters.length} posko</p>
-        </div>
-
-        <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Posko Dikelola Saya
-          </span>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-black text-[#1D443F]">{myPoskoCount}</h3>
-            <span className="text-xs text-gray-500">dari {shelters.length} posko</span>
-          </div>
-          <p className="text-[11px] text-[#38746D] font-medium">ID Petugas: {officerId} (Akses CRUD Mandiri)</p>
-        </div>
-
-        <div className="p-5 rounded-3xl bg-[#1D443F] text-white shadow-xs space-y-2 flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-bold text-[#88BDB6] uppercase tracking-wider">
-              Status Operasional
-            </span>
-            <h4 className="text-base font-bold mt-1">Pusdalops PB Indramayu</h4>
-          </div>
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10">
-            <span className="text-[#D1E5E2]">Posko Nonaktif</span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-400 text-[#1D443F] font-extrabold text-[10px]">
-              {shelters.filter((s) => !s.isActive).length} Posko Ditutup
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* FILTER & PENCARIAN POSKO */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        {/* Toggle Kepemilikan & Filter Kecamatan */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-          <div className="bg-[#EEF5F3] p-1 rounded-2xl flex items-center border border-[#D5E4E0] shrink-0">
-            <button
-              type="button"
-              onClick={() => setOwnerFilter("ALL")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                ownerFilter === "ALL"
-                  ? "bg-[#38746D] text-white shadow-xs"
-                  : "text-[#4B635F] hover:text-[#1D443F]"
-              }`}
-            >
-              Semua Posko ({shelters.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setOwnerFilter("MINE")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                ownerFilter === "MINE"
-                  ? "bg-[#38746D] text-white shadow-xs"
-                  : "text-[#4B635F] hover:text-[#1D443F]"
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Posko Saya ({myPoskoCount})</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {["ALL", "Kandanghaur", "Cantigi", "Losarang", "Indramayu", "Jatibarang"].map((dist) => (
+      {isCreatingPosko ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Form & Tombol Kembali */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#D5E4E0]">
+            <div className="flex items-center gap-3">
               <button
-                key={dist}
                 type="button"
-                onClick={() => setDistrictFilter(dist)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  districtFilter === dist
-                    ? "bg-[#1D443F] text-white shadow-xs"
-                    : "bg-white text-gray-600 border border-[#D5E4E0] hover:bg-gray-50"
-                }`}
+                onClick={() => setIsCreatingPosko(false)}
+                className="p-2.5 rounded-2xl bg-white border border-[#D5E4E0] hover:bg-gray-50 text-[#1D443F] transition-all shadow-xs flex items-center justify-center cursor-pointer"
+                title="Kembali ke Daftar Posko"
               >
-                {dist === "ALL" ? "Semua Wilayah" : dist}
+                <ArrowLeft className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-        </div>
+              <div>
+                <h2 className="text-xl font-black text-[#132422]">
+                  Tambah Posko Evakuasi Baru
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Daftarkan posko baru dan tentukan titik koordinat presisi langsung pada peta
+                </p>
+              </div>
+            </div>
 
-        {/* Input Search Bar */}
-        <div className="relative min-w-[260px] lg:w-80">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Cari nama posko, koordinator, desa..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-full bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-xs transition-colors"
-          />
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setIsCreatingPosko(false)}
+                className="px-4 py-2 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateSubmit}
+                disabled={isSubmittingPosko}
+                className="px-5 py-2 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingPosko ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Simpan Posko</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Form Kontainer Full Width */}
+          <form onSubmit={handleCreateSubmit} className="space-y-6">
+            {/* 2 Kolom Grid di Desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Kolom Kiri: Informasi Posko & Kontak */}
+              <div className="p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                  <Building2 className="w-4 h-4 text-[#38746D]" />
+                  <h3 className="text-sm font-bold text-[#132422]">
+                    Informasi Umum &amp; Kontak Posko
+                  </h3>
+                </div>
+
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Nama Posko <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: Balai Desa Eretan Wetan, GOR Serbaguna Kandanghaur"
+                      value={createForm.nama}
+                      onChange={(e) => setCreateForm({ ...createForm, nama: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Wilayah Kecamatan <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={createForm.kecamatan}
+                      onChange={(e) => {
+                        const kec = e.target.value;
+                        const coords = DISTRICT_COORDS[kec] || [-6.356, 108.138];
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          kecamatan: kec,
+                          lat: coords[0],
+                          lng: coords[1],
+                        }));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs cursor-pointer"
+                    >
+                      {DISTRICT_LIST_OPTIONS.map((k) => (
+                        <option key={k} value={k}>
+                          Kecamatan {k}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Alamat Lengkap Posko <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Jl. Raya Pantura No. ..., RT/RW, Dusun..."
+                      value={createForm.alamat}
+                      onChange={(e) => setCreateForm({ ...createForm, alamat: e.target.value })}
+                      className="w-full px-4 py-2 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Penanggung Jawab (PJ / Kuwu)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nama Kuwu / Relawan Lapangan"
+                        value={createForm.pj}
+                        onChange={(e) => setCreateForm({ ...createForm, pj: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Nomor Kontak / WhatsApp
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="0812-xxxx-xxxx"
+                        value={createForm.telp}
+                        onChange={(e) => setCreateForm({ ...createForm, telp: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kolom Kanan: Kapasitas & Fasilitas Aktif */}
+              <div className="p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                  <Package className="w-4 h-4 text-[#38746D]" />
+                  <h3 className="text-sm font-bold text-[#132422]">
+                    Kapasitas &amp; Fasilitas Aktif
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-gray-700">
+                        Kapasitas Daya Tampung Maksimal <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-xs font-extrabold text-[#38746D]">
+                        {createForm.kapasitas} Jiwa
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      min={10}
+                      max={5000}
+                      required
+                      value={createForm.kapasitas}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, kapasitas: Math.max(1, Number(e.target.value)) })
+                      }
+                      className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-2xs"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Estimasi daya tampung warga terdampak yang aman di lokasi pengungsian ini.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-2">
+                      Fasilitas Siaga Bencana:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {FACILITY_OPTIONS.map((facility) => {
+                        const isChecked = createForm.fasilitas.includes(facility);
+                        return (
+                          <button
+                            type="button"
+                            key={facility}
+                            onClick={() => {
+                              setCreateForm((prev) => ({
+                                ...prev,
+                                fasilitas: isChecked
+                                  ? prev.fasilitas.filter((f) => f !== facility)
+                                  : [...prev.fasilitas, facility],
+                              }));
+                            }}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isChecked
+                                ? "bg-[#38746D] text-white shadow-xs"
+                                : "bg-[#F8FAF9] text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3" />}
+                            <span>{facility}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-2">
+                      Klik tag fasilitas di atas untuk mengaktifkan atau menonaktifkan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Map Picker Interaktif yang Lebar */}
+            <div className="p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#38746D]" />
+                  <h3 className="text-sm font-bold text-[#132422]">
+                    Penentuan Titik Lokasi Posko (Interactive Map Picker)
+                  </h3>
+                </div>
+                <span className="text-[11px] text-gray-500 font-medium">
+                  Petugas pembuat: <strong className="text-[#38746D]">{officerId}</strong>
+                </span>
+              </div>
+
+              <PoskoMapPicker
+                lat={createForm.lat}
+                lng={createForm.lng}
+                poskoName={createForm.nama || "Lokasi Posko Baru"}
+                onChange={({ lat, lng }) => {
+                  setCreateForm((prev) => ({ ...prev, lat, lng }));
+                }}
+              />
+            </div>
+
+            {/* Tombol Aksi di Bawah Form */}
+            <div className="flex items-center justify-end gap-3 pt-2 pb-8">
+              <button
+                type="button"
+                onClick={() => setIsCreatingPosko(false)}
+                className="px-6 py-2.5 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingPosko}
+                className="px-8 py-2.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-2 shadow-md transition cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingPosko ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Menyimpan Posko...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Simpan Posko</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <>
+          {/* METRIK KAPASITAS PENGUNGSI KABUPATEN */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Total Pengungsi Terdata
+              </span>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-3xl font-black text-[#1D443F]">{totalOccupants.toLocaleString("id-ID")}</h3>
+                <span className="text-xs text-gray-500">jiwa</span>
+              </div>
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mt-2">
+                <div
+                  className="bg-[#38746D] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${occupancyRate}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-[#4B635F]">Tingkat keterisian: {occupancyRate}%</p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Sisa Ruang Kosong
+              </span>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-3xl font-black text-[#38746D]">{totalAvailable.toLocaleString("id-ID")}</h3>
+                <span className="text-xs text-gray-500">jiwa tersisa</span>
+              </div>
+              <p className="text-[11px] text-gray-500">Dari total kapasitas {totalCapacity.toLocaleString("id-ID")}</p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Posko Dikelola Saya
+              </span>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-3xl font-black text-[#1D443F]">{myPoskoCount}</h3>
+                <span className="text-xs text-gray-500">dari {shelters.length} posko</span>
+              </div>
+              <p className="text-[11px] text-gray-500">Aktif &amp; dapat Anda kelola</p>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-[#1D443F] text-white shadow-xs space-y-2 flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-[#88BDB6] uppercase tracking-wider">
+                  Status Operasional
+                </span>
+                <h4 className="text-base font-bold mt-1">Pusdalops PB Indramayu</h4>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10">
+                <span className="text-[#D1E5E2]">Posko Nonaktif</span>
+                {shelters.filter((s) => !s.isActive).length === 0 ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30">
+                    Semua Posko Aktif
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-[#1D443F] font-extrabold text-[10px]">
+                    {shelters.filter((s) => !s.isActive).length} Posko Ditutup
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* FILTER & PENCARIAN POSKO */}
+          <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 relative z-20">
+            {/* Toggle Kepemilikan Posko & Tombol Tambah Posko */}
+            <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+              <div className="bg-[#EEF5F3] p-1 rounded-2xl flex items-center border border-[#D5E4E0] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOwnerFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    ownerFilter === "ALL"
+                      ? "bg-[#38746D] text-white shadow-xs"
+                      : "text-[#4B635F] hover:text-[#1D443F]"
+                  }`}
+                >
+                  Semua Posko ({shelters.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOwnerFilter("MINE")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    ownerFilter === "MINE"
+                      ? "bg-[#38746D] text-white shadow-xs"
+                      : "text-[#4B635F] hover:text-[#1D443F]"
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Posko Saya ({myPoskoCount})</span>
+                </button>
+              </div>
+
+              {/* Tombol CTA: + Tambah Posko Baru */}
+              <button
+                type="button"
+                onClick={() => setIsCreatingPosko(true)}
+                className="px-4 py-2 rounded-2xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Posko Baru</span>
+              </button>
+            </div>
+
+        {/* Input Search Bar & Tombol Filter (Sejajar seperti versi Warga) */}
+        <div className="flex items-center gap-2 relative">
+          <div className="relative flex-1 sm:w-72 lg:w-80">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Cari nama posko, koordinator, desa..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2.5 rounded-full bg-white border border-[#D5E4E0] text-xs text-gray-800 focus:outline-hidden focus:border-[#38746D] shadow-xs transition-colors"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition cursor-pointer"
+                title="Hapus pencarian"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Tombol Filter Wilayah (Di samping Search Bar) */}
+          <button
+            type="button"
+            onClick={() => setIsFilterOpen((prev) => !prev)}
+            className={`h-10 px-3.5 rounded-full border flex items-center justify-center gap-1.5 font-bold text-xs transition-all cursor-pointer shrink-0 shadow-xs ${
+              isFilterOpen || districtFilter !== "ALL"
+                ? "bg-[#38746D] text-white border-[#38746D]"
+                : "bg-white hover:bg-[#F8FAF9] text-[#1D443F] border-[#D5E4E0]"
+            }`}
+            title="Filter Wilayah Kecamatan"
+            aria-expanded={isFilterOpen}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Filter</span>
+            {districtFilter !== "ALL" && (
+              <span className="w-2 h-2 rounded-full bg-amber-300" />
+            )}
+          </button>
+
+          {/* Dropdown Menu Filter Wilayah */}
+          {isFilterOpen && (
+            <div className="absolute top-full right-0 mt-2.5 w-72 sm:w-80 bg-white rounded-3xl border border-[#D5E4E0] p-4 shadow-xl space-y-3 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#38746D]" />
+                  Filter Wilayah Posko
+                </span>
+                <div className="flex items-center gap-2">
+                  {districtFilter !== "ALL" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDistrictFilter("ALL");
+                        setIsFilterOpen(false);
+                      }}
+                      className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(false)}
+                    className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+                    title="Tutup Filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-extrabold text-[#4B635F] uppercase tracking-wider block">
+                  Pilih Wilayah Kecamatan
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {availableDistricts.map((dist) => (
+                    <button
+                      key={dist}
+                      type="button"
+                      onClick={() => {
+                        setDistrictFilter(dist);
+                        setIsFilterOpen(false);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        districtFilter === dist
+                          ? "bg-[#38746D] text-white shadow-xs"
+                          : "bg-[#F8FAF9] text-[#4B635F] border border-[#D5E4E0] hover:bg-gray-100"
+                      }`}
+                    >
+                      {dist === "ALL" ? "Semua Wilayah" : dist}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -427,63 +951,41 @@ export default function PetugasPoskoPage() {
                 }`}
               >
                 <div className="space-y-3.5">
-                  {/* Header Posko & Badges */}
+                  {/* Header Posko */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
                       <div
                         className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${
                           !shelter.isActive
-                            ? "bg-gray-200 text-gray-500"
-                            : "bg-[#EEF5F3] text-[#1D443F]"
+                            ? "bg-gray-100 text-gray-400"
+                            : "bg-[#EEF5F3] text-[#38746D]"
                         }`}
                       >
                         <Building2 className="w-5 h-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                          <span className="text-[10px] font-extrabold text-[#38746D] uppercase tracking-wider bg-[#EEF5F3] px-2 py-0.5 rounded-md border border-[#38746D]/20">
-                            Kec. {shelter.kecamatan}
-                          </span>
-                          {/* Label Kepemilikan Posko */}
-                          {isOwner ? (
-                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 flex items-center gap-1">
-                              <Shield className="w-3 h-3 text-emerald-700" />
-                              Posko Anda
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">
-                              PJ: {shelter.petugasId}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-[#132422] truncate">{shelter.nama}</h3>
+                          {/* Sisakan maksimal 1 badge saja di sebelah kanan judul: Posko Saya HANYA JIKA di tab ALL */}
+                          {ownerFilter === "ALL" && isOwner && (
+                            <span className="text-[10px] font-semibold text-[#38746D] bg-[#EEF5F3] border border-[#38746D]/20 px-2 py-0.5 rounded-full shrink-0">
+                              Posko Saya
                             </span>
                           )}
                         </div>
-                        <h3 className="text-base font-bold text-[#132422]">{shelter.nama}</h3>
-                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                           <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          <span className="truncate">{shelter.alamat}</span>
+                          <span className="truncate">{shelter.alamat}, Kec. {shelter.kecamatan}</span>
                         </p>
                       </div>
                     </div>
 
-                    {/* Status Badge: Aktif / Nonaktif / Keterisian */}
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {!shelter.isActive ? (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-gray-200 text-gray-700 border border-gray-300">
-                          Nonaktif / Ditutup
-                        </span>
-                      ) : (
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                            isFull
-                              ? "bg-rose-100 text-rose-700 border border-rose-300"
-                              : shelter.status === "HAMPIR_PENUH"
-                              ? "bg-amber-100 text-amber-800 border border-amber-300"
-                              : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/30"
-                          }`}
-                        >
-                          {shelter.status}
-                        </span>
-                      )}
-                    </div>
+                    {/* Status Nonaktif jika posko sedang ditutup/nonaktif */}
+                    {!shelter.isActive && (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-500 border border-gray-200 shrink-0">
+                        Nonaktif
+                      </span>
+                    )}
                   </div>
 
                   {/* Meter Okupansi & Penyesuaian Realtime */}
@@ -518,7 +1020,7 @@ export default function PetugasPoskoPage() {
                             type="button"
                             onClick={() => handleAdjustOccupancy(shelter.id, -5)}
                             disabled={shelter.terisi <= 0}
-                            className="px-2.5 py-1 rounded-lg border border-gray-300 text-xs font-bold text-gray-700 hover:bg-white disabled:opacity-30 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-rose-600 disabled:opacity-30 cursor-pointer transition-colors"
                             title="Kurangi 5 jiwa"
                           >
                             -5
@@ -527,7 +1029,7 @@ export default function PetugasPoskoPage() {
                             type="button"
                             onClick={() => handleAdjustOccupancy(shelter.id, -1)}
                             disabled={shelter.terisi <= 0}
-                            className="px-2 py-1 rounded-lg border border-gray-300 text-xs font-bold text-gray-700 hover:bg-white disabled:opacity-30 cursor-pointer"
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-rose-600 disabled:opacity-30 cursor-pointer transition-colors"
                             title="Kurangi 1 jiwa"
                           >
                             -1
@@ -536,7 +1038,7 @@ export default function PetugasPoskoPage() {
                             type="button"
                             onClick={() => handleAdjustOccupancy(shelter.id, 1)}
                             disabled={shelter.terisi >= shelter.kapasitas}
-                            className="px-2 py-1 rounded-lg bg-[#EEF5F3] border border-[#38746D]/30 text-xs font-bold text-[#1D443F] hover:bg-teal-100 disabled:opacity-30 cursor-pointer"
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-[#38746D] disabled:opacity-30 cursor-pointer transition-colors"
                             title="Tambah 1 jiwa"
                           >
                             +1
@@ -545,7 +1047,7 @@ export default function PetugasPoskoPage() {
                             type="button"
                             onClick={() => handleAdjustOccupancy(shelter.id, 5)}
                             disabled={shelter.terisi >= shelter.kapasitas}
-                            className="px-2.5 py-1 rounded-lg bg-[#38746D] text-xs font-bold text-white hover:bg-[#24544E] disabled:opacity-30 cursor-pointer shadow-xs"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-[#38746D] disabled:opacity-30 cursor-pointer transition-colors"
                             title="Tambah rombongan 5 jiwa"
                           >
                             +5
@@ -564,10 +1066,10 @@ export default function PetugasPoskoPage() {
                 <div className="pt-3.5 border-t border-[#E8F1EE] flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs">
                     <span className="text-gray-400">PJ: </span>
-                    <span className="font-bold text-[#132422]">{shelter.kontak.pj}</span>
+                    <span className="font-semibold text-slate-700">{shelter.kontak.pj}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-3">
                     {/* ATURAN 3: HANYA TAMPILKAN TOMBOL EDIT/DELETE PADA POSKO MILIK SENDIRI */}
                     {isOwner ? (
                       <>
@@ -575,10 +1077,10 @@ export default function PetugasPoskoPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleActive(shelter.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                          className={`text-xs sm:text-sm font-medium flex items-center gap-1 transition-colors cursor-pointer ${
                             shelter.isActive
-                              ? "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
-                              : "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100"
+                              ? "text-slate-600 hover:text-amber-700"
+                              : "text-[#38746D] hover:text-[#24544E]"
                           }`}
                           title={shelter.isActive ? "Tutup / Sembunyikan dari Warga" : "Aktifkan Kembali untuk Warga"}
                         >
@@ -590,10 +1092,10 @@ export default function PetugasPoskoPage() {
                         <button
                           type="button"
                           onClick={() => handleStartEdit(shelter)}
-                          className="px-3 py-1.5 rounded-xl border border-[#D5E4E0] bg-white hover:bg-gray-50 text-xs font-bold text-[#1D443F] flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                          className="text-xs sm:text-sm font-medium text-slate-600 hover:text-[#38746D] flex items-center gap-1 transition-colors cursor-pointer"
                           title="Edit Informasi Posko"
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-[#38746D]" />
+                          <Edit2 className="w-3.5 h-3.5" />
                           <span>Edit</span>
                         </button>
 
@@ -601,7 +1103,7 @@ export default function PetugasPoskoPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(shelter.id)}
-                          className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-bold text-rose-700 flex items-center gap-1 cursor-pointer transition"
+                          className="text-xs sm:text-sm font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
                           title="Hapus / Nonaktifkan Posko"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -609,20 +1111,14 @@ export default function PetugasPoskoPage() {
                         </button>
                       </>
                     ) : (
-                      /* Jika bukan pemilik: Sembunyikan Edit/Delete, beri indikator proteksi */
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-gray-500 font-medium bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1">
-                          <Shield className="w-3.5 h-3.5 text-gray-400" />
-                          <span>Dikelola Petugas Lain</span>
-                        </span>
-                        <a
-                          href={`tel:${shelter.kontak.telp.replace(/[^0-9]/g, "")}`}
-                          className="px-3 py-1.5 rounded-xl border border-[#D5E4E0] hover:bg-gray-50 text-xs font-bold text-[#1D443F] flex items-center gap-1"
-                        >
-                          <PhoneCall className="w-3.5 h-3.5 text-[#38746D]" />
-                          <span>Hubungi</span>
-                        </a>
-                      </div>
+                      /* Jika bukan pemilik: Sembunyikan Edit/Delete, beri indikator dan tombol kontak */
+                      <a
+                        href={`tel:${shelter.kontak.telp.replace(/[^0-9]/g, "")}`}
+                        className="text-xs sm:text-sm font-medium text-slate-600 hover:text-[#38746D] flex items-center gap-1 transition-colors"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>Hubungi PJ</span>
+                      </a>
                     )}
                   </div>
                 </div>
@@ -709,6 +1205,8 @@ export default function PetugasPoskoPage() {
             </select>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* MODAL EDIT POSKO (Hanya dapat diakses pemilik posko) */}

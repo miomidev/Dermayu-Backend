@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ForkedRouteIcon, BeaconAlertIcon, PoskoShelterIcon } from "@/components/ui/Icons";
 import {
   Home,
-  User,
   LayoutDashboard,
   ClipboardList,
   Map,
@@ -13,14 +12,24 @@ import {
   Users,
 } from "lucide-react";
 import React from "react";
+import { getActiveSession } from "@/utils/authSession";
 
-interface MobileBottomNavProps {
-  role: "warga" | "petugas";
+export interface MobileBottomNavProps {
+  role?: "warga" | "petugas" | "WARGA" | "PETUGAS" | string;
 }
 
 export function MobileBottomNav({ role }: MobileBottomNavProps) {
   const pathname = usePathname();
   const [isForceHidden, setIsForceHidden] = React.useState(false);
+
+  // Deteksi role aktif berdasarkan prop atau auth session tersimpan
+  const session = typeof window !== "undefined" ? getActiveSession() : null;
+  const rawRole = (role || session?.role || "warga").toString().toLowerCase();
+  const isPetugas =
+    rawRole.includes("petugas") ||
+    rawRole.includes("officer") ||
+    rawRole.includes("admin");
+  const activeRole: "warga" | "petugas" = isPetugas ? "petugas" : "warga";
 
   React.useEffect(() => {
     const checkNavVisibility = () => {
@@ -33,75 +42,65 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Warga Bottom Nav Items (Sama rata & seimbang: Beranda -> Rute -> Lapor -> Posko -> Komunitas)
+  // 1. Warga Bottom Nav Items (TETAP UTUH & TIDAK DIUBAH SAMA SEKALI)
   const wargaNavItems = [
     {
       label: "Beranda",
       href: "/warga/dashboard",
       icon: Home,
-      isCenter: false,
     },
     {
       label: "Rute",
       href: "/warga/evakuasi",
       icon: ForkedRouteIcon,
-      isCenter: false,
     },
     {
       label: "Lapor",
       href: "/warga/lapor",
       icon: BeaconAlertIcon,
-      isCenter: false,
     },
     {
       label: "Posko",
       href: "/warga/posko",
       icon: PoskoShelterIcon,
-      isCenter: false,
     },
     {
       label: "Komunitas",
       href: "/warga/komunitas",
       icon: Users,
-      isCenter: false,
     },
   ];
 
-  // Petugas Bottom Nav Items (Tim Reaksi Cepat BPBD)
+  // 2. Petugas Bottom Nav Items (Dengan Unified Warga-Style Layout Flat & Sejajar)
   const petugasNavItems = [
     {
       label: "Dasbor",
       href: "/petugas/dashboard",
       icon: LayoutDashboard,
-      isCenter: false,
     },
     {
       label: "Triage",
       href: "/petugas/triage",
       icon: ClipboardList,
-      isCenter: false,
     },
     {
       label: "Peta SAR",
-      href: "/admin/dashboard",
+      href: "/petugas/peta-sar",
       icon: Map,
-      isCenter: true,
     },
     {
       label: "Posko",
       href: "/petugas/posko",
-      icon: Home,
-      isCenter: false,
+      icon: PoskoShelterIcon,
     },
     {
       label: "Telemetri",
       href: "/petugas/telemetri",
       icon: Activity,
-      isCenter: false,
     },
   ];
 
-  const items = role === "petugas" ? petugasNavItems : wargaNavItems;
+  const items = activeRole === "petugas" ? petugasNavItems : wargaNavItems;
 
   const isItemActive = (href: string) => {
     if (href === "/warga/dashboard") {
@@ -133,39 +132,6 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
           const isActive = isItemActive(item.href);
           const Icon = item.icon;
 
-          // 1. Center Floating Action Button (FAB) jika diaktifkan (misal pada role petugas)
-          if (item.isCenter) {
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                replace
-                scroll={false}
-                className="relative -top-3 flex flex-col items-center justify-center group cursor-pointer"
-              >
-                <div
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 ${
-                    isActive
-                      ? "bg-[#38746D] text-white shadow-lg shadow-[#38746D]/40 scale-105"
-                      : "bg-[#38746D] text-white hover:bg-[#24544E] shadow-lg shadow-[#38746D]/30"
-                  }`}
-                >
-                  <Icon className="w-7 h-7 text-white" />
-                </div>
-                <span
-                  className={`text-[11px] mt-1 tracking-tight text-center leading-none transition-colors ${
-                    isActive
-                      ? "font-semibold text-[#38746D]"
-                      : "font-medium text-slate-600 group-hover:text-[#38746D]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </Link>
-            );
-          }
-
-          // 2. Regular Tab Navigation Items (Sama rata & seimbang)
           return (
             <Link
               key={item.href}
@@ -181,15 +147,15 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
               <Icon
                 className={`w-6 h-6 transition-transform ${
                   isActive
-                    ? "stroke-[2.3] text-[#38746D] scale-105"
-                    : "stroke-[1.9] text-slate-500"
+                    ? "stroke-[2.3] text-[#38746D] fill-current scale-105"
+                    : "stroke-[1.9] text-slate-500 fill-none"
                 }`}
               />
               <span
                 className={`text-[11px] tracking-tight leading-tight mt-1 text-center truncate max-w-[68px] ${
                   isActive
-                    ? "font-semibold text-[#38746D]"
-                    : "font-medium text-slate-500"
+                    ? "font-bold text-[#38746D]"
+                    : "font-normal text-slate-500"
                 }`}
               >
                 {item.label}
@@ -201,3 +167,7 @@ export function MobileBottomNav({ role }: MobileBottomNavProps) {
     </nav>
   );
 }
+
+// Alias export untuk kompatibilitas modular BottomNavBar
+export const BottomNavBar = MobileBottomNav;
+export default MobileBottomNav;

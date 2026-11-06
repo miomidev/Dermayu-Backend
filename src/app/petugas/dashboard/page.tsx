@@ -28,7 +28,11 @@ import {
   Minus,
   Sparkles,
   ExternalLink,
+  ClipboardList,
 } from "lucide-react";
+import { motion } from "motion/react";
+import { Hero3DImage } from "@/components/dashboard/Hero3DImage";
+import { AuthBackgroundDecor } from "@/components/auth/AuthBackgroundDecor";
 import { getActiveSession, clearUserSession, performLogout } from "@/utils/authSession";
 
 interface UserSession {
@@ -282,116 +286,171 @@ export default function PetugasDashboard() {
   });
 
   return (
-    <div className="space-y-7 text-left">
-        {/* Banner Alert Sukses Tindakan */}
-        {actionSuccessMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="font-semibold">{actionSuccessMsg}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActionSuccessMsg(null)}
-              className="text-xs text-emerald-700 underline font-bold"
-            >
-              Tutup
-            </button>
-          </div>
-        )}
+    <div className="space-y-5 text-left max-w-5xl mx-auto w-full min-w-0">
+      {/* 1. HERO BANNER KHUSUS DESKTOP (DI MOBILE SUDAH MENYATU DENGAN APP HEADER) */}
+      <div className="hidden md:block relative overflow-hidden bg-gradient-to-r from-[#38746D] via-[#2E6A63] to-[#1D443F] text-white rounded-3xl p-6 lg:p-8 shadow-sm">
+        <AuthBackgroundDecor />
 
-        {/* A. 4 METRIK OPERASIONAL LAPANGAN (METRIC CARDS) */}
-        <section id="telemetri" aria-label="Metrik Operasional" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 scroll-mt-24">
-          {/* Metrik 1: Antrean Aduan Masuk */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-3">
+        <div className="relative z-10 flex items-center justify-between gap-6">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-100 text-xs font-bold mb-3 border border-white/15">
+              <MapPin className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Pusat Kendali (PUSDALOPS) Indramayu</span>
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight leading-snug">
+              PUSAT KENDALI OPERASI (PUSDALOPS)
+            </h1>
+            <p className="text-xs sm:text-sm text-emerald-100/90 mt-2 leading-relaxed">
+              Pantau laporan masuk, kerahkan armada SAR, dan kelola kapasitas posko evakuasi.
+            </p>
+            <div className="mt-5 flex items-center gap-3">
+              <Link
+                href="/petugas/peta-sar"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-[#1D443F] text-xs font-black shadow-md hover:bg-emerald-50 transition active:scale-95"
+              >
+                <MapPin className="w-4 h-4 shrink-0 text-[#1D443F]" />
+                <span>Peta SAR &amp; Evakuasi</span>
+              </Link>
+              <Link
+                href="/petugas/triage"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-transparent border border-white/80 hover:bg-white/10 text-white text-xs font-bold transition active:scale-95"
+              >
+                <ClipboardList className="w-4 h-4 shrink-0 text-white" />
+                <span>Antrean Triage</span>
+              </Link>
+            </div>
+          </div>
+
+          <div className="hidden lg:block shrink-0">
+            <Hero3DImage className="w-44 h-44" />
+          </div>
+        </div>
+      </div>
+
+      {/* Banner Alert Sukses Tindakan */}
+      {actionSuccessMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{actionSuccessMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionSuccessMsg(null)}
+            className="text-xs text-emerald-700 underline font-bold"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
+      {/* 2. KONTEN METRIK OPERASIONAL PETUGAS (FLOATING OVER HERO) */}
+      <motion.div
+        initial={{ y: 15, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="space-y-4 sm:space-y-4 -mt-8 sm:-mt-10 md:mt-0 relative z-10"
+      >
+        {/* BARIS 1: FLOATING CARD UTAMA (STATUS BENDUNGAN & LAUT) */}
+        <section aria-label="Status Bendungan dan Laut">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2 hover:border-[#38746D]/30 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">Aduan Hari Ini</span>
-              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5" />
+              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">
+                STATUS BENDUNGAN &amp; LAUT
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center">
+                <Waves className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-rose-700">SIAGA II</span>
+              <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                TMA 485 cm
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Hulu Rentang Naik &bull; Pasang Rob Puncak Pk 17:00
+            </p>
+          </div>
+        </section>
+
+        {/* BARIS 2: GRID 2 KOLOM UNTUK METRIK CEPAT (ADUAN & POSKO) */}
+        <section aria-label="Metrik Cepat Lapangan" className="grid grid-cols-2 gap-3 sm:gap-4">
+          {/* Card Kiri: 18 LAPORAN */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2 flex flex-col justify-between hover:border-[#38746D]/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs font-bold text-[#4B635F] uppercase tracking-wider">
+                ADUAN HARI INI
+              </span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[#132422]">18 Laporan</span>
-                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black text-[#132422]">18 Laporan</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                   {pendingCount} Antrean
                 </span>
               </div>
-              <p className="text-xs text-[#718783] mt-1">
-                {dispatchedCount} Armada Dikerahkan &bull; 12 Selesai Ditangani
+              <p className="text-[11px] text-slate-500 mt-1 truncate">
+                {dispatchedCount} Armada Dikerahkan
               </p>
             </div>
           </div>
 
-          {/* Metrik 2: Posko Pengungsian & Okupansi */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-3">
+          {/* Card Kanan: 14 POSKO */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2 flex flex-col justify-between hover:border-[#38746D]/30 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">Posko Pengungsian</span>
-              <div className="w-9 h-9 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#A4C6C1]/50 flex items-center justify-center">
-                <Building2 className="w-5 h-5" />
+              <span className="text-[11px] sm:text-xs font-bold text-[#4B635F] uppercase tracking-wider">
+                POSKO PENGUNGSIAN
+              </span>
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#A4C6C1]/50 flex items-center justify-center shrink-0">
+                <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[#132422]">14 Posko</span>
-                <span className="text-xs font-bold text-[#38746D] bg-[#EEF5F3] px-2 py-0.5 rounded-full border border-[#A4C6C1]/50">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black text-[#132422]">14 Posko</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-[#38746D] bg-[#EEF5F3] px-2 py-0.5 rounded-full border border-[#A4C6C1]/50">
                   Rata-rata 64%
                 </span>
               </div>
-              <p className="text-xs text-[#718783] mt-1">
-                Total 1.425 Jiwa Tertampung &bull; 4 Titik Siaga 1
-              </p>
-            </div>
-          </div>
-
-          {/* Metrik 3: Armada Penyelamat / SAR */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">Armada Siaga</span>
-              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center">
-                <Ship className="w-5 h-5" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[#132422]">8 Unit LCR</span>
-                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                  5 Aktif di Air
-                </span>
-              </div>
-              <p className="text-xs text-[#718783] mt-1">
-                3 Perahu Karet Cadangan di Mako Pusdalops
-              </p>
-            </div>
-          </div>
-
-          {/* Metrik 4: Status TMA Hulu & Rob Pesisir */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">Debit &amp; Pasang Laut</span>
-              <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center">
-                <Waves className="w-5 h-5" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black text-rose-700">SIAGA II</span>
-                <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
-                  TMA 485 cm
-                </span>
-              </div>
-              <p className="text-xs text-[#718783] mt-1">
-                Hulu Rentang Naik &bull; Pasang Rob Puncak Pk 17:00
+              <p className="text-[11px] text-slate-500 mt-1 truncate">
+                1.425 Jiwa Tertampung
               </p>
             </div>
           </div>
         </section>
 
-        {/* B. TABEL TRIAGE & VERIFIKASI ADUAN WARGA (CIVIC REPORTING QUEUE) */}
+        {/* BARIS 3: FULL WIDTH (ARMADA SIAGA) */}
+        <section aria-label="Armada Siaga">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2 hover:border-[#38746D]/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#4B635F] uppercase tracking-wider">
+                ARMADA SIAGA
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center">
+                <Ship className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl sm:text-2xl font-black text-[#132422]">8 Unit LCR</span>
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                5 Aktif di Air
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              3 Perahu Karet Cadangan di Mako Pusdalops
+            </p>
+          </div>
+        </section>
+
+        {/* 3. TABEL ANTREAN TRIAGE & VERIFIKASI ADUAN WARGA */}
         <section
           id="triage"
           aria-label="Triage Antrean Pelaporan"
-          className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-7 shadow-xs space-y-5 scroll-mt-24"
+          className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 scroll-mt-24"
         >
           {/* Header & Filter Controls */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -578,24 +637,24 @@ export default function PetugasDashboard() {
         <section
           id="posko"
           aria-label="Manajemen Kapasitas Posko"
-          className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-7 shadow-xs space-y-5 scroll-mt-24"
+          className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 scroll-mt-24"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-[#132422] flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-[#38746D]" />
+              <h2 className="text-base sm:text-lg font-bold text-[#132422] flex items-center gap-2">
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#38746D]" />
                 Manajemen Kapasitas &amp; Okupansi Posko Terpadu
               </h2>
               <p className="text-xs text-[#4B635F] mt-0.5">
                 Perbarui jumlah warga pengungsi yang masuk atau keluar secara instan dari lapangan.
               </p>
             </div>
-            <span className="text-xs font-bold text-[#38746D] bg-[#EEF5F3] border border-[#A4C6C1]/50 px-3 py-1.5 rounded-full">
+            <span className="text-[11px] sm:text-xs font-bold text-[#38746D] bg-[#EEF5F3] border border-[#A4C6C1]/50 px-3 py-1 rounded-full self-start sm:self-auto">
               4 Posko Terpantau Aktif
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {shelters.map((sh) => {
               const remaining = sh.capacityTotal - sh.capacityOccupied;
               const percent = Math.round((sh.capacityOccupied / sh.capacityTotal) * 100);
@@ -603,11 +662,11 @@ export default function PetugasDashboard() {
               return (
                 <div
                   key={sh.id}
-                  className="p-5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] hover:border-[#38746D] transition-colors space-y-3 flex flex-col justify-between"
+                  className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-slate-200 hover:border-[#38746D] transition-colors space-y-3 flex flex-col justify-between"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-bold text-sm text-[#132422] leading-tight">{sh.name}</h3>
+                      <h3 className="font-bold text-xs sm:text-sm text-[#132422] leading-tight">{sh.name}</h3>
                       <span
                         className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                           sh.status === "PENUH"
@@ -626,10 +685,10 @@ export default function PetugasDashboard() {
                   {/* Progress Bar Okupansi */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Terisi: <strong>{sh.capacityOccupied}</strong> / {sh.capacityTotal}</span>
-                      <span className="font-bold text-[#132422]">{percent}%</span>
+                      <span className="text-gray-500 text-[11px]">Terisi: <strong>{sh.capacityOccupied}</strong> / {sh.capacityTotal}</span>
+                      <span className="font-bold text-[#132422] text-xs">{percent}%</span>
                     </div>
-                    <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
                           percent >= 90 ? "bg-rose-600" : percent >= 75 ? "bg-amber-500" : "bg-[#38746D]"
@@ -641,24 +700,24 @@ export default function PetugasDashboard() {
                   </div>
 
                   {/* Quick Adjust Buttons */}
-                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-[#4B635F]">Update Pengungsi:</span>
+                  <div className="pt-2 border-t border-gray-200/60 flex items-center justify-between">
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#4B635F]">Update Pengungsi:</span>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => updateOccupancy(sh.id, -5)}
-                        className="w-7 h-7 rounded-lg bg-white border border-[#D5E4E0] hover:bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700 cursor-pointer"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white border border-[#D5E4E0] hover:bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700 cursor-pointer"
                         title="Kurangi 5 orang"
                       >
-                        <Minus className="w-3.5 h-3.5" />
+                        <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => updateOccupancy(sh.id, 5)}
-                        className="w-7 h-7 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white flex items-center justify-center text-xs font-bold shadow-2xs cursor-pointer"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white flex items-center justify-center text-xs font-bold shadow-2xs cursor-pointer"
                         title="Tambah 5 orang masuk"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -667,7 +726,8 @@ export default function PetugasDashboard() {
             })}
           </div>
         </section>
-      </div>
+      </motion.div>
+    </div>
   );
 }
 

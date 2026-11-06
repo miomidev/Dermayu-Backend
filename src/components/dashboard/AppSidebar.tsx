@@ -65,7 +65,7 @@ export function AppSidebar({
       ? [
           { label: "Ringkasan Dasbor", href: "/petugas/dashboard", icon: LayoutDashboard },
           { label: "Triage & Verifikasi Aduan", href: "/petugas/triage", icon: ClipboardList, badge: "3" },
-          { label: "Peta Spasial & SAR", href: "/admin/dashboard", icon: Map },
+          { label: "Peta Spasial & SAR", href: "/petugas/peta-sar", icon: Map },
           { label: "Manajemen Posko", href: "/petugas/posko", icon: PoskoShelterIcon },
           { label: "Telemetri TMA & Rob", href: "/petugas/telemetri", icon: Activity },
         ]

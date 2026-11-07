@@ -55,6 +55,9 @@ import {
   Pencil,
   SlidersHorizontal,
   Mic,
+  Trash2,
+  ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 import {
   SIAGA_CONFIGS,
@@ -63,9 +66,14 @@ import {
   ShieldSafeIllustration,
 } from "@/components/dashboard/StatusSiagaCard";
 import { getActiveSession } from "@/utils/authSession";
-import { updatePosko, getAllPosko } from "@/utils/poskoService";
 import {
-  CURATED_POSKO_LIST,
+  updatePosko,
+  getAllPosko,
+  updatePoskoApi,
+  updateReportStatusApi,
+  deleteReportApi,
+} from "@/utils/poskoService";
+import {
   FLOOD_OBSTACLES,
   detectIntersectedFloodObstacles,
   calculateDistanceInMeters as calcMetersSafe,
@@ -613,25 +621,88 @@ export default function PetugasSpatialMap({
   activeShelterRef.current = activeShelterDetail || activeNavRoute?.shelter || null;
   const handleMapClickForWaypointRef = useRef<(lat: number, lng: number) => void>(() => { });
 
-  // Sinkronisasi lokal dataset posko dengan poskoService
-  const [internalShelters, setInternalShelters] = useState<MapShelterPoint[]>(shelters);
+  // Sinkronisasi lokal dataset posko dengan poskoService (SSOT)
+  const [internalShelters, setInternalShelters] = useState<MapShelterPoint[]>(() => {
+    if (shelters && shelters.length > 0) return shelters;
+    return getAllPosko().map((p) => ({
+      id: p.id,
+      name: p.nama,
+      location: p.alamat,
+      district: p.kecamatan,
+      distance: "Menghitung jarak...",
+      capacityTotal: p.kapasitas,
+      capacityFilled: p.terisi,
+      status: p.status,
+      contactPerson: p.kontak.pj,
+      contactPhone: p.kontak.telp,
+      lat: p.lat,
+      lng: p.lng,
+      facilities: p.fasilitas,
+      kategori: p.kategori,
+      foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
+      tier: p.tier,
+      petugasId: p.petugasId,
+      isActive: p.isActive,
+    }));
+  });
 
+  // Sinkronisasi data posko dari prop parent
   useEffect(() => {
-    setInternalShelters(shelters);
+    if (shelters && shelters.length > 0) {
+      setInternalShelters(shelters);
+    }
   }, [shelters]);
 
+  // Fetch fallback hanya jika prop shelters tidak disediakan oleh parent
   useEffect(() => {
+    if (!shelters || shelters.length === 0) {
+      const fetchFromApi = async () => {
+        try {
+          const res = await fetch("/api/posko?role=petugas", { cache: "no-store" });
+          if (res.ok) {
+            const json = await res.json();
+            const list = json.data?.data || json.data || [];
+            if (Array.isArray(list) && list.length > 0) {
+              const formatted: MapShelterPoint[] = list.map((p: any) => ({
+                id: p.id,
+                name: p.nama || p.name || "Posko Siaga",
+                location: p.alamat || p.location || "",
+                district: p.kecamatan || p.district || "",
+                distance: "Menghitung jarak...",
+                capacityTotal: p.kapasitas || 100,
+                capacityFilled: p.terisi || 0,
+                status: p.status || "TERSEDIA",
+                contactPerson: p.kontak?.pj || "Petugas Posko",
+                contactPhone: p.kontak?.telp || "0812-3456-7890",
+                lat: p.lat,
+                lng: p.lng,
+                facilities: p.fasilitas || [],
+                kategori: p.kategori,
+                foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
+                tier: p.tier,
+                petugasId: p.petugasId,
+                isActive: p.isActive,
+              }));
+              setInternalShelters(formatted);
+            }
+          }
+        } catch (err) {
+          console.warn("PetugasSpatialMap API fetch fallback:", err);
+        }
+      };
+
+      fetchFromApi();
+    }
+
     const handlePoskoUpdated = () => {
-      const all = getAllPosko();
-      setInternalShelters((prev) =>
-        all.map((p) => {
-          const existing = prev.find((s) => s.id === p.id);
-          return {
+      if (!shelters || shelters.length === 0) {
+        setInternalShelters(
+          getAllPosko().map((p) => ({
             id: p.id,
             name: p.nama,
             location: p.alamat,
             district: p.kecamatan,
-            distance: existing?.distance || "Menghitung jarak...",
+            distance: "Menghitung jarak...",
             capacityTotal: p.kapasitas,
             capacityFilled: p.terisi,
             status: p.status,
@@ -641,20 +712,18 @@ export default function PetugasSpatialMap({
             lng: p.lng,
             facilities: p.fasilitas,
             kategori: p.kategori,
-            foto: p.foto,
+            foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
             tier: p.tier,
             petugasId: p.petugasId,
             isActive: p.isActive,
-          };
-        })
-      );
+          }))
+        );
+      }
     };
 
     window.addEventListener("dermayu_posko_updated", handlePoskoUpdated);
-    window.addEventListener("storage", handlePoskoUpdated);
     return () => {
       window.removeEventListener("dermayu_posko_updated", handlePoskoUpdated);
-      window.removeEventListener("storage", handlePoskoUpdated);
     };
   }, []);
 
@@ -683,8 +752,23 @@ export default function PetugasSpatialMap({
   });
 
   // Memuat dataset laporan dan 20 titik hambatan genangan rob & DAS Cimanuk
-  const allReports: MapReportPoint[] = useMemo(() => {
-    if (reports && reports.length > 0) return reports;
+  const defaultReports: MapReportPoint[] = useMemo(() => {
+    const realisticPhotos = [
+      "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1508873696983-2df570464753?auto=format&fit=crop&w=800&q=80",
+    ];
+    const timeOptions = [
+      "10 menit yang lalu",
+      "25 menit yang lalu",
+      "Hari ini, 08:30 WIB",
+      "Hari ini, 08:15 WIB",
+      "Hari ini, 07:45 WIB",
+      "Hari ini, 07:20 WIB",
+      "Hari ini, 06:50 WIB",
+      "1 jam yang lalu",
+    ];
     return FLOOD_OBSTACLES.map((obs, idx) => ({
       id: obs.id,
       ticketCode: `GEN-${String(idx + 1).padStart(3, "0")}`,
@@ -692,14 +776,76 @@ export default function PetugasSpatialMap({
       category: obs.zone === "PESISIR_ROB" ? "Banjir Rob" : "Luapan DAS Cimanuk",
       severity: obs.severity,
       waterLevelText: `${obs.depthCm} cm`,
-      status: obs.status,
+      status: obs.status || "Aktif Terpantau",
       location: obs.location,
       lat: obs.lat,
       lng: obs.lng,
-      timeAgo: "Aktif Terpantau",
+      timeAgo: timeOptions[idx % timeOptions.length],
+      photos: [realisticPhotos[idx % realisticPhotos.length]],
       note: obs.description,
     }));
+  }, []);
+
+  const [internalReports, setInternalReports] = useState<MapReportPoint[]>(() => {
+    if (reports && reports.length > 0) return reports;
+    return defaultReports;
+  });
+
+  const [reportToDelete, setReportToDelete] = useState<MapReportPoint | null>(null);
+
+  useEffect(() => {
+    if (reports && reports.length > 0) {
+      setInternalReports(reports);
+    }
   }, [reports]);
+
+  const allReports: MapReportPoint[] = internalReports;
+
+  // Handler Tindak Lanjuti / Selesaikan Laporan Operasional Petugas
+  const handleToggleReportHandling = (rep: MapReportPoint) => {
+    let nextStatus = "Sedang Ditangani";
+    if (rep.status === "Sedang Ditangani") {
+      nextStatus = "Selesai";
+    } else if (rep.status === "Selesai") {
+      nextStatus = "Aktif Terpantau";
+    } else {
+      nextStatus = "Sedang Ditangani";
+    }
+
+    setInternalReports((prev) =>
+      prev.map((r) => (r.id === rep.id ? { ...r, status: nextStatus } : r))
+    );
+    if (activeReportDetail?.id === rep.id) {
+      setActiveReportDetail((prev) => (prev ? { ...prev, status: nextStatus } : null));
+    }
+    updateReportStatusApi(rep.id, nextStatus).catch((err) =>
+      console.warn("Sync report status to server error:", err)
+    );
+    setToastMessage(
+      nextStatus === "Sedang Ditangani"
+        ? "Status laporan diperbarui: 'Sedang Ditangani'."
+        : nextStatus === "Selesai"
+        ? "Laporan ditandai telah 'Selesai' ditangani."
+        : "Status laporan dikembalikan ke 'Aktif Terpantau'."
+    );
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Handler Konfirmasi Hapus / Tolak Laporan Aduan
+  const handleConfirmDeleteReport = () => {
+    if (!reportToDelete) return;
+    const targetId = reportToDelete.id;
+    setInternalReports((prev) => prev.filter((r) => r.id !== targetId));
+    if (activeReportDetail?.id === targetId) {
+      setActiveReportDetail(null);
+    }
+    setReportToDelete(null);
+    deleteReportApi(targetId).catch((err) =>
+      console.warn("Delete report on server error:", err)
+    );
+    setToastMessage("Laporan aduan berhasil dihapus dari peta operasional.");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // State Search & Filter Toggles Khusus Petugas: "Semua Posko Aktif" vs "Posko Saya" vs "Laporan & Genangan"
   const [searchQuery, setSearchQuery] = useState("");
@@ -1322,10 +1468,12 @@ export default function PetugasSpatialMap({
         const popupContent = `
           <div style="font-family: inherit; width: 230px; padding: 3px; color: #132422;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <span style="font-size: 10px; font-weight: 800; font-family: monospace; color: ${color}; background: #FFF1F2; padding: 2px 6px; border-radius: 6px; border: 1px solid #FECDD3;">
-                ${rep.ticketCode}
+              <span style="font-size: 10px; font-weight: 700; color: #4B635F;">
+                🕒 ${rep.timeAgo}
               </span>
-              <span style="font-size: 9px; font-weight: 700; color: #4B635F;">${rep.timeAgo}</span>
+              <span style="font-size: 9px; font-weight: 800; color: ${color}; background: #FFF1F2; padding: 2px 6px; border-radius: 6px; border: 1px solid #FECDD3;">
+                ${rep.category}
+              </span>
             </div>
             <div style="font-size: 12px; font-weight: 800; margin-bottom: 4px; line-height: 1.35; color: #132422;">
               ${rep.title}
@@ -1557,6 +1705,23 @@ export default function PetugasSpatialMap({
             : s
         )
       );
+
+      // Sinkronisasi permanen ke server database
+      updatePoskoApi(
+        editingPoskoId,
+        {
+          nama: editFormData.nama,
+          alamat: editFormData.alamat,
+          kapasitas: Number(editFormData.kapasitas),
+          terisi: Number(editFormData.terisi),
+          status: editFormData.status,
+          fasilitas: editFormData.fasilitas,
+          isActive: editFormData.isActive,
+          lat: editFormData.lat,
+          lng: editFormData.lng,
+        },
+        { id: activeOfficerId }
+      ).catch((err) => console.warn("Sync edit posko to server error:", err));
 
       setToastMessage(`Posko "${updated.nama}" berhasil diperbarui!`);
       setTimeout(() => setToastMessage(null), 3000);
@@ -2973,6 +3138,7 @@ export default function PetugasSpatialMap({
     const isCritical = rep.severity === "CRITICAL";
     const isHigh = rep.severity === "HIGH";
     const isSelected = activeReportDetail?.id === rep.id;
+    const isHandled = rep.status === "Sedang Ditangani" || rep.status === "Selesai" || rep.status === "Ditangani";
 
     return (
       <div
@@ -2985,23 +3151,27 @@ export default function PetugasSpatialMap({
         }`}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`px-2 py-0.5 rounded-md text-[8.5px] font-black font-mono tracking-wider ${
-                isCritical
-                  ? "bg-rose-100 text-rose-700 border border-rose-300"
-                  : isHigh
-                  ? "bg-amber-100 text-amber-800 border border-amber-300"
-                  : "bg-yellow-100 text-yellow-800 border border-yellow-300"
-              }`}
-            >
-              {rep.ticketCode}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-slate-500 font-medium flex items-center gap-1 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{rep.timeAgo || "Baru saja"}</span>
             </span>
-            <span className="px-1.5 py-0.5 rounded-md text-[7.5px] font-black bg-rose-600 text-white tracking-wider">
+            <span className="px-1.5 py-0.5 rounded-md text-[8px] font-bold bg-rose-600 text-white tracking-wider shrink-0">
               {rep.category}
             </span>
           </div>
-          <span className="text-[9.5px] font-bold text-slate-400">{rep.timeAgo}</span>
+          <span
+            className={`text-[9.5px] font-bold flex items-center gap-1 shrink-0 ${
+              isHandled ? "text-emerald-600" : "text-amber-600"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isHandled ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+              }`}
+            />
+            <span>{rep.status || "Aktif Terpantau"}</span>
+          </span>
         </div>
 
         <div className="space-y-0.5">
@@ -4977,55 +5147,73 @@ export default function PetugasSpatialMap({
         );
       }
 
+      const isHandling = activeReportDetail.status === "Sedang Ditangani";
+      const isDone = activeReportDetail.status === "Selesai";
+
       return (
-        <div className={`overflow-y-auto flex-1 min-h-0 space-y-2 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-2.5 pb-2" : "p-2.5"}`}>
+        <div className={`overflow-y-auto flex-1 min-h-0 space-y-3 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-3 pb-2" : "p-2.5"}`}>
           {/* Header Info Kejadian */}
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
               <span
-                className={`px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold border ${activeReportDetail.severity === "CRITICAL"
-                  ? "bg-rose-100 text-rose-800 border-rose-300"
-                  : "bg-amber-100 text-amber-800 border-amber-300"
-                  }`}
+                className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold border ${
+                  activeReportDetail.severity === "CRITICAL"
+                    ? "bg-rose-100 text-rose-800 border-rose-300"
+                    : "bg-amber-100 text-amber-800 border-amber-300"
+                }`}
               >
                 {activeReportDetail.severity === "CRITICAL" ? "🔴 BANJIR ROB KRITIS" : "🟠 GENANGAN SEDANG"}
               </span>
-              <span className="text-[9.5px] text-[#718783] font-bold">
-                {activeReportDetail.timeAgo}
+              <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{activeReportDetail.timeAgo}</span>
               </span>
             </div>
-            <h3 className="text-xs font-black text-[#132422] leading-snug">
+            <h3 className="text-sm font-black text-[#132422] leading-snug">
               {activeReportDetail.title}
             </h3>
-            <p className="text-[10px] text-[#4B635F] flex items-center gap-1 truncate">
-              <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
+            <p className="text-xs text-[#4B635F] flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
               <span className="truncate">{activeReportDetail.location}</span>
             </p>
           </div>
 
-          {/* Bukti Foto Laporan Warga / Kamera AI */}
-          {activeReportDetail.photos && activeReportDetail.photos.length > 0 && (
-            <div className="rounded-xl overflow-hidden border border-[#D5E4E0] bg-slate-100 max-h-36 w-full">
-              <img
-                src={activeReportDetail.photos[0]}
-                alt="Bukti Foto Aduan"
-                className="w-full h-32 object-cover"
-              />
-            </div>
-          )}
+          {/* Bukti Visual (Foto) Lapangan Pelapor */}
+          <div className="w-full h-48 rounded-xl overflow-hidden mt-3 mb-4 shadow-sm border border-slate-200/80 bg-slate-100">
+            <img
+              src={
+                activeReportDetail.photos?.[0] ||
+                "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80"
+              }
+              alt={activeReportDetail.title}
+              className="w-full h-48 object-cover rounded-xl"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src =
+                  "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80";
+              }}
+            />
+          </div>
 
-          {/* Parameter TMA & Status */}
-          <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10.5px]">
+          {/* Parameter TMA & Status Penanganan */}
+          <div className="grid grid-cols-2 gap-2 p-2 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[11px]">
             <div>
-              <span className="text-[8.5px] text-[#64748B] block">Ketinggian Air</span>
-              <strong className="text-[11px] font-black text-[#132422]">
+              <span className="text-[9px] text-[#64748B] block font-medium">Ketinggian Air</span>
+              <strong className="text-xs font-black text-[#132422]">
                 {activeReportDetail.waterLevelText || "±30 - 75 cm"}
               </strong>
             </div>
             <div>
-              <span className="text-[8.5px] text-[#64748B] block">Status</span>
-              <strong className="text-[10px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
-                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+              <span className="text-[9px] text-[#64748B] block font-medium">Status Operasional</span>
+              <strong
+                className={`text-[11px] font-bold flex items-center gap-1 mt-0.5 ${
+                  isDone || isHandling ? "text-emerald-700" : "text-amber-700"
+                }`}
+              >
+                <CheckCircle2
+                  className={`w-3 h-3 shrink-0 ${
+                    isDone || isHandling ? "text-emerald-600" : "text-amber-600"
+                  }`}
+                />
                 <span className="truncate">{activeReportDetail.status}</span>
               </strong>
             </div>
@@ -5033,29 +5221,54 @@ export default function PetugasSpatialMap({
 
           {/* Catatan / Keterangan Penanganan Petugas */}
           {activeReportDetail.note && (
-            <div className="p-2 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10px] text-[#4B635F]">
-              <span className="font-extrabold text-[#132422] block mb-0.5">Catatan Aduan:</span>
-              <p className="leading-relaxed">{activeReportDetail.note}</p>
+            <div className="p-2.5 rounded-xl bg-[#F8FAF9] border border-gray-100 text-xs text-[#4B635F]">
+              <span className="font-bold text-[#132422] block mb-0.5 text-[11px]">Catatan Lapangan:</span>
+              <p className="leading-relaxed text-[11.5px]">{activeReportDetail.note}</p>
             </div>
           )}
 
-          {/* Peringatan Petugas BPBD */}
-          <div className="text-[9.5px] p-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-900 flex items-start gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-            <span className="leading-tight text-amber-800">
-              Hindari melintasi titik ini. Gunakan jalur evakuasi aman bebas genangan.
-            </span>
-          </div>
+          {/* Action Buttons Petugas: Operasional & CRUD */}
+          <div className="pt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleToggleReportHandling(activeReportDetail)}
+              className="flex-1 py-2.5 px-3.5 rounded-xl bg-[#38746D] hover:bg-[#2C5B55] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+            >
+              {isHandling ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                  <span>Tandai Selesai</span>
+                </>
+              ) : isDone ? (
+                <>
+                  <RotateCcw className="w-4 h-4 text-emerald-200" />
+                  <span>Buka Kembali</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-4 h-4 text-emerald-200" />
+                  <span>Tindak Lanjuti</span>
+                </>
+              )}
+            </button>
 
-          {/* Action Buttons */}
-          <div className="pt-0.5">
+            <button
+              type="button"
+              onClick={() => setReportToDelete(activeReportDetail)}
+              className="py-2.5 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 active:scale-[0.98] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              title="Hapus Laporan / Tolak Aduan"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+              <span>Hapus</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
                 if (navigator.share) {
                   navigator.share({
                     title: activeReportDetail.title,
-                    text: `Peringatan Banjir/Rob di ${activeReportDetail.location}: ${activeReportDetail.waterLevelText || "Ketinggian Signifikan"}`,
+                    text: `Laporan Lapangan: ${activeReportDetail.title} (${activeReportDetail.location}) - TMA: ${activeReportDetail.waterLevelText || "Kritis"}`,
                     url: window.location.href,
                   }).catch(() => { });
                 } else {
@@ -5064,10 +5277,10 @@ export default function PetugasSpatialMap({
                   setTimeout(() => setToastMessage(null), 2500);
                 }
               }}
-              className="w-full py-1.5 px-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-slate-700 text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+              className="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 text-slate-600 transition cursor-pointer active:scale-[0.98]"
+              title="Bagikan Lokasi Kejadian"
             >
-              <Share2 className="w-3 h-3 text-sky-600" />
-              <span>Bagikan Lokasi Kejadian</span>
+              <Share2 className="w-4 h-4 text-slate-500" />
             </button>
           </div>
         </div>
@@ -5869,6 +6082,42 @@ export default function PetugasSpatialMap({
             z-index: 9999 !important;
           }
         `}</style>
+
+        {/* Modal Konfirmasi Hapus / Tolak Laporan */}
+        {reportToDelete && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-gray-100 max-w-sm w-full space-y-4 animate-in zoom-in-95 duration-150 text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 leading-snug">Hapus / Tolak Laporan</h4>
+                  <p className="text-xs text-slate-500">Tindakan operasional lapangan</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                Apakah Anda yakin ingin menghapus laporan aduan <strong className="text-slate-800 font-bold">&ldquo;{reportToDelete.title}&rdquo;</strong> dari peta operasional?
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setReportToDelete(null)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold cursor-pointer transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteReport}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-sm cursor-pointer transition"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Floating Toast Feedback */}
         {toastMessage && (

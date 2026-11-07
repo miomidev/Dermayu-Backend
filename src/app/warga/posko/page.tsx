@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { getWargaPosko, type PoskoRecord } from "@/utils/poskoService";
+import { getWargaPosko, fetchPoskoFromApi, type PoskoRecord } from "@/utils/poskoService";
 import {
   Building2,
   MapPin,
@@ -32,24 +32,47 @@ export default function WargaPoskoPage() {
   // State Pagination Modern
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Data Posko (Aturan 4: Hanya posko aktif yang dimuat untuk warga)
   const [shelters, setShelters] = useState<PoskoRecord[]>([]);
 
   useEffect(() => {
-    // Muat posko aktif awal
+    // 1. Muat cache posko aktif awal untuk instant render
     setShelters(getWargaPosko());
+
+    // 2. Fetch data SSOT dari Server Database
+    const syncFromServer = async () => {
+      try {
+        const data = await fetchPoskoFromApi("warga");
+        setShelters(data.filter((p) => p.isActive === true));
+      } catch (err) {
+        console.warn("Sync warga posko error, using local fallback:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    syncFromServer();
+
+    // 3. Polling setiap 60 detik & sinkronisasi saat tab aktif kembali
+    const interval = setInterval(syncFromServer, 60000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncFromServer();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Dengarkan event sinkronisasi data posko real-time
     const handleUpdate = () => {
       setShelters(getWargaPosko());
     };
     window.addEventListener("dermayu_posko_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
 
     return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("dermayu_posko_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
     };
   }, []);
 
@@ -89,15 +112,23 @@ export default function WargaPoskoPage() {
   // Filter 100 data posko
   const filtered = useMemo(() => {
     return shelters.filter((sh) => {
+      if (!sh) return false;
+      const q = (search || "").trim().toLowerCase();
+      const nama = (sh.nama || (sh as any).name || "").toLowerCase();
+      const kecamatan = (sh.kecamatan || (sh as any).district || "").toLowerCase();
+      const alamat = (sh.alamat || (sh as any).location || "").toLowerCase();
+
       const matchSearch =
-        sh.nama.toLowerCase().includes(search.toLowerCase()) ||
-        sh.kecamatan.toLowerCase().includes(search.toLowerCase()) ||
-        sh.alamat.toLowerCase().includes(search.toLowerCase()) ||
-        sh.fasilitas.some((f) => f.toLowerCase().includes(search.toLowerCase()));
+        !q ||
+        nama.includes(q) ||
+        kecamatan.includes(q) ||
+        alamat.includes(q) ||
+        (Array.isArray(sh.fasilitas) &&
+          sh.fasilitas.some((f) => f && f.toLowerCase().includes(q)));
 
       const matchDistrict =
         filterDistrict === "SEMUA" ||
-        sh.kecamatan.toLowerCase() === filterDistrict.toLowerCase();
+        kecamatan === filterDistrict.toLowerCase();
 
       const matchStatus = filterStatus === "SEMUA" || sh.status === filterStatus;
 
@@ -313,7 +344,28 @@ export default function WargaPoskoPage() {
 
       {/* 3. DAFTAR KARTU POSKO EVAKUASI AKTIF */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {filtered.length === 0 ? (
+        {isLoading && shelters.length === 0 ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs animate-pulse space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className="h-4 w-28 bg-slate-200 rounded" />
+                  <div className="h-6 w-56 bg-slate-200 rounded" />
+                  <div className="h-3 w-40 bg-slate-100 rounded" />
+                </div>
+                <div className="h-6 w-20 bg-slate-100 rounded-full" />
+              </div>
+              <div className="h-2.5 w-full bg-slate-100 rounded-full" />
+              <div className="flex justify-between pt-2">
+                <div className="h-8 w-28 bg-slate-100 rounded-xl" />
+                <div className="h-8 w-32 bg-slate-100 rounded-xl" />
+              </div>
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
           <div className="md:col-span-2 p-12 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2">
             <Building2 className="w-10 h-10 text-gray-300 mx-auto" />
             <h4 className="text-base font-bold text-gray-700">Posko Tidak Ditemukan</h4>

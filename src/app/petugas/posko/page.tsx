@@ -47,6 +47,15 @@ import {
   deletePengungsi,
   adjustPoskoOccupancyWithEvacuees,
   determineKategoriUsia,
+  fetchPoskoFromApi,
+  createPoskoApi,
+  updatePoskoApi,
+  toggleActivePoskoApi,
+  deletePoskoApi,
+  uploadPoskoPhotosApi,
+  addPengungsiApi,
+  updatePengungsiApi,
+  deletePengungsiApi,
   type PoskoRecord,
   type PengungsiItem,
 } from "@/utils/poskoService";
@@ -168,6 +177,7 @@ export default function PetugasPoskoPage() {
   const [isCreatingPosko, setIsCreatingPosko] = useState(false);
   const [isEditingPosko, setIsEditingPosko] = useState(false);
   const [isSubmittingPosko, setIsSubmittingPosko] = useState(false);
+  const [isLoadingPosko, setIsLoadingPosko] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formState, setFormState] = useState({
@@ -184,7 +194,7 @@ export default function PetugasPoskoPage() {
     fotos: [] as string[],
   });
 
-  // Muat Sesi Petugas & Dataset 100 Posko
+  // Muat Sesi Petugas & Dataset Posko dari Database Server (SSOT)
   useEffect(() => {
     const session = getActiveSession();
     const activeOfficer = session || {
@@ -198,17 +208,29 @@ export default function PetugasPoskoPage() {
     };
     setCurrentUser(activeOfficer);
 
+    // 1. Ambil cache lokal seketika (instant render)
     setShelters(getAllPosko());
+
+    // 2. Ambil data Single Source of Truth dari API Server
+    const syncFromServer = async () => {
+      try {
+        const serverData = await fetchPoskoFromApi("petugas");
+        setShelters(serverData);
+      } catch (err) {
+        console.warn("Sync from server error, using local dataset:", err);
+      } finally {
+        setIsLoadingPosko(false);
+      }
+    };
+    syncFromServer();
 
     const handleUpdate = () => {
       setShelters(getAllPosko());
     };
     window.addEventListener("dermayu_posko_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
 
     return () => {
       window.removeEventListener("dermayu_posko_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
     };
   }, []);
 
@@ -221,11 +243,11 @@ export default function PetugasPoskoPage() {
   }, [selectedPoskoId, shelters]);
 
   // Metrik Kapasitas
-  const totalCapacity = shelters.reduce((acc, s) => acc + s.kapasitas, 0);
-  const totalOccupants = shelters.reduce((acc, s) => acc + s.terisi, 0);
-  const totalAvailable = totalCapacity - totalOccupants;
+  const totalCapacity = shelters.reduce((acc, s) => acc + (s?.kapasitas || 0), 0);
+  const totalOccupants = shelters.reduce((acc, s) => acc + (s?.terisi || 0), 0);
+  const totalAvailable = Math.max(0, totalCapacity - totalOccupants);
   const occupancyRate = totalCapacity > 0 ? Math.round((totalOccupants / totalCapacity) * 100) : 0;
-  const myPoskoCount = shelters.filter((s) => s.petugasId === officerId).length;
+  const myPoskoCount = shelters.filter((s) => s?.petugasId === officerId).length;
 
   const availableDistricts = useMemo(() => {
     const list = [
@@ -242,8 +264,9 @@ export default function PetugasPoskoPage() {
       "Karangampel",
     ];
     shelters.forEach((s) => {
-      if (s.kecamatan && !list.includes(s.kecamatan)) {
-        list.push(s.kecamatan);
+      const kec = s?.kecamatan || (s as any)?.district;
+      if (kec && !list.includes(kec)) {
+        list.push(kec);
       }
     });
     return list;
@@ -252,14 +275,21 @@ export default function PetugasPoskoPage() {
   // Filter & Sort Data: Posko nonaktif (isActive: false) selalu berada di urutan paling bawah
   const filteredShelters = useMemo(() => {
     const list = shelters.filter((s) => {
-      const matchDistrict = districtFilter === "ALL" || s.kecamatan === districtFilter;
+      if (!s) return false;
+      const nama = (s.nama || (s as any).name || "").toLowerCase();
+      const kecamatan = (s.kecamatan || (s as any).district || "").toLowerCase();
+      const alamat = (s.alamat || (s as any).location || "").toLowerCase();
+      const pj = (s.kontak?.pj || "").toLowerCase();
+
+      const matchDistrict = districtFilter === "ALL" || kecamatan === districtFilter.toLowerCase();
       const matchOwner = ownerFilter === "ALL" || s.petugasId === officerId;
-      const q = searchQuery.toLowerCase();
+      const q = (searchQuery || "").trim().toLowerCase();
       const matchSearch =
-        s.nama.toLowerCase().includes(q) ||
-        s.kecamatan.toLowerCase().includes(q) ||
-        s.alamat.toLowerCase().includes(q) ||
-        s.kontak.pj.toLowerCase().includes(q);
+        !q ||
+        nama.includes(q) ||
+        kecamatan.includes(q) ||
+        alamat.includes(q) ||
+        pj.includes(q);
       return matchDistrict && matchOwner && matchSearch;
     });
 
@@ -360,7 +390,7 @@ export default function PetugasPoskoPage() {
   };
 
   // Handler: Submit Form (Tambah atau Edit)
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formState.nama.trim()) {
       setNotification({ type: "error", text: "Silakan masukkan nama posko." });
@@ -374,10 +404,23 @@ export default function PetugasPoskoPage() {
     }
 
     setIsSubmittingPosko(true);
+    const previousShelters = [...shelters];
+
     try {
+      // PRD 3.2: Unggah foto ke storage permanen server (bukan base64/placeholder)
+      let finalPhotos = formState.fotos;
+      const hasBase64 = formState.fotos.some((f) => f.startsWith("data:"));
+      if (hasBase64) {
+        try {
+          finalPhotos = await uploadPoskoPhotosApi(formState.fotos);
+        } catch (uploadErr) {
+          console.warn("Upload photos error, using existing urls:", uploadErr);
+        }
+      }
+
       if (isEditingPosko && selectedPoskoId) {
-        // Mode Edit Posko
-        const updated = updatePosko(
+        // Mode Edit Posko: Optimistic UI
+        const updatedLocal = updatePosko(
           selectedPoskoId,
           {
             nama: formState.nama,
@@ -393,10 +436,10 @@ export default function PetugasPoskoPage() {
               telp: formState.telp || "0812-3456-7890",
             },
             foto:
-              formState.fotos.length > 0
-                ? formState.fotos[0]
+              finalPhotos.length > 0
+                ? finalPhotos[0]
                 : "/shelters/default.jpg",
-            fotos: formState.fotos,
+            fotos: finalPhotos,
           },
           { id: officerId }
         );
@@ -404,13 +447,35 @@ export default function PetugasPoskoPage() {
         setShelters(getAllPosko());
         setNotification({
           type: "success",
-          text: `Perubahan posko "${updated.nama}" berhasil disimpan!`,
+          text: `Perubahan posko "${updatedLocal.nama}" berhasil disimpan!`,
         });
         setIsCreatingPosko(false);
         setIsEditingPosko(false);
+
+        // Async Sync to Database Server
+        await updatePoskoApi(
+          selectedPoskoId,
+          {
+            nama: formState.nama,
+            alamat: formState.alamat,
+            kecamatan: formState.kecamatan,
+            kapasitas: Number(formState.kapasitas) || 100,
+            terisi: Number(formState.terisi) || 0,
+            lat: formState.lat,
+            lng: formState.lng,
+            fasilitas: formState.fasilitas,
+            kontak: {
+              pj: formState.pj || "Petugas Pusdalops",
+              telp: formState.telp || "0812-3456-7890",
+            },
+            foto: finalPhotos.length > 0 ? finalPhotos[0] : "/shelters/default.jpg",
+            fotos: finalPhotos,
+          },
+          { id: officerId }
+        );
       } else {
-        // Mode Tambah Posko Baru
-        const created = createPosko(
+        // Mode Tambah Posko Baru: Optimistic UI
+        const createdLocal = createPosko(
           {
             nama: formState.nama,
             alamat: formState.alamat,
@@ -423,7 +488,7 @@ export default function PetugasPoskoPage() {
               pj: formState.pj || "Petugas Pusdalops",
               telp: formState.telp || "0812-3456-7890",
             },
-            fotos: formState.fotos,
+            fotos: finalPhotos,
           },
           { id: officerId }
         );
@@ -431,12 +496,33 @@ export default function PetugasPoskoPage() {
         setShelters(getAllPosko());
         setNotification({
           type: "success",
-          text: `Posko "${created.nama}" berhasil ditambahkan dan siap digunakan!`,
+          text: `Posko "${createdLocal.nama}" berhasil ditambahkan dan siap digunakan!`,
         });
         setIsCreatingPosko(false);
+
+        // Async Sync to Database Server
+        await createPoskoApi(
+          {
+            nama: formState.nama,
+            alamat: formState.alamat,
+            kecamatan: formState.kecamatan,
+            kapasitas: Number(formState.kapasitas) || 100,
+            lat: formState.lat,
+            lng: formState.lng,
+            fasilitas: formState.fasilitas,
+            kontak: {
+              pj: formState.pj || "Petugas Pusdalops",
+              telp: formState.telp || "0812-3456-7890",
+            },
+            fotos: finalPhotos,
+          },
+          { id: officerId }
+        );
       }
       setTimeout(() => setNotification(null), 4000);
     } catch (err: any) {
+      // Rollback on failure
+      setShelters(previousShelters);
       setNotification({
         type: "error",
         text: err.message || "Gagal memproses data posko.",
@@ -475,7 +561,7 @@ export default function PetugasPoskoPage() {
     setIsAddingPengungsi(true);
   };
 
-  const handleSavePengungsi = (e: React.FormEvent) => {
+  const handleSavePengungsi = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPosko) return;
 
@@ -485,8 +571,11 @@ export default function PetugasPoskoPage() {
       return;
     }
 
+    const previousShelters = [...shelters];
+
     try {
       if (editingPengungsi) {
+        // Optimistic update
         updatePengungsi(
           selectedPosko.id,
           editingPengungsi.id,
@@ -505,7 +594,23 @@ export default function PetugasPoskoPage() {
           type: "success",
           text: `Data pengungsi "${pengungsiForm.nama}" berhasil diperbarui!`,
         });
+
+        // Server DB Sync
+        await updatePengungsiApi(
+          selectedPosko.id,
+          editingPengungsi.id,
+          {
+            nama: pengungsiForm.nama.trim(),
+            jenisKelamin: pengungsiForm.jenisKelamin,
+            usia: Number(pengungsiForm.usia) || 0,
+            alamatAsal: pengungsiForm.alamatAsal.trim() || selectedPosko.alamat,
+            kondisiKesehatan: pengungsiForm.kondisiKesehatan,
+            catatan: pengungsiForm.catatan.trim() || undefined,
+          },
+          { id: officerId }
+        );
       } else {
+        // Optimistic add
         addPengungsi(
           selectedPosko.id,
           {
@@ -522,6 +627,20 @@ export default function PetugasPoskoPage() {
           type: "success",
           text: `Pengungsi "${pengungsiForm.nama}" berhasil didaftarkan! Kapasitas bertambah 1 jiwa.`,
         });
+
+        // Server DB Sync
+        await addPengungsiApi(
+          selectedPosko.id,
+          {
+            nama: pengungsiForm.nama.trim(),
+            jenisKelamin: pengungsiForm.jenisKelamin,
+            usia: Number(pengungsiForm.usia) || 0,
+            alamatAsal: pengungsiForm.alamatAsal.trim() || selectedPosko.alamat,
+            kondisiKesehatan: pengungsiForm.kondisiKesehatan,
+            catatan: pengungsiForm.catatan.trim() || undefined,
+          },
+          { id: officerId }
+        );
       }
 
       setShelters(getAllPosko());
@@ -529,6 +648,7 @@ export default function PetugasPoskoPage() {
       setEditingPengungsi(null);
       setTimeout(() => setNotification(null), 3500);
     } catch (err: any) {
+      setShelters(previousShelters);
       setNotification({
         type: "error",
         text: err.message || "Gagal menyimpan data pengungsi.",
@@ -537,18 +657,26 @@ export default function PetugasPoskoPage() {
     }
   };
 
-  const confirmDeletePengungsi = () => {
+  const confirmDeletePengungsi = async () => {
     if (!selectedPosko || !pengungsiToDelete) return;
+    const previousShelters = [...shelters];
+    const targetP = pengungsiToDelete;
+
     try {
-      deletePengungsi(selectedPosko.id, pengungsiToDelete.id, { id: officerId });
+      // Optimistic delete
+      deletePengungsi(selectedPosko.id, targetP.id, { id: officerId });
       setShelters(getAllPosko());
       setNotification({
         type: "success",
-        text: `Data pengungsi "${pengungsiToDelete.nama}" berhasil dihapus. Kapasitas berkurang 1 jiwa.`,
+        text: `Data pengungsi "${targetP.nama}" berhasil dihapus. Kapasitas berkurang 1 jiwa.`,
       });
       setPengungsiToDelete(null);
+
+      // Server DB Sync
+      await deletePengungsiApi(selectedPosko.id, targetP.id, { id: officerId });
       setTimeout(() => setNotification(null), 3500);
     } catch (err: any) {
+      setShelters(previousShelters);
       setNotification({
         type: "error",
         text: err.message || "Gagal menghapus data pengungsi.",
@@ -563,11 +691,16 @@ export default function PetugasPoskoPage() {
     if (!selectedPosko) return [];
     const list = selectedPosko.pengungsi || [];
     return list.filter((p) => {
-      const q = pengungsiSearch.toLowerCase();
+      if (!p) return false;
+      const q = (pengungsiSearch || "").toLowerCase();
+      const nama = (p.nama || "").toLowerCase();
+      const alamatAsal = (p.alamatAsal || "").toLowerCase();
+      const catatan = (p.catatan || "").toLowerCase();
       const matchSearch =
-        p.nama.toLowerCase().includes(q) ||
-        p.alamatAsal.toLowerCase().includes(q) ||
-        (p.catatan && p.catatan.toLowerCase().includes(q));
+        !q ||
+        nama.includes(q) ||
+        alamatAsal.includes(q) ||
+        catatan.includes(q);
 
       let matchKondisi = true;
       if (pengungsiFilterKondisi === "RENTAN") {
@@ -597,8 +730,9 @@ export default function PetugasPoskoPage() {
     pengungsiCurrentPage * pengungsiPerPage
   );
 
-  // Handler: Toggle Nonaktifkan Posko
-  const handleToggleActive = (poskoId: string) => {
+  // Handler: Toggle Nonaktifkan Posko (Optimistic UI + Server Sync)
+  const handleToggleActive = async (poskoId: string) => {
+    const previousShelters = [...shelters];
     try {
       const target = shelters.find((s) => s.id === poskoId);
       if (!target) return;
@@ -607,6 +741,7 @@ export default function PetugasPoskoPage() {
         throw new Error("Unauthorized: Petugas hanya diizinkan mengubah status posko miliknya sendiri.");
       }
 
+      // Optimistic update
       const updated = toggleActivePosko(poskoId, { id: officerId });
       setShelters(getAllPosko());
       setNotification({
@@ -615,32 +750,43 @@ export default function PetugasPoskoPage() {
           updated.isActive ? "diaktifkan kembali" : "dinonaktifkan (disembunyikan dari warga)"
         }.`,
       });
+
+      // Server DB Sync
+      await toggleActivePoskoApi(poskoId, { id: officerId });
       setTimeout(() => setNotification(null), 3500);
     } catch (err: any) {
+      setShelters(previousShelters);
       setNotification({ type: "error", text: err.message || "Aksi gagal." });
       setTimeout(() => setNotification(null), 4000);
     }
   };
 
-  // Handler: Eksekusi Hapus Posko (Setelah konfirmasi custom modal)
-  const confirmDeletePosko = () => {
+  // Handler: Eksekusi Hapus Posko (Setelah konfirmasi custom modal - Optimistic UI + Server Sync)
+  const confirmDeletePosko = async () => {
     if (!poskoToDelete) return;
+    const previousShelters = [...shelters];
+    const target = poskoToDelete;
 
     try {
-      if (poskoToDelete.petugasId !== officerId) {
+      if (target.petugasId !== officerId) {
         throw new Error("Unauthorized: Petugas hanya diizinkan menghapus posko miliknya sendiri.");
       }
 
-      deletePosko(poskoToDelete.id, { id: officerId });
+      // Optimistic delete
+      deletePosko(target.id, { id: officerId });
       setShelters(getAllPosko());
       setNotification({
         type: "success",
-        text: `Posko "${poskoToDelete.nama}" berhasil dihapus dari daftar aktif.`,
+        text: `Posko "${target.nama}" berhasil dihapus dari daftar aktif.`,
       });
       setPoskoToDelete(null);
-      setSelectedPoskoId(null); // Kembali ke daftar jika sebelumnya di Detail View
+      setSelectedPoskoId(null);
+
+      // Server DB Sync
+      await deletePoskoApi(target.id, { id: officerId });
       setTimeout(() => setNotification(null), 3500);
     } catch (err: any) {
+      setShelters(previousShelters);
       setNotification({ type: "error", text: err.message || "Gagal menghapus posko." });
       setPoskoToDelete(null);
       setTimeout(() => setNotification(null), 4000);
@@ -2340,7 +2486,25 @@ export default function PetugasPoskoPage() {
 
           {/* DAFTAR KARTU POSKO (CLICKABLE CARD TANPA TOMBOL CRUD - Requirement 2 & 3) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {paginatedShelters.length === 0 ? (
+            {isLoadingPosko && shelters.length === 0 ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="p-5 rounded-3xl bg-white border border-gray-100 shadow-xs animate-pulse space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="h-5 w-48 bg-slate-200 rounded-lg" />
+                    <div className="h-5 w-20 bg-slate-100 rounded-lg" />
+                  </div>
+                  <div className="h-3.5 w-64 bg-slate-100 rounded-md" />
+                  <div className="w-full h-40 bg-slate-200/70 rounded-2xl" />
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="h-4 w-28 bg-slate-100 rounded-md" />
+                    <div className="h-4 w-20 bg-slate-100 rounded-md" />
+                  </div>
+                </div>
+              ))
+            ) : paginatedShelters.length === 0 ? (
               <div className="lg:col-span-2 p-12 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2">
                 <Building2 className="w-10 h-10 text-gray-300 mx-auto" />
                 <h4 className="text-base font-bold text-gray-700">Tidak Ada Posko yang Cocok</h4>

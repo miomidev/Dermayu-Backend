@@ -141,7 +141,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Nurhasanah, S.Pd",
       "telp": "0813-9876-5432"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 3
   },
   {
@@ -328,7 +328,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. Tarmidi",
       "telp": "0853-1122-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 2
   },
   {
@@ -513,7 +513,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Rodiah",
       "telp": "0877-1122-4466"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 4
   },
   {
@@ -790,7 +790,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Tati",
       "telp": "0853-2211-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 2
   },
   {
@@ -883,7 +883,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Ridwan",
       "telp": "0812-7711-2233"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 1
   },
   {
@@ -1162,7 +1162,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Mulyadi",
       "telp": "0812-1122-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 1
   },
   {
@@ -1348,7 +1348,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Suwarna",
       "telp": "0878-1133-5577"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 4
   },
   {
@@ -1441,7 +1441,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Rohanah",
       "telp": "0813-7788-2211"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 2
   },
   {
@@ -1533,7 +1533,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Sukamto",
       "telp": "0852-4455-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 2
   },
   {
@@ -1625,7 +1625,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Darwanto",
       "telp": "0812-6655-4422"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 2
   },
   {
@@ -1904,7 +1904,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Mulyono",
       "telp": "0812-4455-6611"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 1
   },
   {
@@ -2182,7 +2182,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Kasmad",
       "telp": "0812-9900-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 1
   },
   {
@@ -2274,7 +2274,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak H. Supriadi",
       "telp": "0813-7766-3322"
     },
-    "foto": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
     "tier": 3
   },
   {

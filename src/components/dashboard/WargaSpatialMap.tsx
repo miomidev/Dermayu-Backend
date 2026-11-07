@@ -63,8 +63,8 @@ import {
   ShieldSafeIllustration,
 } from "@/components/dashboard/StatusSiagaCard";
 import { getActiveSession } from "@/utils/authSession";
+import { getWargaPosko } from "@/utils/poskoService";
 import {
-  CURATED_POSKO_LIST,
   FLOOD_OBSTACLES,
   detectIntersectedFloodObstacles,
   calculateDistanceInMeters as calcMetersSafe,
@@ -110,6 +110,8 @@ export interface MapShelterPoint {
   kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
   foto?: string;
   tier?: 1 | 2 | 3 | 4 | 5;
+  petugasId?: string;
+  isActive?: boolean;
 }
 
 export interface MapTelemetryPoint {
@@ -544,6 +546,113 @@ export default function WargaSpatialMap({
   const [siagaExpanded, setSiagaExpanded] = useState(false);
   const [poskoExpanded, setPoskoExpanded] = useState(false);
 
+  // Integrasi Single Source of Truth Posko Warga (Database Service Layer)
+  const [poskoData, setPoskoData] = useState<MapShelterPoint[]>(() => {
+    if (shelters && shelters.length > 0) return shelters.filter((s) => s.isActive !== false);
+    return getWargaPosko().map((p) => ({
+      id: p.id,
+      name: p.nama,
+      location: p.alamat,
+      district: p.kecamatan,
+      distance: "Menghitung jarak...",
+      capacityTotal: p.kapasitas,
+      capacityFilled: p.terisi,
+      status: p.status,
+      contactPerson: p.kontak.pj,
+      contactPhone: p.kontak.telp,
+      lat: p.lat,
+      lng: p.lng,
+      facilities: p.fasilitas,
+      kategori: p.kategori,
+      foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
+      tier: p.tier,
+      petugasId: p.petugasId,
+      isActive: p.isActive,
+    }));
+  });
+
+  // Sinkronisasi data posko dari prop parent
+  useEffect(() => {
+    if (shelters && shelters.length > 0) {
+      setPoskoData(shelters.filter((s) => s.isActive !== false));
+    }
+  }, [shelters]);
+
+  // Fetch fallback hanya jika prop shelters tidak disediakan oleh parent
+  useEffect(() => {
+    if (!shelters || shelters.length === 0) {
+      const fetchFromApi = async () => {
+        try {
+          const res = await fetch("/api/posko?role=warga", { cache: "no-store" });
+          if (res.ok) {
+            const json = await res.json();
+            const list = json.data?.data || json.data || [];
+            if (Array.isArray(list) && list.length > 0) {
+              const formatted: MapShelterPoint[] = list
+                .filter((p: any) => p && p.isActive !== false)
+                .map((p: any) => ({
+                  id: p.id,
+                  name: p.nama || p.name || "Posko Siaga",
+                  location: p.alamat || p.location || "",
+                  district: p.kecamatan || p.district || "",
+                  distance: "Menghitung jarak...",
+                  capacityTotal: p.kapasitas || 100,
+                  capacityFilled: p.terisi || 0,
+                  status: p.status || "TERSEDIA",
+                  contactPerson: p.kontak?.pj || "Petugas Posko",
+                  contactPhone: p.kontak?.telp || "0812-3456-7890",
+                  lat: p.lat,
+                  lng: p.lng,
+                  facilities: p.fasilitas || [],
+                  kategori: p.kategori,
+                  foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
+                  tier: p.tier,
+                  petugasId: p.petugasId,
+                  isActive: p.isActive,
+                }));
+              setPoskoData(formatted);
+            }
+          }
+        } catch (err) {
+          console.warn("WargaSpatialMap API fetch fallback:", err);
+        }
+      };
+
+      fetchFromApi();
+    }
+
+    const handleUpdate = () => {
+      if (!shelters || shelters.length === 0) {
+        const activeOnly = getWargaPosko().map((p) => ({
+          id: p.id,
+          name: p.nama,
+          location: p.alamat,
+          district: p.kecamatan,
+          distance: "Menghitung jarak...",
+          capacityTotal: p.kapasitas,
+          capacityFilled: p.terisi,
+          status: p.status,
+          contactPerson: p.kontak.pj,
+          contactPhone: p.kontak.telp,
+          lat: p.lat,
+          lng: p.lng,
+          facilities: p.fasilitas,
+          kategori: p.kategori,
+          foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
+          tier: p.tier,
+          petugasId: p.petugasId,
+          isActive: p.isActive,
+        }));
+        setPoskoData(activeOnly);
+      }
+    };
+
+    window.addEventListener("dermayu_posko_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("dermayu_posko_updated", handleUpdate);
+    };
+  }, []);
+
   // Auto-expand card list posko setelah animasi page entry selesai (jeda 800ms)
   useEffect(() => {
     const timer = setTimeout(() => setPoskoExpanded(true), 800);
@@ -794,7 +903,7 @@ export default function WargaSpatialMap({
   const processedShelters = useMemo(() => {
     const [uLat, uLng] = userCoords;
 
-    const list = shelters.map((sh) => {
+    const list = poskoData.map((sh) => {
       const distMeters = calculateDistanceInMeters(uLat, uLng, sh.lat, sh.lng);
       const distStr = formatDistanceText(distMeters);
       const etaStr = formatEtaText(distMeters);
@@ -866,7 +975,7 @@ export default function WargaSpatialMap({
         tier: (orig.tier as 1 | 2 | 3 | 4 | 5) || assignedTiers.get(sh.id) || (4 as 1 | 2 | 3 | 4 | 5),
       };
     });
-  }, [shelters, userCoords]);
+  }, [poskoData, userCoords]);
 
   // Urutan Posko Terdekat & Hasil Filter Dinamis (Search, Kategori, Wilayah)
   const displayedShelters = useMemo(() => {

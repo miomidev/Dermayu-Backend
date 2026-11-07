@@ -209,44 +209,59 @@ export function getAllPosko(): PoskoRecord[] {
     const parsed: PoskoRecord[] = JSON.parse(raw);
     let hasContaminatedData = false;
 
-    // Pastikan setiap posko mempertahankan jumlah foto persis sesuai input user
-    const enriched = parsed.map((p) => {
-      let fotos = p.fotos;
+    // Pastikan setiap posko mempertahankan jumlah foto persis sesuai input user dan memiliki atribut valid
+    const enriched = (Array.isArray(parsed) ? parsed : [])
+      .filter((p) => p && typeof p === "object")
+      .map((p) => {
+        const nama = p.nama || (p as any).name || "Posko Siaga Evakuasi";
+        const alamat = p.alamat || (p as any).location || "";
+        const kecamatan = p.kecamatan || (p as any).district || "Kandanghaur";
+        const kontak = p.kontak || { pj: "Petugas Jaga", telp: "0812-3456-7890" };
 
-      // Jika p.fotos kosong atau tidak ada, gunakan p.foto
-      if (!fotos || fotos.length === 0) {
-        fotos = p.foto ? [p.foto] : ["/shelters/default.jpg"];
-      } else {
-        // Jika posko memiliki foto unggahan user (data:image) dan tercemar oleh defaultGallery unsplash:
-        if (fotos[0]?.startsWith("data:")) {
-          const onlyUserUploaded = fotos.filter((f) => f.startsWith("data:"));
-          if (onlyUserUploaded.length > 0 && onlyUserUploaded.length !== fotos.length) {
-            fotos = onlyUserUploaded;
-            hasContaminatedData = true;
+        if (!p.nama || !p.kontak?.pj) {
+          hasContaminatedData = true;
+        }
+
+        let fotos = p.fotos;
+
+        // Jika p.fotos kosong atau tidak ada, gunakan p.foto
+        if (!fotos || fotos.length === 0) {
+          fotos = p.foto ? [p.foto] : ["/shelters/default.jpg"];
+        } else {
+          // Jika posko memiliki foto unggahan user (data:image) dan tercemar oleh defaultGallery unsplash:
+          if (fotos[0]?.startsWith("data:")) {
+            const onlyUserUploaded = fotos.filter((f) => f.startsWith("data:"));
+            if (onlyUserUploaded.length > 0 && onlyUserUploaded.length !== fotos.length) {
+              fotos = onlyUserUploaded;
+              hasContaminatedData = true;
+            }
           }
         }
-      }
 
-      let pengungsi =
-        p.pengungsi && p.pengungsi.length > 0
-          ? p.pengungsi
-          : generateInitialPengungsi(p.id, p.terisi, p.alamat);
+        let pengungsi =
+          p.pengungsi && p.pengungsi.length > 0
+            ? p.pengungsi
+            : generateInitialPengungsi(p.id, p.terisi, alamat);
 
-      // Migrasi: Gantikan pengungsi anonim lama menjadi warga riil dengan nama asli
-      if (pengungsi.some((item) => item.isAnonim || item.nama.startsWith("Anonim / Belum Terdata"))) {
-        pengungsi = generateInitialPengungsi(p.id, pengungsi.length, p.alamat);
-        hasContaminatedData = true;
-      }
+        // Migrasi: Gantikan pengungsi anonim lama menjadi warga riil dengan nama asli
+        if (pengungsi.some((item) => item.isAnonim || (item.nama && item.nama.startsWith("Anonim / Belum Terdata")))) {
+          pengungsi = generateInitialPengungsi(p.id, pengungsi.length, alamat);
+          hasContaminatedData = true;
+        }
 
-      return {
-        ...p,
-        fotos,
-        pengungsi,
-      };
-    });
+        return {
+          ...p,
+          nama,
+          alamat,
+          kecamatan,
+          kontak,
+          fotos,
+          pengungsi,
+        };
+      });
 
     if (hasContaminatedData) {
-      savePoskoDataset(enriched);
+      savePoskoDataset(enriched, false);
     }
 
     return enriched;
@@ -259,12 +274,17 @@ export function getAllPosko(): PoskoRecord[] {
 /**
  * Menyimpan data posko ke localStorage dan menyiarkan event perubahan
  */
-function savePoskoDataset(items: PoskoRecord[]) {
+function savePoskoDataset(items: PoskoRecord[], broadcast = true) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent("dermayu_posko_updated", { detail: items }));
-    window.dispatchEvent(new Event("storage"));
+    const nextStr = JSON.stringify(items);
+    const prev = localStorage.getItem(STORAGE_KEY);
+    // Jika isi data identik, jangan dispatch event untuk mencegah nested loop
+    if (prev === nextStr) return;
+    localStorage.setItem(STORAGE_KEY, nextStr);
+    if (broadcast) {
+      window.dispatchEvent(new CustomEvent("dermayu_posko_updated", { detail: items }));
+    }
   } catch (err) {
     console.error("Error saving posko data:", err);
   }
@@ -667,5 +687,290 @@ export function adjustPoskoOccupancyWithEvacuees(
   const nextList = all.map((p) => (p.id === poskoId ? updated : p));
   savePoskoDataset(nextList);
   return updated;
+}
+
+// ============================================================================
+// ASYNC API CLIENT HELPERS (PRD INTEGRATION: SSOT SERVER DATABASE & STORAGE)
+// ============================================================================
+
+export async function fetchPoskoFromApi(role: "warga" | "petugas" = "petugas"): Promise<PoskoRecord[]> {
+  try {
+    const res = await fetch(`/api/posko?role=${role}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const json = await res.json();
+    const data: PoskoRecord[] = json.data?.data || json.data || [];
+    if (Array.isArray(data) && data.length > 0) {
+      if (typeof window !== "undefined") {
+        savePoskoDataset(data, false);
+      }
+      return data;
+    }
+    return getAllPosko();
+  } catch (err) {
+    console.warn("fetchPoskoFromApi falling back to local cache:", err);
+    return getAllPosko();
+  }
+}
+
+export async function uploadPoskoPhotosApi(files: File[] | string[]): Promise<string[]> {
+  if (!files || files.length === 0) return [];
+
+  // Jika input adalah File objects
+  if (files[0] instanceof File) {
+    const formData = new FormData();
+    for (const f of files as File[]) {
+      formData.append("files", f);
+    }
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Gagal mengunggah foto ke storage");
+    const json = await res.json();
+    return json.data?.urls || [];
+  }
+
+  // Jika input adalah base64 data URLs
+  const base64List = (files as string[]).filter((f) => f.startsWith("data:"));
+  const existingUrls = (files as string[]).filter((f) => !f.startsWith("data:"));
+
+  if (base64List.length > 0) {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ images: base64List }),
+    });
+    if (!res.ok) throw new Error("Gagal mengunggah gambar");
+    const json = await res.json();
+    const uploadedUrls: string[] = json.data?.urls || [];
+    return [...existingUrls, ...uploadedUrls];
+  }
+
+  return existingUrls;
+}
+
+export async function createPoskoApi(
+  data: {
+    nama: string;
+    kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
+    alamat: string;
+    kecamatan: string;
+    lat: number;
+    lng: number;
+    kapasitas: number;
+    fasilitas: string[];
+    kontak: { pj: string; telp: string };
+    foto?: string;
+    fotos?: string[];
+  },
+  currentUser: { id: string }
+): Promise<PoskoRecord> {
+  const res = await fetch("/api/posko", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": currentUser.id,
+    },
+    body: JSON.stringify({ ...data, currentUserId: currentUser.id }),
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal membuat posko di server");
+  }
+  const json = await res.json();
+  const created: PoskoRecord = json.data;
+
+  // Sync to local cache
+  const all = getAllPosko();
+  savePoskoDataset([created, ...all.filter((p) => p.id !== created.id)]);
+  return created;
+}
+
+export async function updatePoskoApi(
+  poskoId: string,
+  updates: Partial<PoskoRecord>,
+  currentUser: { id: string }
+): Promise<PoskoRecord> {
+  const res = await fetch(`/api/posko/${poskoId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": currentUser.id,
+    },
+    body: JSON.stringify({ ...updates, currentUserId: currentUser.id }),
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal memperbarui posko di server");
+  }
+  const json = await res.json();
+  const updated: PoskoRecord = json.data;
+
+  // Sync to local cache
+  const all = getAllPosko();
+  savePoskoDataset(all.map((p) => (p.id === poskoId ? updated : p)));
+  return updated;
+}
+
+export async function toggleActivePoskoApi(
+  poskoId: string,
+  currentUser: { id: string }
+): Promise<PoskoRecord> {
+  const res = await fetch(`/api/posko/${poskoId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": currentUser.id,
+    },
+    body: JSON.stringify({ toggleActive: true, currentUserId: currentUser.id }),
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal mengubah status posko di server");
+  }
+  const json = await res.json();
+  const updated: PoskoRecord = json.data;
+
+  // Sync to local cache
+  const all = getAllPosko();
+  savePoskoDataset(all.map((p) => (p.id === poskoId ? updated : p)));
+  return updated;
+}
+
+export async function deletePoskoApi(
+  poskoId: string,
+  currentUser: { id: string }
+): Promise<void> {
+  const res = await fetch(`/api/posko/${poskoId}`, {
+    method: "DELETE",
+    headers: {
+      "x-user-id": currentUser.id,
+    },
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal menonaktifkan posko di server");
+  }
+
+  // Soft-delete in local cache
+  const all = getAllPosko();
+  savePoskoDataset(
+    all.map((p) => (p.id === poskoId ? { ...p, isActive: false } : p))
+  );
+}
+
+export async function addPengungsiApi(
+  poskoId: string,
+  data: {
+    nama: string;
+    jenisKelamin: "L" | "P";
+    usia: number;
+    alamatAsal: string;
+    kondisiKesehatan: "Sehat" | "Sakit" | "Bumil" | "Disabilitas" | "Lansia Rentan";
+    catatan?: string;
+  },
+  currentUser: { id: string }
+): Promise<{ posko: PoskoRecord; pengungsi: PengungsiItem }> {
+  const res = await fetch("/api/pengungsi", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": currentUser.id,
+    },
+    body: JSON.stringify({ ...data, poskoId, currentUserId: currentUser.id }),
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal menambah data pengungsi");
+  }
+  const json = await res.json();
+  const result = json.data;
+
+  if (result.posko) {
+    const all = getAllPosko();
+    savePoskoDataset(all.map((p) => (p.id === poskoId ? result.posko : p)));
+  }
+  return result;
+}
+
+export async function updatePengungsiApi(
+  poskoId: string,
+  pengungsiId: string,
+  updates: Partial<PengungsiItem>,
+  currentUser: { id: string }
+): Promise<PoskoRecord> {
+  const res = await fetch("/api/pengungsi", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": currentUser.id,
+    },
+    body: JSON.stringify({ ...updates, poskoId, pengungsiId, currentUserId: currentUser.id }),
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal memperbarui data pengungsi");
+  }
+  const json = await res.json();
+  const updatedPosko: PoskoRecord = json.data;
+
+  const all = getAllPosko();
+  savePoskoDataset(all.map((p) => (p.id === poskoId ? updatedPosko : p)));
+  return updatedPosko;
+}
+
+export async function deletePengungsiApi(
+  poskoId: string,
+  pengungsiId: string,
+  currentUser: { id: string }
+): Promise<PoskoRecord> {
+  const res = await fetch(`/api/pengungsi?poskoId=${poskoId}&pengungsiId=${pengungsiId}`, {
+    method: "DELETE",
+    headers: {
+      "x-user-id": currentUser.id,
+    },
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error?.message || errJson.message || "Gagal menghapus data pengungsi");
+  }
+  const json = await res.json();
+  const updatedPosko: PoskoRecord = json.data;
+
+  const all = getAllPosko();
+  savePoskoDataset(all.map((p) => (p.id === poskoId ? updatedPosko : p)));
+  return updatedPosko;
+}
+
+export async function fetchReportsFromApi(): Promise<any[]> {
+  try {
+    const res = await fetch("/api/laporan", { cache: "no-store" });
+    if (!res.ok) throw new Error("Gagal memuat laporan dari server");
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.warn("fetchReportsFromApi error:", err);
+    return [];
+  }
+}
+
+export async function updateReportStatusApi(reportId: string, newStatus: string): Promise<any> {
+  const res = await fetch(`/api/laporan/${reportId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: newStatus }),
+  });
+  if (!res.ok) throw new Error("Gagal memperbarui status laporan di server");
+  const json = await res.json();
+  return json.data;
+}
+
+export async function deleteReportApi(reportId: string): Promise<void> {
+  const res = await fetch(`/api/laporan/${reportId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Gagal menghapus laporan di server");
 }
 

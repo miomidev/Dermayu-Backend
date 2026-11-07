@@ -36,8 +36,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Jangan tangani API requests agar data TMA dan laporan selalu live
-  if (event.request.url.includes("/api/")) {
+  const url = new URL(event.request.url);
+
+  // Jangan tangani API requests, Next.js internal (HMR/chunks), atau local development
+  if (
+    url.pathname.startsWith("/_next/") ||
+    url.pathname.startsWith("/api/") ||
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1"
+  ) {
     return;
   }
 
@@ -55,7 +62,7 @@ self.addEventListener("fetch", (event) => {
           const fallback = await caches.match("/");
           if (fallback) return fallback;
         }
-        return Response.error();
+        return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
       })
   );
 });

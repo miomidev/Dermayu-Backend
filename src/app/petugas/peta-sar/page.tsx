@@ -17,8 +17,8 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
-import { CURATED_POSKO_LIST, FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
-import { getAllPosko } from "@/utils/poskoService";
+import { FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
+import { getAllPosko, fetchPoskoFromApi, fetchReportsFromApi } from "@/utils/poskoService";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -240,20 +240,35 @@ export default function PetugasPetaSarPage() {
 
     syncReportsFromStorage();
 
-    const handleStorageChange = () => {
+    const syncServerData = async () => {
+      try {
+        const [serverShelters] = await Promise.all([
+          fetchPoskoFromApi("petugas"),
+        ]);
+        if (serverShelters && serverShelters.length > 0) {
+          setSheltersData(serverShelters);
+        }
+      } catch (err) {
+        console.warn("Sync server posko error:", err);
+      }
+    };
+    syncServerData();
+
+    // Polling periodik (setiap 60 detik)
+    const interval = setInterval(syncServerData, 60000);
+
+    const handleReportsChange = () => {
       syncReportsFromStorage();
-      setSheltersData(getAllPosko());
     };
     const handlePoskoChange = () => {
       setSheltersData(getAllPosko());
     };
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("dermayu_reports_updated", handleStorageChange);
+    window.addEventListener("dermayu_reports_updated", handleReportsChange);
     window.addEventListener("dermayu_posko_updated", handlePoskoChange);
 
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("dermayu_reports_updated", handleStorageChange);
+      clearInterval(interval);
+      window.removeEventListener("dermayu_reports_updated", handleReportsChange);
       window.removeEventListener("dermayu_posko_updated", handlePoskoChange);
     };
   }, []);
@@ -346,6 +361,24 @@ export default function PetugasPetaSarPage() {
     },
   ];
 
+  // Realistic flood photos and timestamps for realistic GIS reporting
+  const REALISTIC_FLOOD_PHOTOS = [
+    "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1508873696983-2df570464753?auto=format&fit=crop&w=800&q=80",
+  ];
+  const RELATIVE_TIME_OPTIONS = [
+    "10 menit yang lalu",
+    "25 menit yang lalu",
+    "Hari ini, 08:30 WIB",
+    "Hari ini, 08:15 WIB",
+    "Hari ini, 07:45 WIB",
+    "Hari ini, 07:20 WIB",
+    "Hari ini, 06:50 WIB",
+    "1 jam yang lalu",
+  ];
+
   // Convert complaints to map points
   const floodObstacleReports: MapReportPoint[] = FLOOD_OBSTACLES.map((obs, idx) => ({
     id: obs.id,
@@ -354,16 +387,18 @@ export default function PetugasPetaSarPage() {
     category: obs.zone === "PESISIR_ROB" ? "Banjir Rob" : "Luapan DAS Cimanuk",
     severity: obs.severity,
     waterLevelText: `${obs.depthCm} cm`,
-    status: obs.status,
+    status: obs.status || "Aktif Terpantau",
     location: obs.location,
     lat: obs.lat,
     lng: obs.lng,
-    timeAgo: "Aktif Terpantau",
+    timeAgo: RELATIVE_TIME_OPTIONS[idx % RELATIVE_TIME_OPTIONS.length],
+    photos: [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+    note: obs.description,
   }));
 
   const mapReportPoints: MapReportPoint[] = [
     ...floodObstacleReports,
-    ...complaints.map((c) => ({
+    ...complaints.map((c, idx) => ({
       id: c.id,
       ticketCode: c.ticketCode,
       title: c.title,
@@ -379,8 +414,11 @@ export default function PetugasPetaSarPage() {
       location: c.location,
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
-      timeAgo: c.createdAt,
-      photos: c.photos,
+      timeAgo: c.createdAt || "Baru saja",
+      photos:
+        c.photos && c.photos.length > 0 && !c.photos[0].includes("login-art")
+          ? c.photos
+          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
       note: c.note,
       aiScore: c.aiScore,
       urgentNeeds: c.urgentNeeds,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   ShieldCheck,
@@ -17,8 +17,8 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
-import { CURATED_POSKO_LIST, FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
-import { getWargaPosko } from "@/utils/poskoService";
+import { FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
+import { getWargaPosko, fetchPoskoFromApi } from "@/utils/poskoService";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -284,22 +284,26 @@ export default function WargaEvakuasiPage() {
   ]);
 
   // Shelters Data: 100 Data Posko Terkurasi (Hanya yang berstatus isActive = true)
-  const [shelters] = useState<ShelterItem[]>(() =>
-    getWargaPosko().map((p) => ({
-      id: p.id,
-      name: p.nama,
-      location: p.alamat,
-      district: p.kecamatan,
-      distance: "Menghitung jarak GPS...",
-      capacityTotal: p.kapasitas,
-      capacityFilled: p.terisi,
-      facilities: p.fasilitas,
-      contactPerson: p.kontak.pj,
-      contactPhone: p.kontak.telp,
-      status: p.status,
-      lat: p.lat,
-      lng: p.lng,
-    }))
+  const shelters: ShelterItem[] = useMemo(
+    () =>
+      wargaPoskoData
+        .filter((p) => p.isActive === true)
+        .map((p) => ({
+          id: p.id,
+          name: p.nama,
+          location: p.alamat,
+          district: p.kecamatan,
+          distance: "Menghitung jarak GPS...",
+          capacityTotal: p.kapasitas,
+          capacityFilled: p.terisi,
+          facilities: p.fasilitas,
+          contactPerson: p.kontak.pj,
+          contactPhone: p.kontak.telp,
+          status: p.status,
+          lat: p.lat,
+          lng: p.lng,
+        })),
+    [wargaPoskoData]
   );
 
   // Telemetry Points
@@ -394,6 +398,25 @@ export default function WargaEvakuasiPage() {
       }
     } catch {}
 
+    const syncFromServer = async () => {
+      try {
+        const data = await fetchPoskoFromApi("warga");
+        setWargaPoskoData(data.filter((p) => p.isActive === true));
+      } catch (err) {
+        console.warn("Sync warga posko error, using local fallback:", err);
+      }
+    };
+    syncFromServer();
+
+    // Polling periodik (setiap 60 detik) & saat tab kembali aktif
+    const interval = setInterval(syncFromServer, 60000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncFromServer();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     const handlePoskoUpdate = () => {
       setWargaPoskoData(getWargaPosko());
     };
@@ -402,6 +425,8 @@ export default function WargaEvakuasiPage() {
     window.addEventListener("storage", handlePoskoUpdate);
 
     return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("dermayu_posko_updated", handlePoskoUpdate);
       window.removeEventListener("storage", handlePoskoUpdate);
     };

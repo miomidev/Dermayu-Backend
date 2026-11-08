@@ -23,6 +23,7 @@ import {
   Check,
   X,
   MessageCircle,
+  ClipboardList,
 } from "lucide-react";
 
 interface AduanCardItem {
@@ -160,7 +161,7 @@ export function WargaDashboardContent() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           {/* Card 1: Lapor Banjir */}
           <Link
             href="/warga/lapor"
@@ -194,14 +195,14 @@ export function WargaDashboardContent() {
             </div>
           </Link>
 
-          {/* Card 2: Rute Evakuasi */}
+          {/* Card 2: Daftar Aduan */}
           <Link
-            href="/warga/evakuasi"
+            href="/warga/aduan"
             replace
             scroll={false}
             className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            {/* Pattern Ornament Top-Right (1 Lingkaran Tebal & 1 Lingkaran Sedang) */}
+            {/* Pattern Ornament Top-Right */}
             <svg
               className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
               viewBox="0 0 64 64"
@@ -211,6 +212,39 @@ export function WargaDashboardContent() {
             >
               <circle cx="53" cy="11" r="15" strokeWidth="8" />
               <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
+            </div>
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Daftar Aduan
+              </h3>
+            </div>
+          </Link>
+
+          {/* Card 3: Rute Evakuasi */}
+          <Link
+            href="/warga/evakuasi"
+            replace
+            scroll={false}
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
+          >
+            {/* Pattern Ornament Top-Right (Belah Ketupat) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="32.25" y="3.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 11)" />
+              <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
+              <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
+              <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
             </svg>
 
             {/* Persegi Icon di Kiri Atas */}
@@ -226,24 +260,23 @@ export function WargaDashboardContent() {
             </div>
           </Link>
 
-          {/* Card 3: Posko & Logistik */}
+          {/* Card 4: Posko & Logistik */}
           <Link
             href="/warga/posko"
             replace
             scroll={false}
             className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
           >
-            {/* Pattern Ornament Top-Right (Belah Ketupat) */}
+            {/* Pattern Ornament Top-Right (Lingkaran) */}
             <svg
               className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
               viewBox="0 0 64 64"
-              fill="currentColor"
+              fill="none"
+              stroke="currentColor"
               aria-hidden="true"
             >
-              <rect x="32.25" y="3.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 11)" />
-              <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
-              <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
-              <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
+              <circle cx="53" cy="11" r="15" strokeWidth="8" />
+              <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
             </svg>
 
             {/* Persegi Icon di Kiri Atas */}
@@ -259,41 +292,9 @@ export function WargaDashboardContent() {
             </div>
           </Link>
 
-          {/* Card 4: Komunitas Warga */}
+          {/* Card 5: Komunitas Warga */}
           <Link
             href="/warga/komunitas"
-            replace
-            scroll={false}
-            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
-          >
-            {/* Pattern Ornament Top-Right (1 Lingkaran Tebal & 1 Lingkaran Sedang) */}
-            <svg
-              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
-              viewBox="0 0 64 64"
-              fill="none"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <circle cx="53" cy="11" r="15" strokeWidth="8" />
-              <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
-            </svg>
-
-            {/* Persegi Icon di Kiri Atas */}
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
-            </div>
-
-            {/* Judul Tombol */}
-            <div>
-              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
-                Komunitas Warga
-              </h3>
-            </div>
-          </Link>
-
-          {/* Card 5: Darurat 112 */}
-          <Link
-            href="/warga/kontak"
             replace
             scroll={false}
             className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
@@ -309,6 +310,38 @@ export function WargaDashboardContent() {
               <rect x="45.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 53 24)" />
               <rect x="32.25" y="29.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 40 37)" />
               <rect x="19.25" y="16.25" width="15.5" height="15.5" rx="3.5" transform="rotate(45 27 24)" />
+            </svg>
+
+            {/* Persegi Icon di Kiri Atas */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#38746D] text-white border border-[#38746D] shadow-2xs sm:bg-[#EEF5F3] sm:text-[#38746D] sm:border-[#38746D]/15 sm:group-hover:bg-[#38746D] sm:group-hover:text-white sm:group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
+            </div>
+
+            {/* Judul Tombol */}
+            <div>
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 sm:group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                Komunitas Warga
+              </h3>
+            </div>
+          </Link>
+
+          {/* Card 6: Darurat 112 */}
+          <Link
+            href="/warga/kontak"
+            replace
+            scroll={false}
+            className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
+          >
+            {/* Pattern Ornament Top-Right (Lingkaran) */}
+            <svg
+              className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/18 sm:text-[#38746D]/14 pointer-events-none sm:group-hover:text-[#38746D]/26 sm:group-hover:scale-105 transition-all duration-300"
+              viewBox="0 0 64 64"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="53" cy="11" r="15" strokeWidth="8" />
+              <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
             </svg>
 
             {/* Persegi Icon di Kiri Atas */}

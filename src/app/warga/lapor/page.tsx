@@ -14,13 +14,11 @@ import {
   Clock,
   Send,
   X,
-  PhoneCall,
   Crosshair,
   RefreshCw,
   Image as ImageIcon,
   Scan,
   FileText,
-  Building2,
   LifeBuoy,
   Users,
   ThumbsUp,
@@ -30,6 +28,7 @@ import {
   ChevronRight,
   WifiOff,
   Database,
+  ClipboardList,
 } from "lucide-react";
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
 import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
@@ -830,35 +829,35 @@ export default function WargaLaporPage() {
       {/* ============================================================ */}
       {/* 2. TAB NAVIGASI KHUSUS MOBILE (< LG)                         */}
       {/* ============================================================ */}
-      <div className="flex items-center p-1 rounded-2xl bg-white border border-[#D5E4E0] shadow-xs lg:hidden">
+      <div className="flex border-b border-gray-200 w-full lg:hidden">
         <button
           type="button"
           onClick={() => setMobileTab("FORM")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 ${
             mobileTab === "FORM"
-              ? "bg-[#38746D] text-white shadow-xs"
-              : "text-[#4B635F] hover:text-[#132422]"
+              ? "text-[#38746D] border-b-2 border-[#38746D]"
+              : "text-gray-500 hover:text-gray-700 border-b-2 border-transparent"
           }`}
         >
           <Camera className="w-4 h-4" />
-          <span>Form Lapor &amp; Warga Sekitar</span>
+          <span>Buat Laporan</span>
         </button>
         <button
           type="button"
           onClick={() => setMobileTab("HISTORY")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 ${
             mobileTab === "HISTORY"
-              ? "bg-[#38746D] text-white shadow-xs"
-              : "text-[#4B635F] hover:text-[#132422]"
+              ? "text-[#38746D] border-b-2 border-[#38746D]"
+              : "text-gray-500 hover:text-gray-700 border-b-2 border-transparent"
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Posko &amp; Aduan Saya</span>
+          <span>Riwayat Aduan Saya</span>
           <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               mobileTab === "HISTORY"
-                ? "bg-white/20 text-white"
-                : "bg-[#EEF5F3] text-[#1D443F]"
+                ? "bg-[#38746D]/10 text-[#38746D]"
+                : "bg-gray-100 text-gray-600"
             }`}
           >
             {reports.length}
@@ -880,324 +879,145 @@ export default function WargaLaporPage() {
         >
           <AnimatePresence mode="wait">
             {!isFormActive ? (
-              /* STATE 1: PENGAMBILAN BUKTI FOTO */
+              /* STATE 1: PENGAMBILAN BUKTI FOTO & FEED ADUAN WARGA */
               <motion.div
                 key="state-scanner-hub"
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.3 }}
-                className="bg-white rounded-3xl border border-[#D5E4E0] p-6 sm:p-8 shadow-xs space-y-6"
+                className="flex flex-col gap-6"
               >
-                {/* Header Card Bersih */}
-                <div className="flex items-center gap-2.5 pb-3 border-b border-[#D5E4E0]/60">
-                  <div className="w-9 h-9 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
-                    <Camera className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-[#132422]">
-                      Ambil Bukti Foto Genangan
-                    </h2>
-                    <p className="text-xs text-[#4B635F]">
-                      Dokumentasikan situasi titik bencana untuk verifikasi petugas
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dropzone Kamera */}
-                <div className="relative rounded-2xl border-2 border-dashed border-[#38746D]/30 bg-[#F8FAF9] p-8 sm:p-10 text-center hover:bg-[#EEF5F3]/50 transition-all group">
-                  <div className="relative w-20 h-20 mx-auto rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                    <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-[#38746D] rounded-tl-sm" />
-                    <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-[#38746D] rounded-tr-sm" />
-                    <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-[#38746D] rounded-bl-sm" />
-                    <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-[#38746D] rounded-br-sm" />
-
-                    <Scan className="w-8 h-8 text-[#38746D]" />
+                {/* BLOK 1: AMBIL BUKTI FOTO GENANGAN (Card Mandiri) */}
+                <div className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-7 shadow-xs space-y-5">
+                  {/* Header Card Bersih */}
+                  <div className="flex items-center gap-2.5 pb-3 border-b border-[#D5E4E0]/60">
+                    <div className="w-9 h-9 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
+                      <Camera className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h2 className="text-base sm:text-lg font-bold text-[#132422]">
+                        Ambil Bukti Foto Genangan
+                      </h2>
+                      <p className="text-xs text-[#4B635F]">
+                        Dokumentasikan situasi titik bencana untuk verifikasi petugas
+                      </p>
+                    </div>
                   </div>
 
-                  <h3 className="text-base font-bold text-[#132422] mt-4">
-                    Ambil Foto Kondisi Genangan Air
-                  </h3>
-                  <p className="text-xs text-[#4B635F] max-w-sm mx-auto mt-1 leading-relaxed">
-                    Foto langsung kondisi air yang menggenangi jalan, rumah, atau pekarangan dari kamera ponsel atau unggah dari galeri.
-                  </p>
+                  {/* Dropzone Kamera */}
+                  <div className="relative rounded-2xl border-2 border-dashed border-[#38746D]/30 bg-[#F8FAF9] p-6 sm:p-8 text-center hover:bg-[#EEF5F3]/50 transition-all group">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-[#38746D] rounded-tl-sm" />
+                      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-[#38746D] rounded-tr-sm" />
+                      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-[#38746D] rounded-bl-sm" />
+                      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-[#38746D] rounded-br-sm" />
 
-                  {/* Tombol Aksi Utama */}
-                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-                    <button
-                      type="button"
-                      onClick={() => setIsCameraOpen(true)}
-                      className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-bold shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <Camera className="w-4 h-4 text-[#88BDB6]" />
-                      <span>Buka Kamera Langsung</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-white hover:bg-gray-50 text-[#132422] border border-[#D5E4E0] text-xs sm:text-sm font-bold shadow-2xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <ImageIcon className="w-4 h-4 text-[#38746D]" />
-                      <span>Pilih dari Galeri</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bagian Pantau Aduan Warga Sekitar (Menampilkan seluruh informasi aduan warga secara langsung) */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#38746D]/15">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-white text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Users className="w-4.5 h-4.5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-bold text-[#132422]">
-                            Pantau {otherReports.length} Aduan Warga Sekitar
-                          </h4>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Terkini
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#4B635F]">
-                          Warga di Eretan Wetan, Cantigi, &amp; Kandanghaur telah mengirimkan kondisi rob terbaru.
-                        </p>
-                      </div>
+                      <Scan className="w-7 h-7 sm:w-8 sm:h-8 text-[#38746D]" />
                     </div>
 
-                    <Link
-                      href="/warga/evakuasi"
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-[#88BDB6]" />
-                      <span>Lihat di Peta Spasial</span>
-                      <ChevronRight className="w-3 h-3 text-[#88BDB6]" />
-                    </Link>
+                    <h3 className="text-sm sm:text-base font-bold text-[#132422] mt-3 sm:mt-4">
+                      Ambil Foto Kondisi Genangan Air
+                    </h3>
+                    <p className="text-xs text-[#4B635F] max-w-sm mx-auto mt-1 leading-relaxed">
+                      Foto langsung kondisi air yang menggenangi jalan, rumah, atau pekarangan dari kamera ponsel atau unggah dari galeri.
+                    </p>
+
+                    {/* Tombol Aksi Utama */}
+                    <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraOpen(true)}
+                        className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-bold shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Camera className="w-4 h-4 text-[#88BDB6]" />
+                        <span>Buka Kamera Langsung</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-white hover:bg-gray-50 text-[#132422] border border-[#D5E4E0] text-xs sm:text-sm font-bold shadow-2xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4 text-[#38746D]" />
+                        <span>Pilih dari Galeri</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Daftar Seluruh Informasi Aduan Warga Sekitar */}
-                  <div className="space-y-3.5">
-                    {otherReports.map((item) => {
-                      const statusStyle = STATUS_CONFIG[item.status] || {
-                        dotClass: "bg-gray-400",
-                        badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
-                        textClass: "text-gray-700",
-                        label: item.status,
-                      };
+                  {/* 3 Panduan Pelaporan yang Praktis */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
+                      <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-[#38746D]" />
+                        Foto Jelas
+                      </span>
+                      <p className="text-[11px] text-[#718783] leading-snug">
+                        Perlihatkan batas genangan air terhadap jalan atau bangunan.
+                      </p>
+                    </div>
 
-                      return (
-                        <div
-                          key={`feed-${item.id}`}
-                          className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#D5E4E0] hover:border-[#88BDB6] transition-all space-y-3 shadow-2xs"
-                        >
-                          {/* Baris 1: Profil Warga Pelapor, Status & Waktu */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-[#1D443F] text-[#88BDB6] text-xs font-extrabold flex items-center justify-center shrink-0 shadow-2xs">
-                                {item.authorName.slice(0, 2).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-bold text-[#132422]">
-                                    {item.authorName}
-                                  </span>
-                                  <span
-                                    className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${
-                                      item.authorRole === "Relawan Tagana"
-                                        ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                        : item.authorRole === "Aparat Desa"
-                                        ? "bg-sky-100 text-sky-800 border border-sky-200"
-                                        : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/15"
-                                    }`}
-                                  >
-                                    {item.authorRole}
-                                  </span>
-                                </div>
-                                <p className="text-[10.5px] text-[#718783] flex items-center gap-1 mt-0.5">
-                                  <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
-                                  <span className="truncate">{item.authorVillage}</span>
-                                </p>
-                              </div>
-                            </div>
+                    <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
+                      <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
+                        <Crosshair className="w-3.5 h-3.5 text-[#38746D]" />
+                        GPS Terkunci
+                      </span>
+                      <p className="text-[11px] text-[#718783] leading-snug">
+                        Aktifkan lokasi perangkat untuk penentuan koordinat tim SAR.
+                      </p>
+                    </div>
 
-                            <span className="text-[10.5px] text-gray-500 flex items-center gap-1 shrink-0 font-medium bg-[#F8FAF9] px-2 py-0.5 rounded-lg border border-gray-200">
-                              <Clock className="w-3 h-3 text-gray-400" />
-                              {item.timeAgo}
-                            </span>
-                          </div>
-
-                          {/* Baris 2: Judul & Keterangan Aduan */}
-                          <div className="space-y-1">
-                            <Link
-                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.lat}&lng=${item.lng}`}
-                              className="group/title block hover:underline"
-                            >
-                              <h5 className="text-xs sm:text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
-                                {item.title}
-                              </h5>
-                            </Link>
-                            <p className="text-[11.5px] text-[#4B635F] leading-relaxed">
-                              {item.description}
-                            </p>
-                          </div>
-
-                          {/* Baris 3: Foto Bukti & Detail Parameter (Kedalaman, AI, Lokasi) */}
-                          <div className="flex items-start gap-3">
-                            {item.photoUrl && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPreviewImage({ url: item.photoUrl, title: item.title })
-                                }
-                                className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shrink-0 group cursor-pointer"
-                              >
-                                <img
-                                  src={item.photoUrl}
-                                  alt={item.title}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                  <Eye className="w-4 h-4" />
-                                </div>
-                              </button>
-                            )}
-
-                            <div className="flex-1 space-y-2">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[10.5px] font-bold">
-                                  <Waves className="w-3 h-3 text-sky-600" />
-                                  {item.waterLevelText}
-                                </span>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-bold">
-                                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                                  {(item.aiConfidence * 100).toFixed(0)}% Valid
-                                </span>
-                              </div>
-
-                              <p className="text-[10.5px] text-[#718783] line-clamp-2">
-                                <span className="font-semibold text-gray-700">Patokan:</span> {item.location}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Baris 4: Status Penanganan & Catatan Petugas */}
-                          <div className="pt-2 border-t border-gray-100 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className={`w-2 h-2 rounded-full ${
-                                    item.status === "PENANGANAN"
-                                      ? "bg-sky-500 animate-pulse"
-                                      : item.status === "SELESAI"
-                                      ? "bg-teal-600"
-                                      : "bg-emerald-500"
-                                  }`}
-                                />
-                                <span className="text-[11px] font-bold text-[#132422]">
-                                  {item.status === "PENANGANAN"
-                                    ? "Regu SAR Menuju Lokasi"
-                                    : item.status === "SELESAI"
-                                    ? "Tindakan Lapangan Selesai"
-                                    : "Terverifikasi Posko Siaga"}
-                                </span>
-                              </div>
-                              <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${statusStyle.badgeClass}`}>
-                                {item.status}
-                              </span>
-                            </div>
-                            <p className="text-[10.5px] text-gray-600 leading-relaxed bg-[#F8FAF9] p-2 rounded-lg border border-gray-100">
-                              {item.statusNote}
-                            </p>
-                          </div>
-
-                          {/* Baris 5: Tombol Aksi & Interaksi */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleSimilar(item.id)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                                  item.isUpvoted
-                                    ? "bg-[#38746D] text-white shadow-2xs"
-                                    : "bg-[#F8FAF9] hover:bg-emerald-50 text-[#1D443F] border border-[#D5E4E0]"
-                                }`}
-                              >
-                                <ThumbsUp
-                                  className={`w-3.5 h-3.5 ${
-                                    item.isUpvoted ? "text-[#88BDB6]" : "text-[#38746D]"
-                                  }`}
-                                />
-                                <span>Terdampak Juga</span>
-                                <span
-                                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                                    item.isUpvoted
-                                      ? "bg-white/20 text-white"
-                                      : "bg-[#EEF5F3] text-[#1D443F]"
-                                  }`}
-                                >
-                                  {item.similarCount}
-                                </span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleShareReport(item)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-medium text-[#4B635F] hover:text-[#132422] hover:bg-gray-100 transition-colors cursor-pointer"
-                              >
-                                <Share2 className="w-3.5 h-3.5 text-[#38746D]" />
-                                <span>
-                                  {copiedReportId === item.id ? "Tautan Disalin!" : "Bagikan"}
-                                </span>
-                              </button>
-                            </div>
-
-                            <Link
-                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.lat}&lng=${item.lng}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] active:scale-95 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer ml-auto"
-                            >
-                              <MapPin className="w-3.5 h-3.5 text-[#88BDB6]" />
-                              <span>Buka di Peta</span>
-                              <ChevronRight className="w-3 h-3 text-[#88BDB6]" />
-                            </Link>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
+                      <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
+                        <LifeBuoy className="w-3.5 h-3.5 text-[#38746D]" />
+                        Respon Cepat
+                      </span>
+                      <p className="text-[11px] text-[#718783] leading-snug">
+                        Laporan terverifikasi langsung diteruskan ke posko terdekat.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* 3 Panduan Pelaporan yang Praktis */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
-                    <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-[#38746D]" />
-                      Foto Jelas
-                    </span>
-                    <p className="text-[11px] text-[#718783] leading-snug">
-                      Perlihatkan batas genangan air terhadap jalan atau bangunan.
-                    </p>
+                {/* BLOK 2: CARD PANTAU ADUAN WARGA SEKITAR DENGAN TOMBOL NAVIGASI KE DAFTAR ADUAN */}
+                <div className="bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-xs space-y-3 sm:space-y-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm sm:text-base font-bold text-[#132422]">
+                          Pantau {otherReports.length} Aduan Warga Sekitar
+                        </h4>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Terkini
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#4B635F] mt-0.5">
+                        Warga di Eretan Wetan, Cantigi, &amp; Kandanghaur telah mengirimkan kondisi rob terbaru.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
-                    <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
-                      <Crosshair className="w-3.5 h-3.5 text-[#38746D]" />
-                      GPS Terkunci
-                    </span>
-                    <p className="text-[11px] text-[#718783] leading-snug">
-                      Aktifkan lokasi perangkat untuk penentuan koordinat tim SAR.
-                    </p>
-                  </div>
+                  {/* Tombol Aksi: Style tebal, proporsional, rounded-full tanpa chevron persis seperti tombol hero */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                    <Link
+                      href="/warga/evakuasi"
+                      className="w-full flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-[#38746D]/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                    >
+                      <MapPin className="w-4.5 h-4.5 text-[#88BDB6] shrink-0" />
+                      <span>Lihat di Peta Spasial</span>
+                    </Link>
 
-                  <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 space-y-1">
-                    <span className="text-xs font-bold text-[#132422] flex items-center gap-1.5">
-                      <LifeBuoy className="w-3.5 h-3.5 text-[#38746D]" />
-                      Respon Cepat
-                    </span>
-                    <p className="text-[11px] text-[#718783] leading-snug">
-                      Laporan terverifikasi langsung diteruskan ke posko terdekat.
-                    </p>
+                    <Link
+                      href="/warga/aduan"
+                      className="w-full flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[#EEF5F3] hover:bg-[#D5E4E0] border-2 border-[#38746D]/25 text-[#1D443F] text-xs sm:text-sm font-extrabold shadow-sm active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                    >
+                      <ClipboardList className="w-4.5 h-4.5 text-[#38746D] shrink-0" />
+                      <span>Buka Halaman Daftar Aduan Warga</span>
+                    </Link>
                   </div>
                 </div>
               </motion.div>
@@ -1423,69 +1243,17 @@ export default function WargaLaporPage() {
         </div>
 
         {/* ========================================================== */}
-        {/* KOLOM KANAN (5 COLS): POSKO SIAGA & PANTAUAN ADUAN WARGA   */}
+        {/* KOLOM KANAN (5 COLS): RIWAYAT ADUAN SAYA                   */}
         {/* ========================================================== */}
         <div
-          className={`lg:col-span-5 space-y-6 ${
-            mobileTab === "FORM" ? "hidden lg:block" : "block"
+          className={`lg:col-span-5 flex flex-col gap-6 ${
+            mobileTab === "FORM" ? "hidden lg:flex" : "flex"
           }`}
         >
-          {/* Card 1: Posko Siaga & Kontak Bantuan Darurat */}
-          <div className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-3.5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#D5E4E0]/60">
-              <span className="text-xs font-bold text-[#132422] uppercase tracking-wider flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#38746D]" />
-                Posko Siaga Bencana Terdekat
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-extrabold">
-                ● 24 Jam Siaga
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-[#132422]">
-                    Posko Utama Eretan Wetan
-                  </h4>
-                  <p className="text-[11px] text-[#4B635F] mt-0.5">
-                    Balai Desa Eretan Wetan, Kandanghaur
-                  </p>
-                </div>
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                  Siaga SAR
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/80 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-[#132422]">
-                    Posko Wilayah Cantigi
-                  </h4>
-                  <p className="text-[11px] text-[#4B635F] mt-0.5">
-                    Kantor Kecamatan Cantigi, Indramayu
-                  </p>
-                </div>
-                <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-2 py-1 rounded-lg border border-sky-200">
-                  Posko Logistik
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              <a
-                href="tel:112"
-                className="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-colors flex items-center justify-center gap-2"
-              >
-                <PhoneCall className="w-3.5 h-3.5 text-rose-600" />
-                <span>Hotline 112 Bebas Pulsa (Layanan Darurat)</span>
-              </a>
-            </div>
-          </div>
-
-          {/* Card 2: Riwayat Aduan Saya & Status Tiket SAR */}
-          <div className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#D5E4E0]/60">
+          {/* Blok Riwayat Aduan Saya */}
+          <div className="space-y-4">
+            {/* Header Riwayat Aduan */}
+            <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
                   <Clock className="w-4 h-4" />
@@ -1504,135 +1272,142 @@ export default function WargaLaporPage() {
               </span>
             </div>
 
-            {/* List Tiket Aduan Saya */}
-            <div className="space-y-3.5">
-                {reports.length === 0 ? (
-                  <div className="p-8 text-center space-y-2">
-                    <Clock className="w-8 h-8 text-[#A4C6C1] mx-auto" />
-                    <p className="text-xs font-bold text-gray-700">Belum ada riwayat aduan</p>
-                    <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                      Laporan yang Anda kirim akan otomatis tercatat dan dapat dipantau perkembangannya di sini.
-                    </p>
-                  </div>
-                ) : (
-                  reports.map((item) => {
-                    const statusStyle = STATUS_CONFIG[item.status] || {
-                      dotClass: "bg-gray-400",
-                      badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
-                      textClass: "text-gray-700",
-                      label: item.status,
-                    };
+            {/* List Tiket Aduan Saya Sebagai Card-Card Mandiri */}
+            <div className="space-y-4">
+              {reports.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-8 text-center space-y-2 shadow-xs">
+                  <Clock className="w-8 h-8 text-[#A4C6C1] mx-auto" />
+                  <p className="text-xs font-bold text-gray-700">Belum ada riwayat aduan</p>
+                  <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
+                    Laporan yang Anda kirim akan otomatis tercatat dan dapat dipantau perkembangannya di sini.
+                  </p>
+                </div>
+              ) : (
+                reports.map((item) => {
+                  const statusStyle = STATUS_CONFIG[item.status] || {
+                    dotClass: "bg-gray-400",
+                    badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
+                    textClass: "text-gray-700",
+                    label: item.status,
+                  };
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-2.5 hover:border-[#88BDB6] transition-colors"
-                      >
-                        {/* Atas: Tiket ID, Validasi % & Waktu */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-[11px] font-extrabold text-[#1D443F] bg-white px-2 py-0.5 rounded-lg border border-[#38746D]/20">
-                              {item.id}
-                            </span>
-                            {item.isOfflineQueue && (
-                              <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping inline-block" />
-                                Token Offline
-                              </span>
-                            )}
-                            {item.syncedAt && (
-                              <span className="text-[9.5px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
-                                Sinkron: {item.syncedAt}
-                              </span>
-                            )}
-                            {typeof item.aiConfidence === "number" && (
-                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                {(item.aiConfidence * 100).toFixed(0)}% Valid
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10.5px] text-gray-500 flex items-center gap-1 font-medium shrink-0">
-                            <Clock className="w-3 h-3 text-gray-400" />
-                            {item.time}
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-xs space-y-3 hover:border-[#88BDB6] transition-all"
+                    >
+                      {/* Atas: Tiket ID, Validasi % & Waktu */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-[11px] font-extrabold text-[#1D443F] bg-[#EEF5F3] px-2 py-0.5 rounded-md border border-[#38746D]/20">
+                            {item.id}
                           </span>
+                          {item.isOfflineQueue && (
+                            <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping inline-block" />
+                              Token Offline
+                            </span>
+                          )}
+                          {item.syncedAt && (
+                            <span className="text-[9.5px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                              Sinkron: {item.syncedAt}
+                            </span>
+                          )}
+                          {typeof item.aiConfidence === "number" && (
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              {(item.aiConfidence * 100).toFixed(0)}% Valid
+                            </span>
+                          )}
                         </div>
+                        <span className="text-[10.5px] text-gray-500 flex items-center gap-1 font-medium shrink-0">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          {item.time}
+                        </span>
+                      </div>
 
-                        {/* Judul & Lokasi */}
-                        <div>
-                          <Link
-                            href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
-                            className="group/title block hover:underline"
-                          >
-                            <h4 className="text-xs sm:text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
-                              {item.title}
-                            </h4>
-                          </Link>
-                          <p className="text-[11px] text-[#4B635F] flex items-center gap-1 mt-1">
-                            <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
-                            <span className="truncate">{item.location}</span>
-                          </p>
+                      {/* Judul & Lokasi */}
+                      <div>
+                        <Link
+                          href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
+                          className="group/title block hover:underline"
+                        >
+                          <h4 className="text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                            {item.title}
+                          </h4>
+                        </Link>
+                        <p className="text-xs text-[#4B635F] flex items-center gap-1 mt-1">
+                          <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
+                          <span className="truncate">{item.location}</span>
+                        </p>
+                      </div>
+
+                      {/* Catatan Pelapor Jika Ada */}
+                      {item.notes && (
+                        <p className="text-xs text-[#4B635F] italic bg-[#F8FAF9] p-2.5 rounded-lg border border-gray-100">
+                          &ldquo;{item.notes}&rdquo;
+                        </p>
+                      )}
+
+                      {/* Foto Bukti: Full-Width Image Proporsional, Bukan Thumbnail Terjepit */}
+                      {item.photos && item.photos.length > 0 && (
+                        <div className="pt-1">
+                          {item.photos.map((imgUrl, pIdx) => (
+                            <button
+                              key={pIdx}
+                              type="button"
+                              onClick={() =>
+                                setPreviewImage({
+                                  url: imgUrl,
+                                  title: `${item.title} (Foto ${pIdx + 1})`,
+                                })
+                              }
+                              className="w-full h-44 sm:h-52 rounded-xl border border-gray-200 overflow-hidden block bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity relative group"
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Lampiran ${pIdx + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                              />
+                            </button>
+                          ))}
                         </div>
+                      )}
 
-                        {/* Catatan Pelapor Jika Ada */}
-                        {item.notes && (
-                          <p className="text-[11px] text-[#4B635F] italic bg-white p-2 rounded-xl border border-gray-100">
-                            &ldquo;{item.notes}&rdquo;
-                          </p>
-                        )}
-
-                        {/* Thumbnail Foto (Jika Ada) */}
-                        {item.photos && item.photos.length > 0 && (
-                          <div className="flex items-center gap-2 overflow-x-auto pt-0.5">
-                            {item.photos.map((imgUrl, pIdx) => (
-                              <button
-                                key={pIdx}
-                                type="button"
-                                onClick={() =>
-                                  setPreviewImage({
-                                    url: imgUrl,
-                                    title: `${item.title} (Foto ${pIdx + 1})`,
-                                  })
-                                }
-                                className="w-14 h-14 rounded-xl border border-gray-200 overflow-hidden shrink-0 bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
-                              >
-                                <img
-                                  src={imgUrl}
-                                  alt={`Lampiran ${pIdx + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Status Timeline Progress & Tombol Buka Peta */}
-                        <div className="pt-2 border-t border-gray-200/80 space-y-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${statusStyle.dotClass}`} />
-                            <span className="text-[11px] font-bold text-[#132422]">
+                      {/* Update Penanganan Regu SAR: Timeline Vertikal Bersih dengan Border-L dan Titik Biru */}
+                      <div className="pt-2 border-t border-gray-100">
+                        <div className="relative pl-3.5 border-l-2 border-sky-400 space-y-1 my-1">
+                          <span className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-sky-500 ring-2 ring-white" />
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-[#132422]">
+                              {item.statusNote?.toLowerCase().includes("sar") || item.status === "PENANGANAN"
+                                ? "Regu SAR Menuju Lokasi"
+                                : statusStyle.label}
+                            </span>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 uppercase tracking-wider">
                               {statusStyle.label}
                             </span>
                           </div>
-                          <p className="text-[10.5px] text-gray-600 leading-relaxed bg-white p-2.5 rounded-xl border border-gray-100">
+                          <p className="text-xs text-gray-600 leading-relaxed">
                             {item.statusNote}
                           </p>
+                        </div>
 
-                          <div className="pt-1 flex items-center justify-end">
-                            <Link
-                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#EEF5F3] text-[#1D443F] border border-[#D5E4E0] text-[11px] font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
-                            >
-                              <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
-                              <span>Buka Titik di Peta</span>
-                              <ChevronRight className="w-3 h-3 text-[#38746D]" />
-                            </Link>
-                          </div>
+                        <div className="pt-2 flex items-center justify-end">
+                          <Link
+                            href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] border border-[#38746D]/20 text-[11px] font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
+                            <span>Buka Titik di Peta</span>
+                            <ChevronRight className="w-3 h-3 text-[#38746D]" />
+                          </Link>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -256,7 +256,7 @@ const REGION_FILTERS = [
 export default function WargaAduanPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const ITEMS_PER_PAGE = 3;
+  const ITEMS_PER_PAGE = 4;
 
   const [reports, setReports] = useState<CitizenReportItem[]>(INITIAL_CITIZEN_REPORTS);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -380,21 +380,21 @@ export default function WargaAduanPage() {
         })}
       </div>
 
-      {/* Daftar Card Aduan Warga (Tampilan Serasi Penuh dengan Halaman Lapor) */}
-      <div className="space-y-4">
-        {filtered.length === 0 ? (
-          <div className="p-8 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2">
-            <p className="text-sm font-bold text-gray-500">Tidak ada aduan warga di wilayah ini.</p>
-            <button
-              type="button"
-              onClick={() => handleSelectRegion("ALL")}
-              className="text-xs font-bold text-[#38746D] hover:underline cursor-pointer"
-            >
-              Tampilkan Semua Wilayah
-            </button>
-          </div>
-        ) : (
-          paginatedReports.map((item) => {
+      {/* Daftar Card Aduan Warga: 1 Kolom Mobile, 2 Kolom di Web / Tablet Landscape */}
+      {filtered.length === 0 ? (
+        <div className="p-8 rounded-3xl bg-white border border-[#D5E4E0] text-center space-y-2">
+          <p className="text-sm font-bold text-gray-500">Tidak ada aduan warga di wilayah ini.</p>
+          <button
+            type="button"
+            onClick={() => handleSelectRegion("ALL")}
+            className="text-xs font-bold text-[#38746D] hover:underline cursor-pointer"
+          >
+            Tampilkan Semua Wilayah
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-stretch">
+          {paginatedReports.map((item) => {
             const statusStyle = STATUS_CONFIG[item.status] || {
               dotClass: "bg-gray-400",
               badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
@@ -404,7 +404,7 @@ export default function WargaAduanPage() {
             return (
               <div
                 key={`feed-${item.id}`}
-                className="p-4 sm:p-5 rounded-2xl bg-white border border-[#D5E4E0] hover:border-[#88BDB6] transition-all space-y-3.5 shadow-2xs"
+                className="p-4 sm:p-5 rounded-2xl bg-white border border-[#D5E4E0] hover:border-[#88BDB6] transition-all flex flex-col justify-between space-y-3.5 shadow-2xs h-full"
               >
                 {/* Header Card: Profil Pelapor & Waktu Sejajar di Kanan Atas */}
                 <div className="flex items-start justify-between gap-2">
@@ -450,7 +450,7 @@ export default function WargaAduanPage() {
                     onClick={() =>
                       setPreviewImage({ url: item.photoUrl, title: item.title })
                     }
-                    className="relative w-full h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 group cursor-pointer"
+                    className="relative w-full h-44 sm:h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 group cursor-pointer shrink-0"
                   >
                     <img
                       src={item.photoUrl}
@@ -497,7 +497,7 @@ export default function WargaAduanPage() {
                 </div>
 
                 {/* Tombol Aksi & Interaksi */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 mt-auto">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -549,9 +549,9 @@ export default function WargaAduanPage() {
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* 4. KOMPONEN PAGINATION MODERN (Konsisten 100% dengan Halaman Posko) */}
       {filtered.length > 0 && totalPages > 1 && (

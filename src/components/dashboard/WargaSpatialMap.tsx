@@ -13,6 +13,7 @@ import {
   Maximize2,
   Minimize2,
   Navigation,
+  WifiOff,
   Waves,
   Compass,
   AlertTriangle,
@@ -609,6 +610,29 @@ export default function WargaSpatialMap({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const activeRouteLayerRef = useRef<L.LayerGroup | null>(null);
 
+  // Status Koneksi Internet & Mode Darurat Offline (PWA Offline-First)
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    setIsOnline(typeof window !== "undefined" ? window.navigator.onLine : true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setToastMessage("🟢 Sinyal pulih! Mode daring (online) aktif kembali.");
+      setTimeout(() => setToastMessage(null), 3500);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setToastMessage("📡 Sinyal terputus. Mengaktifkan Mode Darurat Offline.");
+      setTimeout(() => setToastMessage(null), 4000);
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const [siagaExpanded, setSiagaExpanded] = useState(false);
   const [poskoExpanded, setPoskoExpanded] = useState(false);
 
@@ -864,6 +888,7 @@ export default function WargaSpatialMap({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilterChip, setActiveFilterChip] = useState<string>("terdekat");
   const [showAllShelters, setShowAllShelters] = useState(false);
+  const [showAllTelemetry, setShowAllTelemetry] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState("SEMUA");
   const [sortByClosest, setSortByClosest] = useState(true);
   const [filterAvailableOnly, setFilterAvailableOnly] = useState(false);
@@ -919,6 +944,26 @@ export default function WargaSpatialMap({
   // User GPS Coordinates & Dynamic Proximity States
   const [userCoords, setUserCoords] = useState<[number, number]>([-6.3475, 108.1189]);
   const [isGpsLocked, setIsGpsLocked] = useState(false);
+
+  // Sorting Stasiun Air Telemetri Berdasarkan Jarak GPS Terdekat ke Pengguna
+  const sortedTelemetry = useMemo(() => {
+    return telemetry
+      .map((tel) => {
+        const distMeters = calculateDistanceInMeters(
+          userCoords[0],
+          userCoords[1],
+          tel.lat,
+          tel.lng
+        );
+        const distKm = (distMeters / 1000).toFixed(1);
+        return {
+          ...tel,
+          distanceMeters: distMeters,
+          distanceKm: `${distKm} km`,
+        };
+      })
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }, [telemetry, userCoords]);
   // Dynamic Level of Detail (LOD) & Viewport Bounds ala Google Maps
   const [mapZoom, setMapZoom] = useState<number>(11);
   const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
@@ -1188,6 +1233,9 @@ export default function WargaSpatialMap({
     }
 
     // 2. Chip Filter Kategori & Wilayah
+    if (activeFilterChip === "telemetri") {
+      return [];
+    }
     if (activeFilterChip === "medis") {
       list = list.filter((sh) => {
         const meta = SHELTER_METADATA[sh.id];
@@ -1311,6 +1359,11 @@ export default function WargaSpatialMap({
   const getCardHeaderTitle = () => {
     if (searchQuery.trim()) {
       return `Hasil Pencarian: "${searchQuery}"`;
+    }
+    if (activeFilterChip === "telemetri") {
+      return showAllTelemetry
+        ? `Seluruh Stasiun Air (${sortedTelemetry.length} Terdata)`
+        : "Sensor Air Terdekat dari Lokasi Anda";
     }
     if (activeFilterChip === "medis") {
       return "Posko Medis";
@@ -1787,9 +1840,16 @@ export default function WargaSpatialMap({
 
     routesLayerRef.current?.addLayer(polyline);
 
-    // 4. PLOT TELEMETRY STATIONS
-    if (activeLayer === "ALL" || activeLayer === "TELEMETRY") {
-      telemetry.forEach((tel) => {
+    // 4. PLOT TELEMETRY STATIONS (HANYA STASIUN TERDEKAT DARI LOKASI GPS PENGGUNA)
+    if (activeLayer === "ALL" || activeLayer === "TELEMETRY" || activeFilterChip === "telemetri") {
+      // HANYA tampilkan stasiun di sekitar radius lokasi GPS warga (3 terdekat ala posko)
+      const telemetryToPlot = showAllTelemetry ? sortedTelemetry : sortedTelemetry.slice(0, 3);
+      const activeTel = activeTelemetryDetail;
+      const finalTelemetryList = (activeTel && !telemetryToPlot.some((t) => t.id === activeTel.id))
+        ? [activeTel, ...telemetryToPlot]
+        : telemetryToPlot;
+
+      finalTelemetryList.forEach((tel) => {
         const isWaspada = tel.status === "WASPADA" || tel.status === "SIAGA";
         const color = isWaspada ? "#D97706" : "#0284C7";
 
@@ -1838,7 +1898,7 @@ export default function WargaSpatialMap({
 
     // Pastikan titik "Lokasi Anda" selalu aktif dan terpasang di layer teratas peta
     updateUserMarkerOnMap(userCoords[0], userCoords[1]);
-  }, [reports, internalReports, mapVisibleShelters, telemetry, activeLayer, mapZoom, onSelectReport, onSelectShelter, userCoords]);
+  }, [reports, internalReports, mapVisibleShelters, telemetry, sortedTelemetry, showAllTelemetry, activeTelemetryDetail, activeLayer, activeFilterChip, mapZoom, onSelectReport, onSelectShelter, userCoords]);
 
   // Marker seleksi statis ala Google Maps (animasi radar/uap dihapus total)
   const showRadarGlow = (_lat: number, _lng: number) => { };
@@ -5145,6 +5205,29 @@ export default function WargaSpatialMap({
           {/* Tampilkan Search Bar dan Filter Chips HANYA saat viewMode === 'IDLE' */}
           {viewMode === "IDLE" && (
             <>
+              {/* Banner Darurat Offline (PWA Offline-First) */}
+              {!isOnline && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-amber-600 text-white p-2.5 rounded-2xl shadow-lg border border-amber-500/80 flex items-center justify-between gap-2 shrink-0"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <WifiOff className="w-4 h-4 shrink-0 animate-pulse text-amber-200" />
+                    <div className="text-[11px] min-w-0 leading-tight">
+                      <strong className="block font-bold">Mode Darurat Offline Aktif</strong>
+                      <span className="text-[9.5px] text-amber-100 truncate block">Peta posko aman &amp; rute evakuasi tersimpan di memori perangkat.</span>
+                    </div>
+                  </div>
+                  <a
+                    href="tel:112"
+                    className="px-2.5 py-1 rounded-xl bg-white text-amber-900 font-extrabold text-[10.5px] shrink-0 hover:bg-amber-50 shadow-xs transition"
+                  >
+                    📞 112
+                  </a>
+                </motion.div>
+              )}
+
               {/* Baris 1: Card Search Bar */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -5224,6 +5307,13 @@ export default function WargaSpatialMap({
                           if (mapInstanceRef.current && userMarkerRef.current) {
                             const uPos = userMarkerRef.current.getLatLng();
                             mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
+                          }
+                        } else if (chip.id === "telemetri") {
+                          setActiveFilterChip("telemetri");
+                          setShowAllTelemetry(false);
+                          if (mapInstanceRef.current && sortedTelemetry.length > 0) {
+                            const closest = sortedTelemetry[0];
+                            mapInstanceRef.current.flyTo([closest.lat, closest.lng], 14, { duration: 1 });
                           }
                         } else {
                           setActiveFilterChip(chip.id);
@@ -5395,14 +5485,15 @@ export default function WargaSpatialMap({
                         <div className="space-y-2">
                           <div className="px-2.5 py-2 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-between">
                             <div className="flex items-center gap-1.5 text-sky-800 text-[10px] font-bold">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                              <span>Live API Satelit GloFAS &amp; BMKG</span>
+                              <Navigation className="w-3 h-3 text-[#38746D]" />
+                              <span>{showAllTelemetry ? "Seluruh Stasiun di Indramayu" : "Stasiun Terdekat dari Lokasi GPS"}</span>
                             </div>
-                            <span className="text-[9px] text-sky-600 font-bold bg-white px-2 py-0.5 rounded-full border border-sky-200">
-                              {telemetry.length} Titik Terpantau
+                            <span className="text-[9px] text-sky-700 font-bold bg-white px-2 py-0.5 rounded-full border border-sky-200">
+                              {showAllTelemetry ? sortedTelemetry.length : Math.min(3, sortedTelemetry.length)} dari {sortedTelemetry.length} Stasiun
                             </span>
                           </div>
-                          {telemetry.map((tel) => {
+
+                          {(showAllTelemetry ? sortedTelemetry : sortedTelemetry.slice(0, 3)).map((tel) => {
                             const statusBg =
                               tel.status === "AWAS"
                                 ? "bg-red-50 text-red-700 border-red-200"
@@ -5427,9 +5518,14 @@ export default function WargaSpatialMap({
                                   <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
                                     📡 {tel.tipeBangunan || "Infrastruktur Air"}
                                   </span>
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${statusBg}`}>
-                                    {tel.status}
-                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-[#38746D] bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                                      📍 {tel.distanceKm}
+                                    </span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${statusBg}`}>
+                                      {tel.status}
+                                    </span>
+                                  </div>
                                 </div>
                                 <h4 className="text-xs font-bold text-slate-800 group-hover:text-sky-700 leading-tight">
                                   {tel.name}
@@ -5438,12 +5534,28 @@ export default function WargaSpatialMap({
                                   <span>Level: <strong className="text-slate-800">{tel.waterLevel}</strong></span>
                                   <span>Tren: <strong className={tel.trend === "NAIK" ? "text-red-600 font-bold" : "text-slate-700"}>{tel.trend}</strong></span>
                                 </div>
-                                <div className="text-[9px] text-slate-400 mt-1 truncate">
-                                  {tel.lokasiDetail || tel.agency || "DAS Cimanuk Indramayu"}
+                                <div className="text-[9px] text-slate-400 mt-1 flex items-center justify-between">
+                                  <span className="truncate">{tel.lokasiDetail || tel.agency || "DAS Cimanuk Indramayu"}</span>
+                                  <span className="shrink-0 text-[#38746D] font-bold text-[9px] group-hover:underline">Buka Titik &rarr;</span>
                                 </div>
                               </div>
                             );
                           })}
+
+                          {sortedTelemetry.length > 3 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllTelemetry((prev) => !prev)}
+                              className="w-full bg-slate-50 hover:bg-slate-100 text-[#38746D] font-semibold text-xs py-2.5 rounded-xl border border-dashed border-sky-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1 active:scale-[0.99]"
+                            >
+                              <span>
+                                {showAllTelemetry
+                                  ? "Tampilkan 3 Stasiun Terdekat Saja"
+                                  : `Lihat Stasiun Lainnya di Indramayu (${sortedTelemetry.length} Stasiun)`}
+                              </span>
+                              {showAllTelemetry ? <ChevronUp className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
                       ) : displayedShelters.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">

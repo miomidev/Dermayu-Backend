@@ -27,16 +27,69 @@ import type {
 } from "@/components/dashboard/WargaSpatialMap";
 
 // Dynamic import for Leaflet Spatial Map (SSR Disabled)
+function MapLoadingFallback() {
+  const [isOffline, setIsOffline] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOffline(!navigator.onLine);
+      const handleOnline = () => setIsOffline(false);
+      const handleOffline = () => setIsOffline(true);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+
+      const timer = setTimeout(() => {
+        setShowWarning(true);
+      }, 3500);
+
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+        clearTimeout(timer);
+      };
+    }
+  }, []);
+
+  return (
+    <div className="w-full h-[520px] rounded-3xl bg-[#EEF5F3] border border-[#D5E4E0] flex flex-col items-center justify-center text-[#4B635F] p-6 text-center space-y-3">
+      <RefreshCw className="w-8 h-8 animate-spin text-[#38746D]" />
+      <span className="text-sm font-bold text-[#1F413D]">
+        {isOffline ? "Memuat Peta Spasial (Mode Offline)..." : "Memuat Peta Spasial & Rute Evakuasi..."}
+      </span>
+      {showWarning && (
+        <div className="max-w-md bg-white/80 backdrop-blur-sm border border-[#C5DCD6] rounded-2xl p-4 shadow-sm text-xs text-[#2A4742] space-y-2">
+          <p className="font-medium">
+            {isOffline
+              ? "Perangkat Anda sedang offline. Jika peta belum sempat dibuka saat online, browser memerlukan 1x akses online agar modul peta tersimpan di memori perangkat."
+              : "Menyiapkan modul spasial GIS dan dataset rute..."}
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <a
+              href="tel:112"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-sm transition-all"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              Call Center 112
+            </a>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#2A5852] text-white font-semibold text-xs transition-all"
+            >
+              Coba Ulang
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const WargaSpatialMap = dynamic(
   () => import("@/components/dashboard/WargaSpatialMap"),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-full h-[520px] rounded-3xl bg-[#EEF5F3] border border-[#D5E4E0] flex flex-col items-center justify-center text-[#4B635F] space-y-2">
-        <RefreshCw className="w-7 h-7 animate-spin text-[#38746D]" />
-        <span className="text-xs font-semibold">Memuat Peta Spasial & Rute Evakuasi...</span>
-      </div>
-    ),
+    loading: () => <MapLoadingFallback />,
   }
 );
 

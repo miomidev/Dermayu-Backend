@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({
       message: "Foto berhasil disimpan ke penyimpanan permanen",
+      urls: savedUrls,
+      url: savedUrls[0] || null,
       data: {
         urls: savedUrls,
         url: savedUrls[0] || null,

@@ -73,6 +73,7 @@ import {
   updateReportStatusApi,
   deleteReportApi,
 } from "@/utils/poskoService";
+import { ShelterBentoGallery } from "@/components/dashboard/ShelterBentoGallery";
 import {
   FLOOD_OBSTACLES,
   detectIntersectedFloodObstacles,
@@ -94,7 +95,12 @@ export interface MapReportPoint {
   lng: number;
   timeAgo: string;
   photos?: string[];
+  photoUrl?: string;
+  gambar?: string;
+  foto?: string;
   note?: string;
+  description?: string;
+  catatan?: string;
   aiScore?: {
     label: string;
     confidence: number;
@@ -118,6 +124,8 @@ export interface MapShelterPoint {
   facilities: string[];
   kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
   foto?: string;
+  fotos?: string[];
+  photos?: string[];
   tier?: 1 | 2 | 3 | 4 | 5;
   petugasId?: string;
   isActive?: boolean;
@@ -624,26 +632,31 @@ export default function PetugasSpatialMap({
   // Sinkronisasi lokal dataset posko dengan poskoService (SSOT)
   const [internalShelters, setInternalShelters] = useState<MapShelterPoint[]>(() => {
     if (shelters && shelters.length > 0) return shelters;
-    return getAllPosko().map((p) => ({
-      id: p.id,
-      name: p.nama,
-      location: p.alamat,
-      district: p.kecamatan,
-      distance: "Menghitung jarak...",
-      capacityTotal: p.kapasitas,
-      capacityFilled: p.terisi,
-      status: p.status,
-      contactPerson: p.kontak.pj,
-      contactPhone: p.kontak.telp,
-      lat: p.lat,
-      lng: p.lng,
-      facilities: p.fasilitas,
-      kategori: p.kategori,
-      foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-      tier: p.tier,
-      petugasId: p.petugasId,
-      isActive: p.isActive,
-    }));
+    return getAllPosko().map((p) => {
+      const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+      return {
+        id: p.id,
+        name: p.nama,
+        location: p.alamat,
+        district: p.kecamatan,
+        distance: "Menghitung jarak...",
+        capacityTotal: p.kapasitas,
+        capacityFilled: p.terisi,
+        status: p.status,
+        contactPerson: p.kontak.pj,
+        contactPhone: p.kontak.telp,
+        lat: p.lat,
+        lng: p.lng,
+        facilities: p.fasilitas,
+        kategori: p.kategori,
+        foto: photos[0] || p.foto,
+        fotos: photos,
+        photos: photos,
+        tier: p.tier,
+        petugasId: p.petugasId,
+        isActive: p.isActive,
+      };
+    });
   });
 
   // Sinkronisasi data posko dari prop parent
@@ -663,26 +676,31 @@ export default function PetugasSpatialMap({
             const json = await res.json();
             const list = json.data?.data || json.data || [];
             if (Array.isArray(list) && list.length > 0) {
-              const formatted: MapShelterPoint[] = list.map((p: any) => ({
-                id: p.id,
-                name: p.nama || p.name || "Posko Siaga",
-                location: p.alamat || p.location || "",
-                district: p.kecamatan || p.district || "",
-                distance: "Menghitung jarak...",
-                capacityTotal: p.kapasitas || 100,
-                capacityFilled: p.terisi || 0,
-                status: p.status || "TERSEDIA",
-                contactPerson: p.kontak?.pj || "Petugas Posko",
-                contactPhone: p.kontak?.telp || "0812-3456-7890",
-                lat: p.lat,
-                lng: p.lng,
-                facilities: p.fasilitas || [],
-                kategori: p.kategori,
-                foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-                tier: p.tier,
-                petugasId: p.petugasId,
-                isActive: p.isActive,
-              }));
+              const formatted: MapShelterPoint[] = list.map((p: any) => {
+                const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+                return {
+                  id: p.id,
+                  name: p.nama || p.name || "Posko Siaga",
+                  location: p.alamat || p.location || "",
+                  district: p.kecamatan || p.district || "",
+                  distance: "Menghitung jarak...",
+                  capacityTotal: p.kapasitas || 100,
+                  capacityFilled: p.terisi || 0,
+                  status: p.status || "TERSEDIA",
+                  contactPerson: p.kontak?.pj || "Petugas Posko",
+                  contactPhone: p.kontak?.telp || "0812-3456-7890",
+                  lat: p.lat,
+                  lng: p.lng,
+                  facilities: p.fasilitas || [],
+                  kategori: p.kategori,
+                  foto: photos[0] || p.foto,
+                  fotos: photos,
+                  photos: photos,
+                  tier: p.tier,
+                  petugasId: p.petugasId,
+                  isActive: p.isActive,
+                };
+              });
               setInternalShelters(formatted);
             }
           }
@@ -697,26 +715,31 @@ export default function PetugasSpatialMap({
     const handlePoskoUpdated = () => {
       if (!shelters || shelters.length === 0) {
         setInternalShelters(
-          getAllPosko().map((p) => ({
-            id: p.id,
-            name: p.nama,
-            location: p.alamat,
-            district: p.kecamatan,
-            distance: "Menghitung jarak...",
-            capacityTotal: p.kapasitas,
-            capacityFilled: p.terisi,
-            status: p.status,
-            contactPerson: p.kontak.pj,
-            contactPhone: p.kontak.telp,
-            lat: p.lat,
-            lng: p.lng,
-            facilities: p.fasilitas,
-            kategori: p.kategori,
-            foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-            tier: p.tier,
-            petugasId: p.petugasId,
-            isActive: p.isActive,
-          }))
+          getAllPosko().map((p) => {
+            const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+            return {
+              id: p.id,
+              name: p.nama,
+              location: p.alamat,
+              district: p.kecamatan,
+              distance: "Menghitung jarak...",
+              capacityTotal: p.kapasitas,
+              capacityFilled: p.terisi,
+              status: p.status,
+              contactPerson: p.kontak.pj,
+              contactPhone: p.kontak.telp,
+              lat: p.lat,
+              lng: p.lng,
+              facilities: p.fasilitas,
+              kategori: p.kategori,
+              foto: photos[0] || p.foto,
+              fotos: photos,
+              photos: photos,
+              tier: p.tier,
+              petugasId: p.petugasId,
+              isActive: p.isActive,
+            };
+          })
         );
       }
     };
@@ -1580,8 +1603,39 @@ export default function PetugasSpatialMap({
             setTimeout(() => setToastMessage(null), 2500);
           });
         } else {
+          const shelterPhotos = (sh.photos && sh.photos.length > 0 ? sh.photos : (sh.foto ? [sh.foto] : [])).filter((u) => !u.includes("default.jpg"));
+          let photoPreviewHtml = "";
+          if (shelterPhotos.length === 1) {
+            photoPreviewHtml = `
+              <div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #E2E8F0;">
+                <img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="${sh.name}" />
+              </div>
+            `;
+          } else if (shelterPhotos.length === 2) {
+            photoPreviewHtml = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; height: 85px; margin-bottom: 6px;">
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              </div>
+            `;
+          } else if (shelterPhotos.length >= 3) {
+            photoPreviewHtml = `
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 4px; height: 90px; margin-bottom: 6px;">
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+                <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 4px; height: 90px;">
+                  <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+                  <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0; position: relative;">
+                    <img src="${shelterPhotos[2]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    ${shelterPhotos.length > 3 ? `<div style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">+${shelterPhotos.length - 3}</div>` : ""}
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
           const popupContent = `
-            <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
+            <div style="font-family: inherit; width: 235px; padding: 2px; color: #132422;">
+              ${photoPreviewHtml}
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
                   POSKO EVAKUASI
@@ -3123,7 +3177,7 @@ export default function PetugasSpatialMap({
         {/* Sisi Kanan: Thumbnail Foto Gedung Posko */}
         <div className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-xs bg-slate-100">
           <img
-            src={(sh as any).foto || meta.photoUrl}
+            src={sh.photos?.[0] || (sh as any).foto || meta.photoUrl}
             alt={sh.name}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -4019,15 +4073,16 @@ export default function PetugasSpatialMap({
               </div>
             </div>
 
-            {/* Foto Posko (Full resolusi pada 'full', compact preview pada 'mid') */}
-            <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-gray-200 bg-slate-100 shrink-0 ${
-              sheetSnap === "full" ? "h-44 sm:h-50" : "h-28"
-            }`}>
-              <img
-                src={activeMeta.photoUrl}
-                alt={activeShelterDetail.name}
-                className="w-full h-full object-cover object-center"
-                loading="eager"
+            {/* Foto Posko (Bento Grid jika > 1 foto) */}
+            <div className="w-full">
+              <ShelterBentoGallery
+                photos={
+                  activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                    ? activeShelterDetail.photos
+                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
+                }
+                name={activeShelterDetail.name}
+                compact
               />
             </div>
 
@@ -4713,7 +4768,7 @@ export default function PetugasSpatialMap({
             {/* Mini Thumbnail */}
             <div className="relative w-13 h-13 rounded-xl overflow-hidden shrink-0 border border-gray-200 bg-slate-100 shadow-xs">
               <img
-                src={activeMeta.photoUrl}
+                src={activeShelterDetail.photos?.[0] || activeShelterDetail.foto || activeMeta.photoUrl}
                 alt={activeShelterDetail.name}
                 className="w-full h-full object-cover"
                 loading="eager"
@@ -4779,13 +4834,16 @@ export default function PetugasSpatialMap({
 
       return (
         <div className={`overflow-y-auto flex-1 min-h-0 space-y-2 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-2.5 pb-2" : "p-2.5 space-y-1.5"}`}>
-          {/* 1. Atas: Foto Posko Riil */}
-          <div className="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden shadow-xs border border-gray-200 bg-slate-100">
-            <img
-              src={activeMeta.photoUrl}
-              alt={activeShelterDetail.name}
-              className="w-full h-full object-cover object-center"
-              loading="eager"
+          {/* 1. Atas: Foto Posko Riil (Bento Grid jika > 1 foto) */}
+          <div className="w-full">
+            <ShelterBentoGallery
+              photos={
+                activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                  ? activeShelterDetail.photos
+                  : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
+              }
+              name={activeShelterDetail.name}
+              compact
             />
           </div>
 

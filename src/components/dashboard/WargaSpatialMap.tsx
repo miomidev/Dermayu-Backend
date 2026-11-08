@@ -55,6 +55,7 @@ import {
   Pencil,
   SlidersHorizontal,
   Mic,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   SIAGA_CONFIGS,
@@ -64,8 +65,10 @@ import {
 } from "@/components/dashboard/StatusSiagaCard";
 import { getActiveSession } from "@/utils/authSession";
 import { getWargaPosko } from "@/utils/poskoService";
+import { ShelterBentoGallery } from "@/components/dashboard/ShelterBentoGallery";
 import {
   FLOOD_OBSTACLES,
+  REALISTIC_FLOOD_PHOTOS,
   detectIntersectedFloodObstacles,
   calculateDistanceInMeters as calcMetersSafe,
   type FloodObstacle,
@@ -85,12 +88,61 @@ export interface MapReportPoint {
   lng: number;
   timeAgo: string;
   photos?: string[];
+  photoUrl?: string;
+  gambar?: string;
+  foto?: string;
   note?: string;
+  description?: string;
+  catatan?: string;
   aiScore?: {
     label: string;
     confidence: number;
   };
   urgentNeeds?: string[];
+}
+
+export function getReportPhoto(rep?: MapReportPoint | null): string | null {
+  if (!rep) return null;
+  if (rep.photos && rep.photos.length > 0 && typeof rep.photos[0] === "string" && rep.photos[0].trim() !== "") {
+    return rep.photos[0];
+  }
+  if (rep.photoUrl && typeof rep.photoUrl === "string" && rep.photoUrl.trim() !== "") {
+    return rep.photoUrl;
+  }
+  if ((rep as any).gambar && typeof (rep as any).gambar === "string" && (rep as any).gambar.trim() !== "") {
+    return (rep as any).gambar;
+  }
+  if ((rep as any).foto && typeof (rep as any).foto === "string" && (rep as any).foto.trim() !== "") {
+    return (rep as any).foto;
+  }
+
+  // Cek apakah merupakan bagian dari dataset hambatan jalan FLOOD_OBSTACLES
+  const obstacleIndex = FLOOD_OBSTACLES.findIndex((obs) => obs.id === rep.id || obs.title === rep.title);
+  if (obstacleIndex !== -1) {
+    return REALISTIC_FLOOD_PHOTOS[obstacleIndex % REALISTIC_FLOOD_PHOTOS.length];
+  }
+
+  return null;
+}
+
+export function getReportNote(rep?: MapReportPoint | null): string | null {
+  if (!rep) return null;
+  if (rep.note && rep.note.trim() !== "") return rep.note;
+  if (rep.description && rep.description.trim() !== "") return rep.description;
+  if ((rep as any).catatan && typeof (rep as any).catatan === "string" && (rep as any).catatan.trim() !== "") {
+    return (rep as any).catatan;
+  }
+  if ((rep as any).keterangan && typeof (rep as any).keterangan === "string" && (rep as any).keterangan.trim() !== "") {
+    return (rep as any).keterangan;
+  }
+
+  // Cek apakah merupakan bagian dari dataset hambatan jalan FLOOD_OBSTACLES
+  const obstacle = FLOOD_OBSTACLES.find((obs) => obs.id === rep.id || obs.title === rep.title);
+  if (obstacle && obstacle.description) {
+    return obstacle.description;
+  }
+
+  return null;
 }
 
 export interface MapShelterPoint {
@@ -109,6 +161,8 @@ export interface MapShelterPoint {
   facilities: string[];
   kategori?: "sekolah" | "masjid" | "balai_desa" | "gor";
   foto?: string;
+  fotos?: string[];
+  photos?: string[];
   tier?: 1 | 2 | 3 | 4 | 5;
   petugasId?: string;
   isActive?: boolean;
@@ -549,26 +603,31 @@ export default function WargaSpatialMap({
   // Integrasi Single Source of Truth Posko Warga (Database Service Layer)
   const [poskoData, setPoskoData] = useState<MapShelterPoint[]>(() => {
     if (shelters && shelters.length > 0) return shelters.filter((s) => s.isActive !== false);
-    return getWargaPosko().map((p) => ({
-      id: p.id,
-      name: p.nama,
-      location: p.alamat,
-      district: p.kecamatan,
-      distance: "Menghitung jarak...",
-      capacityTotal: p.kapasitas,
-      capacityFilled: p.terisi,
-      status: p.status,
-      contactPerson: p.kontak.pj,
-      contactPhone: p.kontak.telp,
-      lat: p.lat,
-      lng: p.lng,
-      facilities: p.fasilitas,
-      kategori: p.kategori,
-      foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-      tier: p.tier,
-      petugasId: p.petugasId,
-      isActive: p.isActive,
-    }));
+    return getWargaPosko().map((p) => {
+      const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+      return {
+        id: p.id,
+        name: p.nama,
+        location: p.alamat,
+        district: p.kecamatan,
+        distance: "Menghitung jarak...",
+        capacityTotal: p.kapasitas,
+        capacityFilled: p.terisi,
+        status: p.status,
+        contactPerson: p.kontak.pj,
+        contactPhone: p.kontak.telp,
+        lat: p.lat,
+        lng: p.lng,
+        facilities: p.fasilitas,
+        kategori: p.kategori,
+        foto: photos[0] || p.foto,
+        fotos: photos,
+        photos: photos,
+        tier: p.tier,
+        petugasId: p.petugasId,
+        isActive: p.isActive,
+      };
+    });
   });
 
   // Sinkronisasi data posko dari prop parent
@@ -590,26 +649,31 @@ export default function WargaSpatialMap({
             if (Array.isArray(list) && list.length > 0) {
               const formatted: MapShelterPoint[] = list
                 .filter((p: any) => p && p.isActive !== false)
-                .map((p: any) => ({
-                  id: p.id,
-                  name: p.nama || p.name || "Posko Siaga",
-                  location: p.alamat || p.location || "",
-                  district: p.kecamatan || p.district || "",
-                  distance: "Menghitung jarak...",
-                  capacityTotal: p.kapasitas || 100,
-                  capacityFilled: p.terisi || 0,
-                  status: p.status || "TERSEDIA",
-                  contactPerson: p.kontak?.pj || "Petugas Posko",
-                  contactPhone: p.kontak?.telp || "0812-3456-7890",
-                  lat: p.lat,
-                  lng: p.lng,
-                  facilities: p.fasilitas || [],
-                  kategori: p.kategori,
-                  foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-                  tier: p.tier,
-                  petugasId: p.petugasId,
-                  isActive: p.isActive,
-                }));
+                .map((p: any) => {
+                  const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+                  return {
+                    id: p.id,
+                    name: p.nama || p.name || "Posko Siaga",
+                    location: p.alamat || p.location || "",
+                    district: p.kecamatan || p.district || "",
+                    distance: "Menghitung jarak...",
+                    capacityTotal: p.kapasitas || 100,
+                    capacityFilled: p.terisi || 0,
+                    status: p.status || "TERSEDIA",
+                    contactPerson: p.kontak?.pj || "Petugas Posko",
+                    contactPhone: p.kontak?.telp || "0812-3456-7890",
+                    lat: p.lat,
+                    lng: p.lng,
+                    facilities: p.fasilitas || [],
+                    kategori: p.kategori,
+                    foto: photos[0] || p.foto,
+                    fotos: photos,
+                    photos: photos,
+                    tier: p.tier,
+                    petugasId: p.petugasId,
+                    isActive: p.isActive,
+                  };
+                });
               setPoskoData(formatted);
             }
           }
@@ -623,26 +687,31 @@ export default function WargaSpatialMap({
 
     const handleUpdate = () => {
       if (!shelters || shelters.length === 0) {
-        const activeOnly = getWargaPosko().map((p) => ({
-          id: p.id,
-          name: p.nama,
-          location: p.alamat,
-          district: p.kecamatan,
-          distance: "Menghitung jarak...",
-          capacityTotal: p.kapasitas,
-          capacityFilled: p.terisi,
-          status: p.status,
-          contactPerson: p.kontak.pj,
-          contactPhone: p.kontak.telp,
-          lat: p.lat,
-          lng: p.lng,
-          facilities: p.fasilitas,
-          kategori: p.kategori,
-          foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-          tier: p.tier,
-          petugasId: p.petugasId,
-          isActive: p.isActive,
-        }));
+        const activeOnly = getWargaPosko().map((p) => {
+          const photos = p.photos && p.photos.length > 0 ? p.photos : (p.fotos && p.fotos.length > 0 ? p.fotos : (p.foto ? [p.foto] : []));
+          return {
+            id: p.id,
+            name: p.nama,
+            location: p.alamat,
+            district: p.kecamatan,
+            distance: "Menghitung jarak...",
+            capacityTotal: p.kapasitas,
+            capacityFilled: p.terisi,
+            status: p.status,
+            contactPerson: p.kontak.pj,
+            contactPhone: p.kontak.telp,
+            lat: p.lat,
+            lng: p.lng,
+            facilities: p.fasilitas,
+            kategori: p.kategori,
+            foto: photos[0] || p.foto,
+            fotos: photos,
+            photos: photos,
+            tier: p.tier,
+            petugasId: p.petugasId,
+            isActive: p.isActive,
+          };
+        });
         setPoskoData(activeOnly);
       }
     };
@@ -650,6 +719,88 @@ export default function WargaSpatialMap({
     window.addEventListener("dermayu_posko_updated", handleUpdate);
     return () => {
       window.removeEventListener("dermayu_posko_updated", handleUpdate);
+    };
+  }, []);
+
+  // Integrasi Single Source of Truth Laporan & Genangan Warga
+  const [internalReports, setInternalReports] = useState<MapReportPoint[]>(() => {
+    if (reports && reports.length > 0) {
+      return reports.map((r) => ({
+        ...r,
+        photoUrl: getReportPhoto(r) || r.photoUrl,
+        photos: r.photos && r.photos.length > 0 ? r.photos : (getReportPhoto(r) ? [getReportPhoto(r)!] : []),
+        note: getReportNote(r) || r.note,
+      }));
+    }
+    return FLOOD_OBSTACLES.map((obs, idx) => ({
+      id: obs.id,
+      ticketCode: `GEN-${String(idx + 1).padStart(3, "0")}`,
+      title: obs.title,
+      category: obs.zone === "PESISIR_ROB" ? "Banjir Rob" : "Luapan DAS Cimanuk",
+      severity: obs.severity,
+      waterLevelText: `${obs.depthCm} cm`,
+      status: obs.status || "Aktif Terpantau",
+      location: obs.location,
+      lat: obs.lat,
+      lng: obs.lng,
+      timeAgo: "Aktif Terpantau",
+      photos: [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+      photoUrl: REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
+      note: obs.description,
+    }));
+  });
+
+  // Sinkronisasi data laporan dari prop parent
+  useEffect(() => {
+    if (reports && reports.length > 0) {
+      setInternalReports(
+        reports.map((r) => ({
+          ...r,
+          photoUrl: getReportPhoto(r) || r.photoUrl,
+          photos: r.photos && r.photos.length > 0 ? r.photos : (getReportPhoto(r) ? [getReportPhoto(r)!] : []),
+          note: getReportNote(r) || r.note,
+        }))
+      );
+    }
+  }, [reports]);
+
+  // Sinkronisasi dengan database /api/laporan
+  useEffect(() => {
+    let isMounted = true;
+    const fetchReportsFromApi = async () => {
+      try {
+        const res = await fetch("/api/laporan", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const list = json.data?.data || json.data || [];
+          if (Array.isArray(list) && list.length > 0 && isMounted) {
+            setInternalReports((prev) => {
+              const mapById = new Map<string, any>();
+              list.forEach((item: any) => mapById.set(item.id, item));
+
+              return prev.map((p) => {
+                const apiItem = mapById.get(p.id);
+                if (!apiItem) return p;
+                const photo = getReportPhoto(apiItem) || getReportPhoto(p);
+                return {
+                  ...p,
+                  ...apiItem,
+                  photos: apiItem.photos || p.photos || (photo ? [photo] : []),
+                  photoUrl: photo || p.photoUrl,
+                  note: apiItem.note || p.note || getReportNote(apiItem),
+                };
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("WargaSpatialMap API reports fetch fallback:", err);
+      }
+    };
+
+    fetchReportsFromApi();
+    return () => {
+      isMounted = false;
     };
   }, []);
 
@@ -1406,19 +1557,22 @@ export default function WargaSpatialMap({
 
     // 1. PLOT FLOOD REPORTS
     if (activeLayer === "ALL" || activeLayer === "REPORTS") {
-      reports.forEach((rep) => {
+      const activeReportsList = internalReports && internalReports.length > 0 ? internalReports : reports;
+      activeReportsList.forEach((rep) => {
         const isCritical = rep.severity === "CRITICAL";
         const isHigh = rep.severity === "HIGH";
         const color = isCritical ? "#DC2626" : isHigh ? "#EA580C" : "#D97706";
 
         const icon = createPinIcon(isCritical ? "kritis" : "genangan", false, mapZoom);
+        const repPhoto = getReportPhoto(rep);
+        const repNote = getReportNote(rep);
 
         const popupContent = `
-          <div style="font-family: inherit; width: 220px; padding: 2px; color: #132422;">
+          <div style="font-family: inherit; width: 235px; padding: 2px; color: #132422;">
             ${
-              rep.photos && rep.photos.length > 0
-                ? `<div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #EEF5F3;">
-                    <img src="${rep.photos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="Bukti Foto" />
+              repPhoto
+                ? `<div style="width: 100%; height: 100px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #EEF5F3; border: 1px solid #E2E8F0;">
+                    <img src="${repPhoto}" style="width: 100%; height: 100%; object-fit: cover;" alt="${rep.title}" />
                    </div>`
                 : ""
             }
@@ -1440,9 +1594,10 @@ export default function WargaSpatialMap({
                   </div>`
             : ""
           }
-            <div style="font-size: 10px; color: #38746D; font-weight: 700;">
+            <div style="font-size: 10px; color: #38746D; font-weight: 700; margin-bottom: ${repNote ? "4px" : "0"};">
               Status: ${rep.status}
             </div>
+            ${repNote ? `<div style="font-size: 10px; color: #64748B; background: #F8FAF9; padding: 4px 6px; border-radius: 6px; border: 1px solid #E2E8F0; margin-top: 4px; line-height: 1.4;">📝 ${repNote}</div>` : ""}
           </div>
         `;
 
@@ -1464,10 +1619,16 @@ export default function WargaSpatialMap({
           reportsLayerRef.current?.addLayer(floodCircle);
         }
         marker.on("click", () => {
-          setActiveReportDetail(rep);
+          const hydratedRep: MapReportPoint = {
+            ...rep,
+            photos: rep.photos && rep.photos.length > 0 ? rep.photos : (repPhoto ? [repPhoto] : []),
+            photoUrl: repPhoto || rep.photoUrl,
+            note: repNote || rep.note,
+          };
+          setActiveReportDetail(hydratedRep);
           setActiveShelterDetail(null);
           setActiveTelemetryDetail(null);
-          setSelectedMarker({ type: "report", data: rep });
+          setSelectedMarker({ type: "report", data: hydratedRep });
           setSiagaExpanded(false);
           setPoskoExpanded(true);
           setSheetSnap("mid");
@@ -1475,7 +1636,7 @@ export default function WargaSpatialMap({
           if (mapInstanceRef.current) {
             mapInstanceRef.current.flyTo([rep.lat, rep.lng], 16, { duration: 1.2 });
           }
-          if (onSelectReport) onSelectReport(rep);
+          if (onSelectReport) onSelectReport(hydratedRep);
         });
         reportsLayerRef.current?.addLayer(marker);
       });
@@ -1490,8 +1651,39 @@ export default function WargaSpatialMap({
 
         const icon = createPinIcon("posko", isSelected, mapZoom);
 
+        const shelterPhotos = (sh.photos && sh.photos.length > 0 ? sh.photos : (sh.foto ? [sh.foto] : [])).filter((u) => !u.includes("default.jpg"));
+        let photoPreviewHtml = "";
+        if (shelterPhotos.length === 1) {
+          photoPreviewHtml = `
+            <div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #E2E8F0;">
+              <img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="${sh.name}" />
+            </div>
+          `;
+        } else if (shelterPhotos.length === 2) {
+          photoPreviewHtml = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; height: 85px; margin-bottom: 6px;">
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+            </div>
+          `;
+        } else if (shelterPhotos.length >= 3) {
+          photoPreviewHtml = `
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 4px; height: 90px; margin-bottom: 6px;">
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 4px; height: 90px;">
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0; position: relative;">
+                  <img src="${shelterPhotos[2]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                  ${shelterPhotos.length > 3 ? `<div style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">+${shelterPhotos.length - 3}</div>` : ""}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         const popupContent = `
-          <div style="font-family: inherit; width: 230px; padding: 2px; color: #132422;">
+          <div style="font-family: inherit; width: 235px; padding: 2px; color: #132422;">
+            ${photoPreviewHtml}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <span style="font-size: 10px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 2px 6px; border-radius: 6px; border: 1px solid #A7F3D0;">
                 POSKO EVAKUASI
@@ -1603,7 +1795,7 @@ export default function WargaSpatialMap({
 
     // Pastikan titik "Lokasi Anda" selalu aktif dan terpasang di layer teratas peta
     updateUserMarkerOnMap(userCoords[0], userCoords[1]);
-  }, [reports, mapVisibleShelters, telemetry, activeLayer, mapZoom, onSelectReport, onSelectShelter, userCoords]);
+  }, [reports, internalReports, mapVisibleShelters, telemetry, activeLayer, mapZoom, onSelectReport, onSelectShelter, userCoords]);
 
   // Marker seleksi statis ala Google Maps (animasi radar/uap dihapus total)
   const showRadarGlow = (_lat: number, _lng: number) => { };
@@ -2953,7 +3145,7 @@ export default function WargaSpatialMap({
         {/* Sisi Kanan: Thumbnail Foto Gedung Posko */}
         <div className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-xs bg-slate-100">
           <img
-            src={(sh as any).foto || meta.photoUrl}
+            src={sh.photos?.[0] || (sh as any).foto || meta.photoUrl}
             alt={sh.name}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -3542,15 +3734,16 @@ export default function WargaSpatialMap({
               </div>
             </div>
 
-            {/* Foto Posko (Full resolusi pada 'full', compact preview pada 'mid') */}
-            <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-gray-200 bg-slate-100 shrink-0 ${
-              sheetSnap === "full" ? "h-44 sm:h-50" : "h-28"
-            }`}>
-              <img
-                src={activeMeta.photoUrl}
-                alt={activeShelterDetail.name}
-                className="w-full h-full object-cover object-center"
-                loading="eager"
+            {/* Foto Posko (Bento Grid jika > 1 foto) */}
+            <div className="w-full">
+              <ShelterBentoGallery
+                photos={
+                  activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                    ? activeShelterDetail.photos
+                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
+                }
+                name={activeShelterDetail.name}
+                compact
               />
             </div>
 
@@ -4236,7 +4429,7 @@ export default function WargaSpatialMap({
             {/* Mini Thumbnail */}
             <div className="relative w-13 h-13 rounded-xl overflow-hidden shrink-0 border border-gray-200 bg-slate-100 shadow-xs">
               <img
-                src={activeMeta.photoUrl}
+                src={activeShelterDetail.photos?.[0] || activeShelterDetail.foto || activeMeta.photoUrl}
                 alt={activeShelterDetail.name}
                 className="w-full h-full object-cover"
                 loading="eager"
@@ -4302,13 +4495,16 @@ export default function WargaSpatialMap({
 
       return (
         <div className={`overflow-y-auto flex-1 min-h-0 space-y-2 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-2.5 pb-2" : "p-2.5 space-y-1.5"}`}>
-          {/* 1. Atas: Foto Posko Riil */}
-          <div className="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden shadow-xs border border-gray-200 bg-slate-100">
-            <img
-              src={activeMeta.photoUrl}
-              alt={activeShelterDetail.name}
-              className="w-full h-full object-cover object-center"
-              loading="eager"
+          {/* 1. Atas: Foto Posko Riil (Bento Grid jika > 1 foto) */}
+          <div className="w-full">
+            <ShelterBentoGallery
+              photos={
+                activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                  ? activeShelterDetail.photos
+                  : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
+              }
+              name={activeShelterDetail.name}
+              compact
             />
           </div>
 
@@ -4647,72 +4843,87 @@ export default function WargaSpatialMap({
         );
       }
 
+      const reportPhoto = getReportPhoto(activeReportDetail);
+      const reportNote = getReportNote(activeReportDetail);
+
       return (
-        <div className={`overflow-y-auto flex-1 min-h-0 space-y-2 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-2.5 pb-2" : "p-2.5"}`}>
+        <div className={`overflow-y-auto flex-1 min-h-0 space-y-3 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-3 pb-2" : "p-2.5"}`}>
           {/* Header Info Kejadian */}
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
               <span
-                className={`px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold border ${activeReportDetail.severity === "CRITICAL"
-                  ? "bg-rose-100 text-rose-800 border-rose-300"
-                  : "bg-amber-100 text-amber-800 border-amber-300"
-                  }`}
+                className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold border ${
+                  activeReportDetail.severity === "CRITICAL"
+                    ? "bg-rose-100 text-rose-800 border-rose-300"
+                    : "bg-amber-100 text-amber-800 border-amber-300"
+                }`}
               >
                 {activeReportDetail.severity === "CRITICAL" ? "🔴 BANJIR ROB KRITIS" : "🟠 GENANGAN SEDANG"}
               </span>
-              <span className="text-[9.5px] text-[#718783] font-bold">
-                {activeReportDetail.timeAgo}
+              <span className="text-[11px] text-[#718783] font-medium flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{activeReportDetail.timeAgo}</span>
               </span>
             </div>
-            <h3 className="text-xs font-black text-[#132422] leading-snug">
+            <h3 className="text-sm font-black text-[#132422] leading-snug">
               {activeReportDetail.title}
             </h3>
-            <p className="text-[10px] text-[#4B635F] flex items-center gap-1 truncate">
-              <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
+            <p className="text-xs text-[#4B635F] flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
               <span className="truncate">{activeReportDetail.location}</span>
             </p>
           </div>
 
-          {/* Bukti Foto Laporan Warga / Kamera AI */}
-          {activeReportDetail.photos && activeReportDetail.photos.length > 0 && (
-            <div className="rounded-xl overflow-hidden border border-[#D5E4E0] bg-slate-100 max-h-36 w-full">
+          {/* Bukti Foto Laporan Lapangan */}
+          {reportPhoto ? (
+            <div className="w-full h-40 rounded-xl overflow-hidden mt-3 mb-4 shadow-sm border border-slate-200/80 bg-slate-100">
               <img
-                src={activeReportDetail.photos[0]}
-                alt="Bukti Foto Aduan"
-                className="w-full h-32 object-cover"
+                src={reportPhoto}
+                alt={activeReportDetail.title}
+                className="w-full h-40 object-cover rounded-xl"
+                loading="eager"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src =
+                    "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80";
+                }}
               />
+            </div>
+          ) : (
+            <div className="w-full h-24 rounded-xl mt-3 mb-4 bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-1">
+              <ImageIcon className="w-5 h-5 text-slate-300" />
+              <span className="text-[11px] font-medium text-slate-400">Tidak ada foto bukti lapangan</span>
             </div>
           )}
 
           {/* Parameter TMA & Status */}
-          <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10.5px]">
+          <div className="grid grid-cols-2 gap-2 p-2 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[11px]">
             <div>
-              <span className="text-[8.5px] text-[#64748B] block">Ketinggian Air</span>
-              <strong className="text-[11px] font-black text-[#132422]">
+              <span className="text-[9px] text-[#64748B] block font-medium">Ketinggian Air</span>
+              <strong className="text-xs font-black text-[#132422]">
                 {activeReportDetail.waterLevelText || "±30 - 75 cm"}
               </strong>
             </div>
             <div>
-              <span className="text-[8.5px] text-[#64748B] block">Status</span>
-              <strong className="text-[10px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
-                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+              <span className="text-[9px] text-[#64748B] block font-medium">Status</span>
+              <strong className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                 <span className="truncate">{activeReportDetail.status}</span>
               </strong>
             </div>
           </div>
 
-          {/* Catatan / Keterangan Penanganan Petugas */}
-          {activeReportDetail.note && (
-            <div className="p-2 rounded-xl bg-[#F8FAF9] border border-gray-100 text-[10px] text-[#4B635F]">
-              <span className="font-extrabold text-[#132422] block mb-0.5">Catatan Aduan:</span>
-              <p className="leading-relaxed">{activeReportDetail.note}</p>
+          {/* Catatan / Keterangan Lapangan */}
+          {reportNote && (
+            <div className="p-2.5 rounded-xl bg-[#F8FAF9] border border-gray-100 text-xs text-[#4B635F]">
+              <span className="font-bold text-[#132422] block mb-0.5 text-[11px]">Catatan Lapangan:</span>
+              <p className="leading-relaxed text-[11.5px]">{reportNote}</p>
             </div>
           )}
 
           {/* Peringatan Petugas BPBD */}
-          <div className="text-[9.5px] p-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-900 flex items-start gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-            <span className="leading-tight text-amber-800">
+          <div className="text-[10.5px] p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-900 flex items-start gap-2 shadow-2xs">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <span className="leading-relaxed text-amber-800 font-medium">
               Hindari melintasi titik ini. Gunakan jalur evakuasi aman bebas genangan.
             </span>
           </div>
@@ -4734,9 +4945,9 @@ export default function WargaSpatialMap({
                   setTimeout(() => setToastMessage(null), 2500);
                 }
               }}
-              className="w-full py-1.5 px-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-slate-700 text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+              className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-[0.98]"
             >
-              <Share2 className="w-3 h-3 text-sky-600" />
+              <Share2 className="w-3.5 h-3.5 text-sky-600" />
               <span>Bagikan Lokasi Kejadian</span>
             </button>
           </div>

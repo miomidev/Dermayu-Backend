@@ -30,6 +30,7 @@ export interface PoskoItem {
   kontak: { pj: string; telp: string };
   foto: string;
   fotos?: string[];
+  photos?: string[];
   tier: 1 | 2 | 3 | 4 | 5;
   petugasId?: string;
   isActive?: boolean;
@@ -48,7 +49,16 @@ export interface FloodObstacle {
   status: string;
   radius: number; // in meters (200m)
   description: string;
+  photoUrl?: string;
+  photos?: string[];
 }
+
+export const REALISTIC_FLOOD_PHOTOS: string[] = [
+  "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1508873696983-2df570464753?auto=format&fit=crop&w=800&q=80",
+];
 
 export const CURATED_POSKO_LIST: PoskoItem[] = [
   {

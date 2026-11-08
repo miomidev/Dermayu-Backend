@@ -638,7 +638,7 @@ export function AppHeader({
                     <div className="flex items-center gap-2 mt-4">
                       {/* Tombol 1: Solid Putih / Teks Hijau */}
                       <Link
-                        href="/petugas/telemetri"
+                        href="/petugas/peta-sar"
                         replace
                         scroll={false}
                         className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-full bg-white text-[#1D443F] text-[11px] sm:text-xs font-black shadow-md hover:bg-emerald-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap"

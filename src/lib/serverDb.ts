@@ -6,6 +6,7 @@ export interface PoskoRecord extends PoskoItem {
   petugasId: string;
   isActive: boolean;
   pengungsi?: PengungsiItem[];
+  photos?: string[];
 }
 
 export interface StoredReportPoint {
@@ -40,24 +41,6 @@ function ensureDbDir() {
     fs.mkdirSync(DB_DIR, { recursive: true });
   }
 }
-
-const DEFAULT_SHELTER_GALLERIES: Record<string, string[]> = {
-  sekolah: [
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-  ],
-  masjid: [
-    "https://images.unsplash.com/photo-1590076215667-873d3b76cf50?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-  ],
-  gor: [
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-  ],
-};
 
 function generateInitialPengungsi(poskoId: string, terisi: number, alamat: string): PengungsiItem[] {
   const namedSamples: Array<{
@@ -134,13 +117,14 @@ function getInitialPoskoDataset(): PoskoRecord[] {
       ? "petugas-02"
       : "petugas-03";
 
-    const defaultGallery =
-      DEFAULT_SHELTER_GALLERIES[item.kategori] || DEFAULT_SHELTER_GALLERIES.sekolah;
-
     const fotos =
-      item.fotos && item.fotos.length > 0
+      item.photos && item.photos.length > 0
+        ? item.photos
+        : item.fotos && item.fotos.length > 0
         ? item.fotos
-        : [item.foto || defaultGallery[0], ...defaultGallery.slice(1)];
+        : item.foto
+        ? [item.foto]
+        : [];
 
     const pengungsi =
       item.pengungsi && item.pengungsi.length > 0
@@ -159,7 +143,9 @@ function getInitialPoskoDataset(): PoskoRecord[] {
       ...item,
       petugasId: item.petugasId || petugasId,
       isActive: item.isActive !== undefined ? item.isActive : true,
+      foto: fotos[0] || item.foto || "",
       fotos,
+      photos: fotos,
       pengungsi,
       terisi: actualTerisi,
       status: calculatedStatus,
@@ -203,22 +189,63 @@ function getInitialReportsDataset(): StoredReportPoint[] {
 }
 
 // ============================================================================
-// POSKO DATABASE OPERATIONS (SERVER-SIDE PERSISTENCE)
+// POSKO DATABASE OPERATIONS (SERVER-SIDE PERSISTENCE & SSOT)
 // ============================================================================
+
+export function normalizePoskoRecord(raw: any): PoskoRecord {
+  const kategori = raw.kategori || "balai_desa";
+
+  let photos: string[] = [];
+  if (Array.isArray(raw.photos) && raw.photos.length > 0) {
+    photos = raw.photos.filter((p: any) => typeof p === "string" && !p.includes("default.jpg"));
+  } else if (Array.isArray(raw.fotos) && raw.fotos.length > 0) {
+    photos = raw.fotos.filter((p: any) => typeof p === "string" && !p.includes("default.jpg"));
+  } else if (raw.foto && typeof raw.foto === "string" && !raw.foto.includes("default.jpg")) {
+    photos = [raw.foto];
+  }
+
+  return {
+    ...raw,
+    foto: photos[0] || raw.foto || "",
+    fotos: photos,
+    photos: photos,
+    kategori,
+    isActive: raw.isActive !== undefined ? Boolean(raw.isActive) : true,
+    pengungsi: Array.isArray(raw.pengungsi) ? raw.pengungsi : [],
+  };
+}
+
+export function seedDatabasePosko(force = false): PoskoRecord[] {
+  ensureDbDir();
+  const dataset = getInitialPoskoDataset();
+  cachedPosko = dataset;
+  fs.writeFileSync(POSKO_FILE, JSON.stringify(dataset, null, 2), "utf-8");
+  return dataset;
+}
 
 export function getDbPoskoList(): PoskoRecord[] {
   if (cachedPosko) return cachedPosko;
   ensureDbDir();
   try {
     if (!fs.existsSync(POSKO_FILE)) {
-      const initial = getInitialPoskoDataset();
-      cachedPosko = initial;
-      fs.writeFileSync(POSKO_FILE, JSON.stringify(initial, null, 2), "utf-8");
-      return initial;
+      return seedDatabasePosko();
     }
     const raw = fs.readFileSync(POSKO_FILE, "utf-8");
-    cachedPosko = JSON.parse(raw);
-    return cachedPosko!;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return seedDatabasePosko();
+    }
+
+    // Filter keluar data dummy yang rusak saat error upload sebelumnya ("fdsf", "fgfgfds", "dfsa")
+    const cleaned = parsed
+      .filter((p: any) => {
+        const isDummy = p.nama === "fdsf" || p.nama === "fgfgfds" || p.nama === "dfsa";
+        return !isDummy;
+      })
+      .map(normalizePoskoRecord);
+
+    cachedPosko = cleaned;
+    return cleaned;
   } catch (err) {
     console.error("Error reading posko database:", err);
     return getInitialPoskoDataset();
@@ -257,6 +284,7 @@ export function createDbPosko(
     kontak: { pj: string; telp: string };
     foto?: string;
     fotos?: string[];
+    photos?: string[];
   },
   currentUser: { id: string }
 ): PoskoRecord {
@@ -264,12 +292,19 @@ export function createDbPosko(
   const nextNumber = all.length + 1;
   const newId = `sh-${String(nextNumber).padStart(3, "0")}-${Date.now().toString().slice(-4)}`;
 
-  const fotos = data.fotos && data.fotos.length > 0 ? data.fotos : (data.foto ? [data.foto] : ["/shelters/default.jpg"]);
+  const kategori = data.kategori || "balai_desa";
+
+  let incomingPhotos = data.photos || data.fotos || [];
+  if (incomingPhotos.length === 0 && data.foto && !data.foto.includes("default.jpg")) {
+    incomingPhotos = [data.foto];
+  }
+  const cleanPhotos = incomingPhotos.filter((p) => typeof p === "string" && !p.includes("default.jpg"));
+  const finalPhotos = cleanPhotos;
 
   const newRecord: PoskoRecord = {
     id: newId,
     nama: data.nama,
-    kategori: data.kategori || "balai_desa",
+    kategori,
     alamat: data.alamat,
     kecamatan: data.kecamatan,
     lat: data.lat,
@@ -282,8 +317,9 @@ export function createDbPosko(
       pj: data.kontak?.pj || "Petugas Jaga",
       telp: data.kontak?.telp || "0812-3456-7890",
     },
-    foto: fotos[0],
-    fotos: fotos,
+    foto: finalPhotos[0] || data.foto || "",
+    fotos: finalPhotos,
+    photos: finalPhotos,
     tier: 1,
     petugasId: currentUser.id || "petugas-01",
     isActive: true,
@@ -318,6 +354,11 @@ export function updateDbPosko(
       ? "HAMPIR_PENUH"
       : "TERSEDIA";
 
+  let photos = updates.photos || updates.fotos || target.photos || target.fotos || [target.foto];
+  if (updates.foto && !photos.includes(updates.foto)) {
+    photos = [updates.foto, ...photos];
+  }
+
   const updated: PoskoRecord = {
     ...target,
     ...updates,
@@ -327,6 +368,9 @@ export function updateDbPosko(
     terisi,
     status,
     pengungsi,
+    foto: photos[0],
+    fotos: photos,
+    photos: photos,
   };
 
   const nextList = all.map((p) => (p.id === poskoId ? updated : p));

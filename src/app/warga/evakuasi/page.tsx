@@ -17,7 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
-import { FLOOD_OBSTACLES } from "@/data/curatedEvakuasiData";
+import { FLOOD_OBSTACLES, REALISTIC_FLOOD_PHOTOS } from "@/data/curatedEvakuasiData";
 import { getWargaPosko, fetchPoskoFromApi } from "@/utils/poskoService";
 import type {
   MapReportPoint,
@@ -567,11 +567,14 @@ export default function WargaEvakuasiPage() {
     lat: obs.lat,
     lng: obs.lng,
     timeAgo: "Aktif Terpantau",
+    photos: [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+    photoUrl: REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
+    note: obs.description,
   }));
 
   const mapReportPoints: MapReportPoint[] = [
     ...floodObstacleReports,
-    ...complaints.map((c) => ({
+    ...complaints.map((c, idx) => ({
       id: c.id,
       ticketCode: c.ticketCode,
       title: c.title,
@@ -588,12 +591,19 @@ export default function WargaEvakuasiPage() {
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
       timeAgo: c.createdAt,
-      photos: c.photos,
+      photos:
+        c.photos && c.photos.length > 0
+          ? c.photos
+          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+      photoUrl:
+        c.photos && c.photos.length > 0
+          ? c.photos[0]
+          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
       note: c.note,
       aiScore: c.aiScore,
       urgentNeeds: c.urgentNeeds,
     })),
-    ...communityReports.map((c) => ({
+    ...communityReports.map((c, idx) => ({
       id: c.id,
       ticketCode: c.ticketCode,
       title: c.title,
@@ -605,30 +615,50 @@ export default function WargaEvakuasiPage() {
       lat: c.lat || -6.2842,
       lng: c.lng || 108.2635,
       timeAgo: c.createdAt,
-      photos: c.photos,
+      photos:
+        c.photos && c.photos.length > 0
+          ? c.photos
+          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+      photoUrl:
+        c.photos && c.photos.length > 0
+          ? c.photos[0]
+          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
       note: c.note,
       urgentNeeds: c.urgentNeeds,
     })),
   ];
 
-  const mapShelterPoints: MapShelterPoint[] = wargaPoskoData.map((p) => ({
-    id: p.id,
-    name: p.nama,
-    location: p.alamat,
-    district: p.kecamatan,
-    distance: "Menghitung jarak...",
-    capacityTotal: p.kapasitas,
-    capacityFilled: p.terisi,
-    status: p.status,
-    contactPerson: p.kontak.pj,
-    contactPhone: p.kontak.telp,
-    lat: p.lat,
-    lng: p.lng,
-    facilities: p.fasilitas,
-    kategori: p.kategori,
-    foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-    tier: p.tier,
-  }));
+  const mapShelterPoints: MapShelterPoint[] = wargaPoskoData.map((p) => {
+    const rawPhotos =
+      p.photos && p.photos.length > 0
+        ? p.photos
+        : p.fotos && p.fotos.length > 0
+        ? p.fotos
+        : p.foto
+        ? [p.foto]
+        : [];
+    const photos = rawPhotos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
+    return {
+      id: p.id,
+      name: p.nama,
+      location: p.alamat,
+      district: p.kecamatan,
+      distance: "Menghitung jarak...",
+      capacityTotal: p.kapasitas,
+      capacityFilled: p.terisi,
+      status: p.status,
+      contactPerson: p.kontak.pj,
+      contactPhone: p.kontak.telp,
+      lat: p.lat,
+      lng: p.lng,
+      facilities: p.fasilitas,
+      kategori: p.kategori,
+      foto: photos[0] || p.foto || "",
+      fotos: photos,
+      photos: photos,
+      tier: p.tier,
+    };
+  });
 
   return (
     <>

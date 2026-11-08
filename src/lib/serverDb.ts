@@ -37,8 +37,12 @@ let isWritingReports = false;
 let pendingReports: StoredReportPoint[] | null = null;
 
 function ensureDbDir() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("Warning: Could not create DB_DIR, using in-memory state:", err);
   }
 }
 
@@ -219,7 +223,11 @@ export function seedDatabasePosko(force = false): PoskoRecord[] {
   ensureDbDir();
   const dataset = getInitialPoskoDataset();
   cachedPosko = dataset;
-  fs.writeFileSync(POSKO_FILE, JSON.stringify(dataset, null, 2), "utf-8");
+  try {
+    fs.writeFileSync(POSKO_FILE, JSON.stringify(dataset, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Warning: Could not write posko.json to disk:", err);
+  }
   return dataset;
 }
 

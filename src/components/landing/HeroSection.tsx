@@ -215,7 +215,7 @@ export function HeroSection() {
                   priority={true}
                   quality={100}
                   sizes="(max-width: 768px) 100vw, 50vw"
-                  className="w-full h-full object-cover object-top select-none scale-[1.03] origin-center"
+                  className="w-full h-full object-fill select-none"
                 />
               </div>
 

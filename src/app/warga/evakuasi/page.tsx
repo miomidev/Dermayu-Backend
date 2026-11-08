@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   ShieldCheck,
@@ -106,7 +107,15 @@ interface EmergencyContactItem {
   badge: string;
 }
 
-export default function WargaEvakuasiPage() {
+function WargaEvakuasiContent() {
+  const searchParams = useSearchParams();
+  const reportIdParam = searchParams.get("reportId") || undefined;
+  const latParam = searchParams.get("lat");
+  const lngParam = searchParams.get("lng");
+  const focusCoords =
+    latParam && lngParam
+      ? { lat: parseFloat(latParam), lng: parseFloat(lngParam) }
+      : undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [, setSession] = useState<UserSession>({
@@ -243,43 +252,87 @@ export default function WargaEvakuasiPage() {
     };
   }, []);
 
-  // Community Reports (Laporan warga sekitar)
+  // Community Reports (Laporan warga sekitar tersinkronisasi)
   const [communityReports] = useState<ComplaintTicket[]>([
     {
-      id: "c-1",
-      ticketCode: "DMY-20261030-0094",
+      id: "DMY-PUB-01",
+      ticketCode: "DMY-PUB-01",
       category: "FLOOD",
-      categoryLabel: "Genangan Pasang",
-      title: "Air Pasang Merendam Akses Jalan Muara Cantigi",
-      location: "Desa Cemara Kulon, Cantigi",
+      categoryLabel: "Rob Pemukiman",
+      title: "Air pasang rob laut rendam jalan pemukiman nelayan",
+      location: "Blok Karanganyar RT 04 / RW 02, Eretan Wetan",
       severity: "HIGH",
-      waterLevel: "THIGH",
-      waterLevelText: "Setinggi Paha (75 cm)",
+      waterLevel: "KNEE",
+      waterLevelText: "Setinggi Lutut (55 cm)",
       status: "IN_PROGRESS",
-      createdAt: "45 Menit lalu",
-      note: "Petugas BPBD Pos Cantigi telah memasang rambu peringatan dan penutupan jalur.",
-      photos: [],
-      urgentNeeds: ["Penutupan Jalur"],
-      lat: -6.2842,
-      lng: 108.2635,
+      createdAt: "15 Menit lalu",
+      note: "Regu SAR Pos Eretan bersama 1 perahu karet LCR sedang bergerak evakuasi warga rentan.",
+      photos: [
+        "https://images.unsplash.com/photo-1534862262637-373c120dcbcc?auto=format&fit=crop&w=600&q=80",
+      ],
+      urgentNeeds: ["Perahu Karet Evakuasi", "Bantuan Lansia"],
+      lat: -6.3475,
+      lng: 108.1189,
     },
     {
-      id: "c-2",
-      ticketCode: "DMY-20261030-0081",
-      category: "DRAINAGE",
-      categoryLabel: "Drainase Mampet",
-      title: "Sumbatan Eceng Gondok di Saluran Pembuang Losarang",
-      location: "Blok Jembatan Putih, Losarang",
+      id: "DMY-PUB-02",
+      ticketCode: "DMY-PUB-02",
+      category: "LEVEE",
+      categoryLabel: "Rembesan Tanggul",
+      title: "Rembesan tanggul tanah saluran tambak mendekati pemukiman",
+      location: "Blok Tanggul RT 02 / RW 01, Cantigi Kulon",
       severity: "MEDIUM",
       waterLevel: "ANKLE",
       waterLevelText: "Semata Kaki (30 cm)",
       status: "VERIFIED",
-      createdAt: "2 Jam lalu",
-      note: "Dikoordinasikan dengan Dinas PUPR & Satlak Kecamatan.",
-      photos: [],
+      createdAt: "45 Menit lalu",
+      note: "Posko menyiapkan 150 karung pasir bronjong darurat untuk pengamanan darurat tanggul.",
+      photos: [
+        "https://images.unsplash.com/photo-1672559987522-897ef4612604?auto=format&fit=crop&w=600&q=80",
+      ],
+      urgentNeeds: ["Karung Pasir Bronjong"],
+      lat: -6.2842,
+      lng: 108.2635,
+    },
+    {
+      id: "DMY-PUB-03",
+      ticketCode: "DMY-PUB-03",
+      category: "DRAINAGE",
+      categoryLabel: "Drainase Mampet",
+      title: "Drainase pembuang sekunder tersumbat eceng gondok & sampah ranting",
+      location: "Jl. Muara Lama KM 2, Parean Girang",
+      severity: "MEDIUM",
+      waterLevel: "KNEE",
+      waterLevelText: "Genangan 40 cm",
+      status: "IN_PROGRESS",
+      createdAt: "1 Jam lalu",
+      note: "Satgas Dinas PUPR Indramayu bersama relawan telah mulai pembersihan pintu air saluran pembuang.",
+      photos: [
+        "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=600&q=80",
+      ],
       urgentNeeds: ["Alat Berat Mini"],
-      lat: -6.4021,
-      lng: 108.1634,
+      lat: -6.368,
+      lng: 108.092,
+    },
+    {
+      id: "DMY-PUB-04",
+      ticketCode: "DMY-PUB-04",
+      category: "FLOOD",
+      categoryLabel: "Limpasan Dermaga",
+      title: "Limpasan gelombang pasang rob di area dermaga perahu",
+      location: "Dermaga Muara Karangsong, Indramayu",
+      severity: "LOW",
+      waterLevel: "ANKLE",
+      waterLevelText: "Semata Kaki (25 cm)",
+      status: "VERIFIED",
+      createdAt: "2 Jam lalu",
+      note: "Pompa submersible menyala normal, genangan air berangsur surut kembali ke alur muara sungai.",
+      photos: [
+        "https://images.unsplash.com/photo-1741110539426-fce3268c3c0d?auto=format&fit=crop&w=600&q=80",
+      ],
+      urgentNeeds: ["Pompa Sedot"],
+      lat: -6.315,
+      lng: 108.358,
     },
   ]);
 
@@ -640,6 +693,8 @@ export default function WargaEvakuasiPage() {
           telemetry={telemetryPoints}
           onOpenReport={() => setShowReportModal(true)}
           onOpenContacts={() => setShowContactsModal(true)}
+          focusReportId={reportIdParam}
+          focusCoords={focusCoords}
         />
       </div>
 
@@ -947,5 +1002,19 @@ export default function WargaEvakuasiPage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function WargaEvakuasiPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full h-full flex items-center justify-center bg-[#EEF5F3] text-[#4B635F] text-xs font-semibold">
+          Memuat Peta Spasial...
+        </div>
+      }
+    >
+      <WargaEvakuasiContent />
+    </Suspense>
   );
 }

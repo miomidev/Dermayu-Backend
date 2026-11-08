@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   AlertCircle,
@@ -83,6 +84,8 @@ export interface OtherCitizenReport {
   statusNote: string;
   similarCount: number;
   isUpvoted?: boolean;
+  lat: number;
+  lng: number;
 }
 
 const STATUS_CONFIG: Record<
@@ -136,16 +139,16 @@ const initialReports: ReportTicket[] = [
     id: "DMY-20261102-8912",
     category: "Banjir / Rob Pesisir",
     categoryCode: "FLOOD",
-    title: "Air pasang rob masuk pekarangan & pemukiman setinggi 60 cm",
-    location: "Blok Karanganyar RT 04 / RW 02, Desa Eretan Wetan",
+    title: "Air pasang rob masuk pekarangan rumah setinggi 45 cm",
+    location: "Blok Karanganyar RT 01 / RW 03, Desa Eretan Wetan",
     time: "Hari ini, 13:05 WIB",
     status: "PENANGANAN",
     statusNote:
       "Regu SAR LCR 02 BPBD Indramayu telah meluncur membawa 2 perahu evakuasi menuju lokasi.",
     severity: "HIGH",
-    waterLevel: "Setinggi Lutut (60 cm)",
+    waterLevel: "Setinggi Lutut (45 cm)",
     photos: [
-      "https://images.unsplash.com/photo-1534862262637-373c120dcbcc?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=600&q=80",
     ],
     aiConfidence: 0.94,
     gps: { lat: -6.3475, lng: 108.1189, accuracy: 6 },
@@ -154,16 +157,16 @@ const initialReports: ReportTicket[] = [
     id: "DMY-20261101-7421",
     category: "Tanggul Kritis / Jebol",
     categoryCode: "LEVEE",
-    title: "Rembesan tanggul tanah saluran sekunder dekat tambak",
-    location: "Blok Tanggul RT 02 / RW 01, Desa Cantigi Kulon",
+    title: "Genangan rembesan saluran drainase sekunder dekat jalan desa",
+    location: "Blok Balai RT 03 / RW 02, Desa Cantigi Kulon",
     time: "Kemarin, 17:20 WIB",
     status: "SELESAI",
     statusNote:
       "Penambalan darurat 150 karung pasir telah tuntas dipasang oleh tim relawan dan aparat desa.",
     severity: "MEDIUM",
-    waterLevel: "Semata Kaki (35 cm)",
+    waterLevel: "Semata Kaki (25 cm)",
     photos: [
-      "https://images.unsplash.com/photo-1672559987522-897ef4612604?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80",
     ],
     aiConfidence: 0.91,
     gps: { lat: -6.2842, lng: 108.2635, accuracy: 12 },
@@ -190,6 +193,8 @@ const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
     statusNote:
       "Regu SAR Pos Eretan bersama 1 perahu karet LCR sedang bergerak evakuasi warga rentan.",
     similarCount: 14,
+    lat: -6.3475,
+    lng: 108.1189,
   },
   {
     id: "DMY-PUB-02",
@@ -210,6 +215,8 @@ const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
     statusNote:
       "Posko menyiapkan 150 karung pasir bronjong darurat untuk pengamanan darurat tanggul.",
     similarCount: 8,
+    lat: -6.2842,
+    lng: 108.2635,
   },
   {
     id: "DMY-PUB-03",
@@ -230,6 +237,8 @@ const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
     statusNote:
       "Satgas Dinas PUPR Indramayu bersama relawan telah mulai pembersihan pintu air saluran pembuang.",
     similarCount: 6,
+    lat: -6.368,
+    lng: 108.092,
   },
   {
     id: "DMY-PUB-04",
@@ -250,6 +259,8 @@ const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
     statusNote:
       "Pompa submersible menyala normal, genangan air berangsur surut kembali ke alur muara sungai.",
     similarCount: 19,
+    lat: -6.315,
+    lng: 108.358,
   },
 ];
 
@@ -261,8 +272,6 @@ export default function WargaLaporPage() {
   // Responsive Mobile Tab Switcher: "FORM" | "HISTORY" (Active only on small screens < lg)
   const [mobileTab, setMobileTab] = useState<"FORM" | "HISTORY">("FORM");
 
-  // Feed Tab Switcher for Card 2: "OTHERS" (Warga Sekitar) | "MY" (Aduan Saya)
-  const [feedTab, setFeedTab] = useState<"OTHERS" | "MY">("OTHERS");
   const [otherReports, setOtherReports] = useState<OtherCitizenReport[]>(
     INITIAL_OTHER_CITIZEN_REPORTS
   );
@@ -543,8 +552,7 @@ export default function WargaLaporPage() {
     setPhotos([]);
     setAiScanResult(null);
 
-    // Otomatis pindah ke tab Aduan Saya agar warga langsung melihat tiket baru
-    setFeedTab("MY");
+    // Otomatis pindah ke tab riwayat aduan agar warga langsung melihat tiket baru
     setMobileTab("HISTORY");
   };
 
@@ -666,7 +674,7 @@ export default function WargaLaporPage() {
           }`}
         >
           <Camera className="w-4 h-4" />
-          <span>Buat Laporan</span>
+          <span>Form Lapor &amp; Warga Sekitar</span>
         </button>
         <button
           type="button"
@@ -678,7 +686,7 @@ export default function WargaLaporPage() {
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Pantauan &amp; Aduan</span>
+          <span>Posko &amp; Aduan Saya</span>
           <span
             className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
               mobileTab === "HISTORY"
@@ -686,7 +694,7 @@ export default function WargaLaporPage() {
                 : "bg-[#EEF5F3] text-[#1D443F]"
             }`}
           >
-            {reports.length + otherReports.length}
+            {reports.length}
           </span>
         </button>
       </div>
@@ -769,32 +777,228 @@ export default function WargaLaporPage() {
                   </div>
                 </div>
 
-                {/* Banner Akses Cepat Pantau Aduan Warga Sekitar */}
-                <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-white text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0 shadow-2xs">
-                      <Users className="w-4.5 h-4.5" />
+                {/* Bagian Pantau Aduan Warga Sekitar (Menampilkan seluruh informasi aduan warga secara langsung) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#38746D]/15">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-white text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Users className="w-4.5 h-4.5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-[#132422]">
+                            Pantau {otherReports.length} Aduan Warga Sekitar
+                          </h4>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Terkini
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#4B635F]">
+                          Warga di Eretan Wetan, Cantigi, &amp; Kandanghaur telah mengirimkan kondisi rob terbaru.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#132422]">
-                        Pantau 4 Aduan Warga Sekitar
-                      </h4>
-                      <p className="text-[11px] text-[#4B635F]">
-                        Warga di Eretan Wetan, Cantigi, &amp; Kandanghaur telah mengirimkan kondisi rob terbaru.
-                      </p>
-                    </div>
+
+                    <Link
+                      href="/warga/evakuasi"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-[#88BDB6]" />
+                      <span>Lihat di Peta Spasial</span>
+                      <ChevronRight className="w-3 h-3 text-[#88BDB6]" />
+                    </Link>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeedTab("OTHERS");
-                      setMobileTab("HISTORY");
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all cursor-pointer shrink-0"
-                  >
-                    <span>Lihat Aduan Warga</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[#88BDB6]" />
-                  </button>
+
+                  {/* Daftar Seluruh Informasi Aduan Warga Sekitar */}
+                  <div className="space-y-3.5">
+                    {otherReports.map((item) => {
+                      const statusStyle = STATUS_CONFIG[item.status] || {
+                        dotClass: "bg-gray-400",
+                        badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
+                        textClass: "text-gray-700",
+                        label: item.status,
+                      };
+
+                      return (
+                        <div
+                          key={`feed-${item.id}`}
+                          className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#D5E4E0] hover:border-[#88BDB6] transition-all space-y-3 shadow-2xs"
+                        >
+                          {/* Baris 1: Profil Warga Pelapor, Status & Waktu */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-[#1D443F] text-[#88BDB6] text-xs font-extrabold flex items-center justify-center shrink-0 shadow-2xs">
+                                {item.authorName.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-bold text-[#132422]">
+                                    {item.authorName}
+                                  </span>
+                                  <span
+                                    className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${
+                                      item.authorRole === "Relawan Tagana"
+                                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                        : item.authorRole === "Aparat Desa"
+                                        ? "bg-sky-100 text-sky-800 border border-sky-200"
+                                        : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/15"
+                                    }`}
+                                  >
+                                    {item.authorRole}
+                                  </span>
+                                </div>
+                                <p className="text-[10.5px] text-[#718783] flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
+                                  <span className="truncate">{item.authorVillage}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className="text-[10.5px] text-gray-500 flex items-center gap-1 shrink-0 font-medium bg-[#F8FAF9] px-2 py-0.5 rounded-lg border border-gray-200">
+                              <Clock className="w-3 h-3 text-gray-400" />
+                              {item.timeAgo}
+                            </span>
+                          </div>
+
+                          {/* Baris 2: Judul & Keterangan Aduan */}
+                          <div className="space-y-1">
+                            <Link
+                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.lat}&lng=${item.lng}`}
+                              className="group/title block hover:underline"
+                            >
+                              <h5 className="text-xs sm:text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                                {item.title}
+                              </h5>
+                            </Link>
+                            <p className="text-[11.5px] text-[#4B635F] leading-relaxed">
+                              {item.description}
+                            </p>
+                          </div>
+
+                          {/* Baris 3: Foto Bukti & Detail Parameter (Kedalaman, AI, Lokasi) */}
+                          <div className="flex items-start gap-3">
+                            {item.photoUrl && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewImage({ url: item.photoUrl, title: item.title })
+                                }
+                                className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shrink-0 group cursor-pointer"
+                              >
+                                <img
+                                  src={item.photoUrl}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                  <Eye className="w-4 h-4" />
+                                </div>
+                              </button>
+                            )}
+
+                            <div className="flex-1 space-y-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[10.5px] font-bold">
+                                  <Waves className="w-3 h-3 text-sky-600" />
+                                  {item.waterLevelText}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-bold">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                  {(item.aiConfidence * 100).toFixed(0)}% Valid
+                                </span>
+                              </div>
+
+                              <p className="text-[10.5px] text-[#718783] line-clamp-2">
+                                <span className="font-semibold text-gray-700">Patokan:</span> {item.location}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Baris 4: Status Penanganan & Catatan Petugas */}
+                          <div className="pt-2 border-t border-gray-100 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    item.status === "PENANGANAN"
+                                      ? "bg-sky-500 animate-pulse"
+                                      : item.status === "SELESAI"
+                                      ? "bg-teal-600"
+                                      : "bg-emerald-500"
+                                  }`}
+                                />
+                                <span className="text-[11px] font-bold text-[#132422]">
+                                  {item.status === "PENANGANAN"
+                                    ? "Regu SAR Menuju Lokasi"
+                                    : item.status === "SELESAI"
+                                    ? "Tindakan Lapangan Selesai"
+                                    : "Terverifikasi Posko Siaga"}
+                                </span>
+                              </div>
+                              <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${statusStyle.badgeClass}`}>
+                                {item.status}
+                              </span>
+                            </div>
+                            <p className="text-[10.5px] text-gray-600 leading-relaxed bg-[#F8FAF9] p-2 rounded-lg border border-gray-100">
+                              {item.statusNote}
+                            </p>
+                          </div>
+
+                          {/* Baris 5: Tombol Aksi & Interaksi */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSimilar(item.id)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                                  item.isUpvoted
+                                    ? "bg-[#38746D] text-white shadow-2xs"
+                                    : "bg-[#F8FAF9] hover:bg-emerald-50 text-[#1D443F] border border-[#D5E4E0]"
+                                }`}
+                              >
+                                <ThumbsUp
+                                  className={`w-3.5 h-3.5 ${
+                                    item.isUpvoted ? "text-[#88BDB6]" : "text-[#38746D]"
+                                  }`}
+                                />
+                                <span>Terdampak Juga</span>
+                                <span
+                                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                                    item.isUpvoted
+                                      ? "bg-white/20 text-white"
+                                      : "bg-[#EEF5F3] text-[#1D443F]"
+                                  }`}
+                                >
+                                  {item.similarCount}
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleShareReport(item)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-medium text-[#4B635F] hover:text-[#132422] hover:bg-gray-100 transition-colors cursor-pointer"
+                              >
+                                <Share2 className="w-3.5 h-3.5 text-[#38746D]" />
+                                <span>
+                                  {copiedReportId === item.id ? "Tautan Disalin!" : "Bagikan"}
+                                </span>
+                              </button>
+                            </div>
+
+                            <Link
+                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.lat}&lng=${item.lng}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] active:scale-95 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer ml-auto"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-[#88BDB6]" />
+                              <span>Buka di Peta</span>
+                              <ChevronRight className="w-3 h-3 text-[#88BDB6]" />
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* 3 Panduan Pelaporan yang Praktis */}
@@ -1112,247 +1316,29 @@ export default function WargaLaporPage() {
             </div>
           </div>
 
-          {/* Card 2: Pantauan Aduan Warga & Riwayat Aduan Saya */}
+          {/* Card 2: Riwayat Aduan Saya & Status Tiket SAR */}
           <div className="bg-white rounded-3xl border border-[#D5E4E0] p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#D5E4E0]/60">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-[#132422]">
-                  Pantauan &amp; Aduan Warga
-                </h3>
-                <p className="text-xs text-[#4B635F]">
-                  Laporan masuk warga Indramayu &amp; status tindak lanjut SAR
-                </p>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[#132422]">
+                    Riwayat Aduan Saya
+                  </h3>
+                  <p className="text-xs text-[#4B635F]">
+                    Tiket laporan darurat Anda &amp; status penanganan tim SAR
+                  </p>
+                </div>
               </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] font-bold text-xs border border-[#38746D]/20">
+                {reports.length} Tiket
+              </span>
             </div>
 
-            {/* Sub-tab Switcher: Warga Sekitar vs Aduan Saya */}
-            <div className="flex items-center p-1 rounded-2xl bg-[#EEF5F3] border border-[#D5E4E0]">
-              <button
-                type="button"
-                onClick={() => setFeedTab("OTHERS")}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  feedTab === "OTHERS"
-                    ? "bg-white text-[#1D443F] shadow-xs"
-                    : "text-[#4B635F] hover:text-[#132422]"
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-[#38746D]" />
-                <span>Warga Sekitar</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                    feedTab === "OTHERS"
-                      ? "bg-[#EEF5F3] text-[#1D443F]"
-                      : "bg-white/80 text-[#4B635F]"
-                  }`}
-                >
-                  {otherReports.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFeedTab("MY")}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  feedTab === "MY"
-                    ? "bg-white text-[#1D443F] shadow-xs"
-                    : "text-[#4B635F] hover:text-[#132422]"
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5 text-[#38746D]" />
-                <span>Aduan Saya</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                    feedTab === "MY"
-                      ? "bg-[#EEF5F3] text-[#1D443F]"
-                      : "bg-white/80 text-[#4B635F]"
-                  }`}
-                >
-                  {reports.length}
-                </span>
-              </button>
-            </div>
-
-            {/* TAB CONTENT: WARGA SEKITAR */}
-            {feedTab === "OTHERS" && (
-              <div className="space-y-3.5">
-                {otherReports.length === 0 ? (
-                  <div className="p-8 text-center space-y-2">
-                    <Users className="w-8 h-8 text-[#A4C6C1] mx-auto" />
-                    <p className="text-xs font-bold text-gray-700">Belum ada aduan warga terkini</p>
-                    <p className="text-[11px] text-gray-500 max-w-xs mx-auto">
-                      Laporan dari warga lain di sekitar Indramayu akan muncul di sini secara real-time.
-                    </p>
-                  </div>
-                ) : (
-                  otherReports.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-3 hover:border-[#88BDB6] transition-all"
-                    >
-                      {/* Atas: Profil Pelapor & Waktu */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#1D443F] text-[#88BDB6] text-xs font-extrabold flex items-center justify-center shrink-0 shadow-2xs">
-                            {item.authorName.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-bold text-[#132422]">
-                                {item.authorName}
-                              </span>
-                              <span
-                                className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${
-                                  item.authorRole === "Relawan Tagana"
-                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                    : item.authorRole === "Aparat Desa"
-                                    ? "bg-sky-100 text-sky-800 border border-sky-200"
-                                    : "bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/15"
-                                }`}
-                              >
-                                {item.authorRole}
-                              </span>
-                            </div>
-                            <p className="text-[10.5px] text-[#718783] flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
-                              <span className="truncate">{item.authorVillage}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-[10.5px] text-gray-500 flex items-center gap-1 shrink-0 font-medium">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          {item.timeAgo}
-                        </span>
-                      </div>
-
-                      {/* Judul & Keterangan Aduan */}
-                      <div className="space-y-1">
-                        <h4 className="text-xs sm:text-sm font-bold text-[#132422] leading-snug">
-                          {item.title}
-                        </h4>
-                        <p className="text-[11.5px] text-[#4B635F] leading-relaxed">
-                          {item.description}
-                        </p>
-                      </div>
-
-                      {/* Foto Thumbnail & Info Ketinggian Air */}
-                      <div className="flex items-start gap-3">
-                        {item.photoUrl && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreviewImage({ url: item.photoUrl, title: item.title })
-                            }
-                            className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shrink-0 group cursor-pointer"
-                          >
-                            <img
-                              src={item.photoUrl}
-                              alt={item.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Eye className="w-4 h-4" />
-                            </div>
-                          </button>
-                        )}
-
-                        <div className="flex-1 space-y-2">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[10.5px] font-bold">
-                              <Waves className="w-3 h-3 text-sky-600" />
-                              {item.waterLevelText}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-bold">
-                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                              {(item.aiConfidence * 100).toFixed(0)}% Valid
-                            </span>
-                          </div>
-
-                          <p className="text-[10.5px] text-[#718783] line-clamp-2">
-                            Patokan: {item.location}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Status Tindak Lanjut BPBD */}
-                      <div className="pt-2 border-t border-gray-200/80 space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              item.status === "PENANGANAN"
-                                ? "bg-sky-500 animate-pulse"
-                                : item.status === "SELESAI"
-                                ? "bg-teal-600"
-                                : "bg-emerald-500"
-                            }`}
-                          />
-                          <span className="text-[11px] font-bold text-[#132422]">
-                            {item.status === "PENANGANAN"
-                              ? "Regu SAR Menuju Lokasi"
-                              : item.status === "SELESAI"
-                              ? "Tindakan Selesai"
-                              : "Terverifikasi Posko Siaga"}
-                          </span>
-                        </div>
-                        <p className="text-[10.5px] text-gray-600 leading-relaxed bg-white p-2.5 rounded-xl border border-gray-100">
-                          {item.statusNote}
-                        </p>
-                      </div>
-
-                      {/* Action Interaktif: Konfirmasi Terdampak Serupa & Bagikan */}
-                      <div className="flex items-center justify-between pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSimilar(item.id)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                            item.isUpvoted
-                              ? "bg-[#38746D] text-white shadow-2xs"
-                              : "bg-white hover:bg-emerald-50 text-[#1D443F] border border-[#D5E4E0]"
-                          }`}
-                        >
-                          <ThumbsUp
-                            className={`w-3.5 h-3.5 ${
-                              item.isUpvoted ? "text-[#88BDB6]" : "text-[#38746D]"
-                            }`}
-                          />
-                          <span>Terdampak Juga</span>
-                          <span
-                            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                              item.isUpvoted
-                                ? "bg-white/20 text-white"
-                                : "bg-[#EEF5F3] text-[#1D443F]"
-                            }`}
-                          >
-                            {item.similarCount}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleShareReport(item)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-gray-50 border border-[#D5E4E0] text-gray-600 text-[11px] font-bold transition-colors cursor-pointer"
-                        >
-                          {copiedReportId === item.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-700">Tersalin</span>
-                            </>
-                          ) : (
-                            <>
-                              <Share2 className="w-3.5 h-3.5 text-[#38746D]" />
-                              <span>Bagikan</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT: ADUAN SAYA */}
-            {feedTab === "MY" && (
-              <div className="space-y-3.5">
+            {/* List Tiket Aduan Saya */}
+            <div className="space-y-3.5">
                 {reports.length === 0 ? (
                   <div className="p-8 text-center space-y-2">
                     <Clock className="w-8 h-8 text-[#A4C6C1] mx-auto" />
@@ -1395,9 +1381,14 @@ export default function WargaLaporPage() {
 
                         {/* Judul & Lokasi */}
                         <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-[#132422] leading-snug">
-                            {item.title}
-                          </h4>
+                          <Link
+                            href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
+                            className="group/title block hover:underline"
+                          >
+                            <h4 className="text-xs sm:text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                              {item.title}
+                            </h4>
+                          </Link>
                           <p className="text-[11px] text-[#4B635F] flex items-center gap-1 mt-1">
                             <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
                             <span className="truncate">{item.location}</span>
@@ -1436,8 +1427,8 @@ export default function WargaLaporPage() {
                           </div>
                         )}
 
-                        {/* Status Timeline Progress */}
-                        <div className="pt-2 border-t border-gray-200/80 space-y-1.5">
+                        {/* Status Timeline Progress & Tombol Buka Peta */}
+                        <div className="pt-2 border-t border-gray-200/80 space-y-2">
                           <div className="flex items-center gap-1.5">
                             <span className={`w-2 h-2 rounded-full ${statusStyle.dotClass}`} />
                             <span className="text-[11px] font-bold text-[#132422]">
@@ -1447,13 +1438,23 @@ export default function WargaLaporPage() {
                           <p className="text-[10.5px] text-gray-600 leading-relaxed bg-white p-2.5 rounded-xl border border-gray-100">
                             {item.statusNote}
                           </p>
+
+                          <div className="pt-1 flex items-center justify-end">
+                            <Link
+                              href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#EEF5F3] text-[#1D443F] border border-[#D5E4E0] text-[11px] font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
+                              <span>Buka Titik di Peta</span>
+                              <ChevronRight className="w-3 h-3 text-[#38746D]" />
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     );
                   })
                 )}
               </div>
-            )}
           </div>
         </div>
       </div>

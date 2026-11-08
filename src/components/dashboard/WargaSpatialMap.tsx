@@ -170,6 +170,8 @@ interface WargaSpatialMapProps {
   onOpenReport?: () => void;
   onOpenContacts?: () => void;
   className?: string;
+  focusReportId?: string;
+  focusCoords?: { lat: number; lng: number };
 }
 
 // ============================================================================
@@ -522,6 +524,8 @@ export default function WargaSpatialMap({
   onOpenReport,
   onOpenContacts,
   className = "",
+  focusReportId,
+  focusCoords,
 }: WargaSpatialMapProps) {
   const rootContainerRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -898,6 +902,36 @@ export default function WargaSpatialMap({
       updateUserMarkerOnMap(userCoords[0], userCoords[1], 50);
     }
   }, []);
+
+  // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor
+  const hasFocusedAduanRef = useRef(false);
+  useEffect(() => {
+    if (!mapInstanceRef.current || hasFocusedAduanRef.current) return;
+    if (focusReportId || focusCoords) {
+      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan dengan fit GPS default
+    }
+    if (focusReportId && reports && reports.length > 0) {
+      const target = reports.find(
+        (r) => r.id === focusReportId || r.ticketCode === focusReportId
+      );
+      if (target) {
+        hasFocusedAduanRef.current = true;
+        setActiveReportDetail(target);
+        setActiveShelterDetail(null);
+        setActiveTelemetryDetail(null);
+        setSelectedMarker({ type: "report", data: target });
+        setPoskoExpanded(true);
+        setSheetSnap("mid");
+        mapInstanceRef.current.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        if (onSelectReport) onSelectReport(target);
+        return;
+      }
+    }
+    if (focusCoords && focusCoords.lat && focusCoords.lng) {
+      hasFocusedAduanRef.current = true;
+      mapInstanceRef.current.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
+    }
+  }, [focusReportId, focusCoords, reports, onSelectReport]);
 
   // Kalkulasi jarak real-time & Skema 5-Level Tiering Posko (LoD by Zoom Level)
   const processedShelters = useMemo(() => {

@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 
 export default function WargaPoskoPage() {
@@ -33,6 +34,13 @@ export default function WargaPoskoPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
+
+  // State Lightbox Modal Foto Dokumentasi Posko
+  const [selectedLightbox, setSelectedLightbox] = useState<{
+    title: string;
+    photos: string[];
+    index: number;
+  } | null>(null);
 
   // Data Posko (Aturan 4: Hanya posko aktif yang dimuat untuk warga)
   const [shelters, setShelters] = useState<PoskoRecord[]>([]);
@@ -376,6 +384,12 @@ export default function WargaPoskoPage() {
         ) : (
           paginatedItems.map((sh) => {
             const percent = Math.round((sh.terisi / sh.kapasitas) * 100);
+            const photos =
+              sh.fotos && sh.fotos.length > 0
+                ? sh.fotos
+                : sh.photos && sh.photos.length > 0
+                ? sh.photos
+                : [sh.foto || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80"];
 
             return (
               <div
@@ -425,6 +439,99 @@ export default function WargaPoskoPage() {
                       {sh.status === "TERSEDIA" ? "✓ Tersedia" : "⚠ Hampir Penuh"}
                     </span>
                   </div>
+
+                  {/* Foto Posko (Galeri Dinamis: 1, 2, atau >= 3 Foto persis seperti di Petugas) */}
+                  {photos.length === 1 && (
+                    <div
+                      onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 0 })}
+                      className="w-full h-40 sm:h-44 rounded-2xl overflow-hidden bg-slate-100 border border-[#D5E4E0] my-2 cursor-pointer relative group"
+                    >
+                      <img
+                        src={photos[0]}
+                        alt={sh.nama}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 text-xs font-semibold backdrop-blur-xs">
+                          <Eye className="w-4 h-4" />
+                          Lihat Foto
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {photos.length === 2 && (
+                    <div className="grid grid-cols-2 gap-2 h-40 sm:h-44 my-2 w-full">
+                      <div
+                        onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 0 })}
+                        className="h-full w-full overflow-hidden rounded-2xl bg-slate-100 border border-[#D5E4E0] relative cursor-pointer group"
+                      >
+                        <img
+                          src={photos[0]}
+                          alt={`${sh.nama} 1`}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        />
+                      </div>
+                      <div
+                        onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 1 })}
+                        className="h-full w-full overflow-hidden rounded-2xl bg-slate-100 border border-[#D5E4E0] relative cursor-pointer group"
+                      >
+                        <img
+                          src={photos[1]}
+                          alt={`${sh.nama} 2`}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {photos.length >= 3 && (
+                    <div className="grid grid-cols-3 gap-2 h-40 sm:h-44 my-2 w-full">
+                      {/* Sisi Kiri: 1 Foto Utama Besar (col-span-2) */}
+                      <div
+                        onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 0 })}
+                        className="col-span-2 h-full w-full overflow-hidden rounded-2xl bg-slate-100 border border-[#D5E4E0] relative cursor-pointer group"
+                      >
+                        <img
+                          src={photos[0]}
+                          alt={sh.nama}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        />
+                      </div>
+
+                      {/* Sisi Kanan: 2 Foto Kecil Ditumpuk Vertikal */}
+                      <div className="col-span-1 grid grid-rows-2 gap-2 h-full w-full min-h-0">
+                        <div
+                          onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 1 })}
+                          className="h-full w-full overflow-hidden rounded-xl bg-slate-100 border border-[#D5E4E0] relative cursor-pointer group min-h-0"
+                        >
+                          <img
+                            src={photos[1]}
+                            alt={`${sh.nama} 2`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedLightbox({ title: sh.nama, photos, index: 2 })}
+                          className="h-full w-full overflow-hidden rounded-xl bg-slate-100 border border-[#D5E4E0] relative cursor-pointer group min-h-0"
+                        >
+                          <img
+                            src={photos[2]}
+                            alt={`${sh.nama} 3`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {photos.length > 3 && (
+                            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-2xs flex items-center justify-center text-white rounded-xl">
+                              <span className="text-sm font-extrabold tracking-wide">
+                                +{photos.length - 3}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Meter Okupansi Kapasitas */}
                   <div className="space-y-1.5 pt-1">
@@ -613,6 +720,115 @@ export default function WargaPoskoPage() {
             </select>
             <span className="text-gray-400 hidden lg:inline">/ hal</span>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal Foto Dokumentasi Posko (Persis seperti di Petugas) */}
+      {selectedLightbox && (
+        <div
+          onClick={() => setSelectedLightbox(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6"
+        >
+          {/* Header Bar */}
+          <div
+            className="w-full max-w-5xl flex items-center justify-between pb-3 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="font-bold text-base sm:text-lg truncate max-w-md sm:max-w-xl">
+                {selectedLightbox.title}
+              </h3>
+              <p className="text-xs text-gray-400">
+                Foto {selectedLightbox.index + 1} dari {selectedLightbox.photos.length}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedLightbox(null)}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title="Tutup"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Main Image View */}
+          <div
+            className="relative max-w-5xl max-h-[75vh] w-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={selectedLightbox.photos[selectedLightbox.index]}
+              alt={`Dokumentasi ${selectedLightbox.index + 1}`}
+              className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
+
+            {selectedLightbox.photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLightbox((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            index: prev.index > 0 ? prev.index - 1 : prev.photos.length - 1,
+                          }
+                        : null
+                    );
+                  }}
+                  className="absolute left-2 sm:-left-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white transition cursor-pointer shadow-lg border border-white/20"
+                  title="Foto Sebelumnya"
+                >
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedLightbox((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            index: prev.index < prev.photos.length - 1 ? prev.index + 1 : 0,
+                          }
+                        : null
+                    );
+                  }}
+                  className="absolute right-2 sm:-right-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white transition cursor-pointer shadow-lg border border-white/20"
+                  title="Foto Selanjutnya"
+                >
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Bottom Thumbnail Strip */}
+          {selectedLightbox.photos.length > 1 && (
+            <div
+              className="flex items-center gap-2 overflow-x-auto max-w-5xl pt-4 px-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {selectedLightbox.photos.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() =>
+                    setSelectedLightbox((prev) => (prev ? { ...prev, index: idx } : null))
+                  }
+                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 shrink-0 transition cursor-pointer ${
+                    selectedLightbox.index === idx
+                      ? "border-[#88BDB6] ring-2 ring-[#88BDB6]/50 scale-105"
+                      : "border-transparent opacity-50 hover:opacity-100"
+                  }`}
+                >
+                  <img src={p} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

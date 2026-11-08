@@ -360,30 +360,30 @@ export default function PetugasDashboard() {
         </div>
       )}
 
-      {/* 2. KONTEN METRIK OPERASIONAL PETUGAS (FLOATING OVER HERO) */}
+      {/* 2. KONTEN METRIK OPERASIONAL PETUGAS */}
       <motion.div
         initial={{ y: 15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="space-y-4 sm:space-y-4 -mt-8 sm:-mt-10 md:mt-0 relative z-10"
+        className="space-y-4 sm:space-y-5 md:mt-0 relative z-10"
       >
-        {/* SECTION AKSES CEPAT OPERASIONAL (GRID MENU DIADAPTASI DARI DASBOR WARGA) */}
-        <section aria-label="Akses Cepat Operasional" className="pt-2 sm:pt-0">
-          <div className="flex items-center justify-between mb-3 px-0.5">
+        {/* SECTION AKSES CEPAT OPERASIONAL (GRID MENU 3 KOLOM DI MOBILE IDENTIK WARGA) */}
+        <section aria-label="Akses Cepat Operasional" className="pt-0">
+          <div className="flex items-center justify-between mb-2 px-0.5">
             <h2 className="text-sm sm:text-base font-semibold text-slate-800 tracking-tight">
               Akses Cepat Operasional
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {/* Card 1: Peta Spasial & SAR */}
             <Link
               href="/petugas/peta-sar"
-              className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-[#E8F1EE] shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[105px] sm:min-h-[115px] hover:border-[#38746D] hover:shadow-md transition-all group cursor-pointer active:scale-[0.98]"
+              className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
             >
               {/* Pattern Ornament Top-Right (Belah Ketupat) */}
               <svg
-                className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
+                className="absolute -top-1 -right-1 w-14 h-14 sm:w-18 sm:h-18 text-[#38746D]/14 sm:text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
                 viewBox="0 0 64 64"
                 fill="currentColor"
                 aria-hidden="true"
@@ -395,13 +395,13 @@ export default function PetugasDashboard() {
               </svg>
 
               {/* Icon Container Kiri Atas */}
-              <div className="w-10 h-10 rounded-xl bg-[#38746D]/10 text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-                <Map className="w-5 h-5 transition-colors text-[#38746D] group-hover:text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+                <Map className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
               </div>
 
               {/* Label Kiri Bawah */}
-              <div className="mt-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#1D443F] leading-snug line-clamp-2">
+              <div className="mt-2">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 group-hover:text-[#1D443F] leading-tight line-clamp-2">
                   Peta Spasial &amp; SAR
                 </h3>
               </div>
@@ -410,11 +410,11 @@ export default function PetugasDashboard() {
             {/* Card 2: Triage & Verifikasi Aduan */}
             <Link
               href="/petugas/triage"
-              className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-[#E8F1EE] shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[105px] sm:min-h-[115px] hover:border-[#38746D] hover:shadow-md transition-all group cursor-pointer active:scale-[0.98]"
+              className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
             >
               {/* Pattern Ornament Top-Right (Concentric Circles) */}
               <svg
-                className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
+                className="absolute -top-1 -right-1 w-14 h-14 sm:w-18 sm:h-18 text-[#38746D]/14 sm:text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
                 viewBox="0 0 64 64"
                 fill="none"
                 stroke="currentColor"
@@ -424,15 +424,20 @@ export default function PetugasDashboard() {
                 <circle cx="53" cy="11" r="29" strokeWidth="4.2" opacity="0.85" />
               </svg>
 
-              {/* Icon Container Kiri Atas */}
-              <div className="w-10 h-10 rounded-xl bg-[#38746D]/10 text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-                <ClipboardList className="w-5 h-5 transition-colors text-[#38746D] group-hover:text-white" />
+              {/* Icon Container Kiri Atas dengan Badge Notifikasi */}
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200 relative">
+                <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs">
+                    {pendingCount}
+                  </span>
+                )}
               </div>
 
               {/* Label Kiri Bawah */}
-              <div className="mt-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#1D443F] leading-snug line-clamp-2">
-                  Triage &amp; Verifikasi Aduan
+              <div className="mt-2">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                  Triage &amp; Aduan
                 </h3>
               </div>
             </Link>
@@ -440,11 +445,11 @@ export default function PetugasDashboard() {
             {/* Card 3: Manajemen Posko */}
             <Link
               href="/petugas/posko"
-              className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-[#E8F1EE] shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[105px] sm:min-h-[115px] hover:border-[#38746D] hover:shadow-md transition-all group cursor-pointer active:scale-[0.98]"
+              className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
             >
               {/* Pattern Ornament Top-Right (Belah Ketupat) */}
               <svg
-                className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
+                className="absolute -top-1 -right-1 w-14 h-14 sm:w-18 sm:h-18 text-[#38746D]/14 sm:text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
                 viewBox="0 0 64 64"
                 fill="currentColor"
                 aria-hidden="true"
@@ -456,13 +461,13 @@ export default function PetugasDashboard() {
               </svg>
 
               {/* Icon Container Kiri Atas */}
-              <div className="w-10 h-10 rounded-xl bg-[#38746D]/10 text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-                <PoskoShelterIcon className="w-5 h-5 transition-colors text-[#38746D] group-hover:text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+                <PoskoShelterIcon className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
               </div>
 
               {/* Label Kiri Bawah */}
-              <div className="mt-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#1D443F] leading-snug line-clamp-2">
+              <div className="mt-2">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 group-hover:text-[#1D443F] leading-tight line-clamp-2">
                   Manajemen Posko
                 </h3>
               </div>
@@ -471,11 +476,11 @@ export default function PetugasDashboard() {
             {/* Card 4: Telemetri TMA & Rob */}
             <Link
               href="/petugas/telemetri"
-              className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-[#E8F1EE] shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[105px] sm:min-h-[115px] hover:border-[#38746D] hover:shadow-md transition-all group cursor-pointer active:scale-[0.98]"
+              className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
             >
               {/* Pattern Ornament Top-Right (Concentric Circles) */}
               <svg
-                className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
+                className="absolute -top-1 -right-1 w-14 h-14 sm:w-18 sm:h-18 text-[#38746D]/14 sm:text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
                 viewBox="0 0 64 64"
                 fill="none"
                 stroke="currentColor"
@@ -486,14 +491,14 @@ export default function PetugasDashboard() {
               </svg>
 
               {/* Icon Container Kiri Atas */}
-              <div className="w-10 h-10 rounded-xl bg-[#38746D]/10 text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-                <Activity className="w-5 h-5 transition-colors text-[#38746D] group-hover:text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
               </div>
 
               {/* Label Kiri Bawah */}
-              <div className="mt-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#1D443F] leading-snug line-clamp-2">
-                  Telemetri TMA &amp; Rob
+              <div className="mt-2">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 group-hover:text-[#1D443F] leading-tight line-clamp-2">
+                  Telemetri TMA
                 </h3>
               </div>
             </Link>
@@ -501,11 +506,11 @@ export default function PetugasDashboard() {
             {/* Card 5: Komunitas */}
             <Link
               href="/petugas/komunitas"
-              className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-[#E8F1EE] shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[105px] sm:min-h-[115px] hover:border-[#38746D] hover:shadow-md transition-all group cursor-pointer active:scale-[0.98]"
+              className="p-2.5 sm:p-3.5 rounded-2xl bg-white border border-[#38746D]/20 sm:border-[#E8F1EE] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[98px] sm:min-h-[110px] sm:hover:border-[#38746D]/40 sm:hover:shadow-sm transition-all group active:scale-[0.97]"
             >
               {/* Pattern Ornament Top-Right (Belah Ketupat) */}
               <svg
-                className="absolute -top-1 -right-1 w-16 h-16 sm:w-18 sm:h-18 text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
+                className="absolute -top-1 -right-1 w-14 h-14 sm:w-18 sm:h-18 text-[#38746D]/14 sm:text-[#38746D]/12 pointer-events-none group-hover:text-[#38746D]/22 group-hover:scale-105 transition-all duration-300"
                 viewBox="0 0 64 64"
                 fill="currentColor"
                 aria-hidden="true"
@@ -517,13 +522,13 @@ export default function PetugasDashboard() {
               </svg>
 
               {/* Icon Container Kiri Atas */}
-              <div className="w-10 h-10 rounded-xl bg-[#38746D]/10 text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
-                <Users className="w-5 h-5 transition-colors text-[#38746D] group-hover:text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 group-hover:bg-[#38746D] group-hover:text-white group-hover:border-[#38746D] flex items-center justify-center shrink-0 transition-all duration-200">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 transition-colors" />
               </div>
 
               {/* Label Kiri Bawah */}
-              <div className="mt-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#1D443F] leading-snug line-clamp-2">
+              <div className="mt-2">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 group-hover:text-[#1D443F] leading-tight line-clamp-2">
                   Komunitas
                 </h3>
               </div>

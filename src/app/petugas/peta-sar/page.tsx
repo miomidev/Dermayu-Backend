@@ -426,26 +426,39 @@ export default function PetugasPetaSarPage() {
   ];
 
   // Untuk Petugas, tampilkan seluruh posko aktif dan yang dikelola
-  const mapShelterPoints: MapShelterPoint[] = sheltersData.map((p) => ({
-    id: p.id,
-    name: p.nama,
-    location: p.alamat,
-    district: p.kecamatan,
-    distance: "Menghitung jarak...",
-    capacityTotal: p.kapasitas,
-    capacityFilled: p.terisi,
-    status: p.status,
-    contactPerson: p.kontak.pj,
-    contactPhone: p.kontak.telp,
-    lat: p.lat,
-    lng: p.lng,
-    facilities: p.fasilitas,
-    kategori: p.kategori,
-    foto: p.fotos && p.fotos.length > 0 ? p.fotos[0] : (p.foto || "/shelters/default.jpg"),
-    tier: p.tier,
-    petugasId: p.petugasId,
-    isActive: p.isActive,
-  }));
+  const mapShelterPoints: MapShelterPoint[] = sheltersData.map((p) => {
+    const rawPhotos =
+      p.photos && p.photos.length > 0
+        ? p.photos
+        : p.fotos && p.fotos.length > 0
+        ? p.fotos
+        : p.foto
+        ? [p.foto]
+        : [];
+    const photos = rawPhotos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
+    return {
+      id: p.id,
+      name: p.nama,
+      location: p.alamat,
+      district: p.kecamatan,
+      distance: "Menghitung jarak...",
+      capacityTotal: p.kapasitas,
+      capacityFilled: p.terisi,
+      status: p.status,
+      contactPerson: p.kontak.pj,
+      contactPhone: p.kontak.telp,
+      lat: p.lat,
+      lng: p.lng,
+      facilities: p.fasilitas,
+      kategori: p.kategori,
+      foto: photos[0] || p.foto || "",
+      fotos: photos,
+      photos: photos,
+      tier: p.tier,
+      petugasId: p.petugasId,
+      isActive: p.isActive,
+    };
+  });
 
   return (
     <>

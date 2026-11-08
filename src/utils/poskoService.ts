@@ -6,33 +6,10 @@ export interface PoskoRecord extends PoskoItem {
   petugasId: string;
   isActive: boolean;
   pengungsi?: PengungsiItem[];
+  photos?: string[];
 }
 
 const STORAGE_KEY = "dermayu_posko_simulated_v1";
-
-const DEFAULT_SHELTER_GALLERIES: Record<string, string[]> = {
-  sekolah: [
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=80",
-  ],
-  masjid: [
-    "https://images.unsplash.com/photo-1590076215667-873d3b76cf50?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-  ],
-  gor: [
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=80",
-  ],
-};
 
 const INDO_FIRST_NAMES_L = [
   "Ahmad", "Budi", "Dedi", "Eko", "Hendra", "Kusnan", "Lukman", "Rahmat", "Slamet", "Ujang",
@@ -168,13 +145,14 @@ function getInitialPoskoDataset(): PoskoRecord[] {
       ? "petugas-02"
       : "petugas-03";
 
-    const defaultGallery =
-      DEFAULT_SHELTER_GALLERIES[item.kategori] || DEFAULT_SHELTER_GALLERIES.sekolah;
-
-    const fotos =
-      item.fotos && item.fotos.length > 0
+    const photos =
+      item.photos && item.photos.length > 0
+        ? item.photos
+        : item.fotos && item.fotos.length > 0
         ? item.fotos
-        : [item.foto || defaultGallery[0], ...defaultGallery.slice(1)];
+        : item.foto && !item.foto.includes("default.jpg")
+        ? [item.foto]
+        : [];
 
     const pengungsi =
       item.pengungsi && item.pengungsi.length > 0
@@ -185,7 +163,9 @@ function getInitialPoskoDataset(): PoskoRecord[] {
       ...item,
       petugasId: item.petugasId || petugasId,
       isActive: item.isActive !== undefined ? item.isActive : true,
-      fotos,
+      foto: photos[0] || item.foto || "",
+      fotos: photos,
+      photos,
       pengungsi,
     };
   });
@@ -222,17 +202,22 @@ export function getAllPosko(): PoskoRecord[] {
           hasContaminatedData = true;
         }
 
-        let fotos = p.fotos;
+        let photos = p.photos && p.photos.length > 0 ? p.photos : p.fotos;
 
-        // Jika p.fotos kosong atau tidak ada, gunakan p.foto
-        if (!fotos || fotos.length === 0) {
-          fotos = p.foto ? [p.foto] : ["/shelters/default.jpg"];
+        // Bersihkan foto default.jpg jika ada
+        if (photos && photos.length > 0) {
+          photos = photos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
+        }
+
+        // Jika photos kosong atau tidak ada, gunakan p.foto asli
+        if (!photos || photos.length === 0) {
+          photos = p.foto && !p.foto.includes("default.jpg") ? [p.foto] : [];
         } else {
-          // Jika posko memiliki foto unggahan user (data:image) dan tercemar oleh defaultGallery unsplash:
-          if (fotos[0]?.startsWith("data:")) {
-            const onlyUserUploaded = fotos.filter((f) => f.startsWith("data:"));
-            if (onlyUserUploaded.length > 0 && onlyUserUploaded.length !== fotos.length) {
-              fotos = onlyUserUploaded;
+          // Jika posko memiliki foto unggahan user (data:image)
+          if (photos[0]?.startsWith("data:")) {
+            const onlyUserUploaded = photos.filter((f) => f.startsWith("data:"));
+            if (onlyUserUploaded.length > 0 && onlyUserUploaded.length !== photos.length) {
+              photos = onlyUserUploaded;
               hasContaminatedData = true;
             }
           }
@@ -255,7 +240,9 @@ export function getAllPosko(): PoskoRecord[] {
           alamat,
           kecamatan,
           kontak,
-          fotos,
+          foto: photos[0],
+          fotos: photos,
+          photos: photos,
           pengungsi,
         };
       });
@@ -729,7 +716,7 @@ export async function uploadPoskoPhotosApi(files: File[] | string[]): Promise<st
     });
     if (!res.ok) throw new Error("Gagal mengunggah foto ke storage");
     const json = await res.json();
-    return json.data?.urls || [];
+    return json.data?.urls || json.data?.data?.urls || json.urls || [];
   }
 
   // Jika input adalah base64 data URLs
@@ -744,7 +731,7 @@ export async function uploadPoskoPhotosApi(files: File[] | string[]): Promise<st
     });
     if (!res.ok) throw new Error("Gagal mengunggah gambar");
     const json = await res.json();
-    const uploadedUrls: string[] = json.data?.urls || [];
+    const uploadedUrls: string[] = json.data?.urls || json.data?.data?.urls || json.urls || [];
     return [...existingUrls, ...uploadedUrls];
   }
 

@@ -438,8 +438,9 @@ export default function PetugasPoskoPage() {
             foto:
               finalPhotos.length > 0
                 ? finalPhotos[0]
-                : "/shelters/default.jpg",
-            fotos: finalPhotos,
+                : SAMPLE_PHOTOS[0].url,
+            fotos: finalPhotos.length > 0 ? finalPhotos : [SAMPLE_PHOTOS[0].url],
+            photos: finalPhotos.length > 0 ? finalPhotos : [SAMPLE_PHOTOS[0].url],
           },
           { id: officerId }
         );
@@ -468,8 +469,9 @@ export default function PetugasPoskoPage() {
               pj: formState.pj || "Petugas Pusdalops",
               telp: formState.telp || "0812-3456-7890",
             },
-            foto: finalPhotos.length > 0 ? finalPhotos[0] : "/shelters/default.jpg",
-            fotos: finalPhotos,
+            foto: finalPhotos.length > 0 ? finalPhotos[0] : SAMPLE_PHOTOS[0].url,
+            fotos: finalPhotos.length > 0 ? finalPhotos : [SAMPLE_PHOTOS[0].url],
+            photos: finalPhotos.length > 0 ? finalPhotos : [SAMPLE_PHOTOS[0].url],
           },
           { id: officerId }
         );

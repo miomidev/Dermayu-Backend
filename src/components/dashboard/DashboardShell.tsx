@@ -180,7 +180,8 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
         <main
           className={`flex-1 min-w-0 w-full max-w-full flex flex-col ${
             pathname?.startsWith("/warga/evakuasi") ||
-            pathname?.startsWith("/petugas/peta-sar")
+            pathname?.startsWith("/petugas/peta-sar") ||
+            pathname?.startsWith("/petugas/telemetri")
               ? "p-0 pb-0"
               : "p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-8"
           }`}

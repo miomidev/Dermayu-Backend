@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { renderToStaticMarkup } from "react-dom/server";
 import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
@@ -58,6 +59,10 @@ import {
   Trash2,
   ShieldAlert,
   RotateCcw,
+  TrendingUp,
+  ArrowDownRight,
+  BatteryCharging,
+  Wifi,
 } from "lucide-react";
 import {
   SIAGA_CONFIGS,
@@ -135,11 +140,29 @@ export interface MapTelemetryPoint {
   id: string;
   name: string;
   waterLevel: string;
-  status: "NORMAL" | "WASPADA" | "SIAGA" | "AWAS";
-  trend: "NAIK" | "TURUN" | "STABIL";
+  status: "NORMAL" | "WASPADA" | "SIAGA" | "AWAS" | string;
+  trend: "NAIK" | "TURUN" | "STABIL" | string;
   lastUpdate: string;
   lat: number;
   lng: number;
+  value?: number;
+  currentValue?: number;
+  unit?: string;
+  type?: string;
+  code?: string;
+  location?: string;
+  district?: string;
+  readingLabel?: string;
+  rawStatus?: string;
+  normalMax?: number;
+  waspadaMax?: number;
+  dangerThreshold?: number;
+  batteryPct?: number;
+  signalStrength?: string;
+  protocol?: string;
+  trendText?: string;
+  description?: string;
+  historicalTrend?: { time: string; value: number }[];
 }
 
 export interface NavigationStep {
@@ -405,6 +428,262 @@ const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 
   });
   pinIconCache[cacheKey] = icon;
   return icon;
+};
+
+// Koordinat Stasiun Sensor Telemetri Indramayu
+export const TELEMETRY_STATION_COORDS: Record<string, [number, number]> = {
+  // 10 Stasiun Infrastruktur Pengendali Air & Telemetri Utama Indramayu
+  "INFRA-AIR-001": [-6.6626, 108.2209], // Bendung Rentang (Pusat Kendali Cimanuk)
+  "INFRA-AIR-002": [-6.3856, 108.2928], // Bendung Bangkir (Pembagi Aliran Cimanuk Lama)
+  "INFRA-AIR-003": [-6.6620, 108.2190], // Pintu Air Saluran Induk Barat (Cipelang)
+  "INFRA-AIR-004": [-6.6630, 108.2230], // Pintu Air Saluran Induk Timur (Sindupraja)
+  "INFRA-AIR-005": [-6.3120, 108.3650], // Stasiun Pompa Polder Karangsong
+  "INFRA-AIR-006": [-6.3468, 108.1215], // Pintu Air Muara Kali Ciputih (Penahan Pasang Rob)
+  "INFRA-AIR-007": [-6.3512, 108.1485], // Bendung Karet Kali Perawan (Inflatable Rubber Dam)
+  "INFRA-AIR-008": [-6.4015, 108.1512], // Pintu Air Pengatur Limpasan Kali Cipanas
+  "INFRA-AIR-009": [-6.3382, 108.3345], // Stasiun Pompa Pengendali Banjir Singaraja
+  "INFRA-AIR-010": [-6.2995, 107.9621], // Pintu Air Saluran Pembuang Cipunegara (Bugel)
+  // Legacy st-* sensor IDs
+  "st-01": [-6.31, 108.08],     // Eretan Wetan (Kandanghaur)
+  "st-02": [-6.62, 108.28],     // Bendung Rentang (Hulu Cimanuk)
+  "st-03": [-6.295, 108.267],   // Muara Sungai Cantigi
+  "st-04": [-6.545, 108.325],   // Tanggul Kritis Sukagumiwang
+};
+
+export const DEFAULT_TELEMETRY_STATIONS: MapTelemetryPoint[] = [
+  {
+    id: "st-01",
+    name: "Sensor Pesisir Eretan Wetan (AWS-01)",
+    code: "AWS-01",
+    waterLevel: "68 cm",
+    status: "WASPADA",
+    trend: "NAIK",
+    lastUpdate: "Baru saja",
+    lat: -6.31,
+    lng: 108.08,
+    value: 68,
+    currentValue: 68,
+    unit: "cm",
+    type: "ROB_PESISIR",
+    location: "Dermaga TPI Eretan Wetan",
+    district: "Kandanghaur",
+    readingLabel: "Tinggi Muka Pasang Laut",
+    trendText: "Penurunan (-1 cm/10dtk)",
+    rawStatus: "WASPADA / SIAGA 2",
+    normalMax: 40,
+    waspadaMax: 80,
+    dangerThreshold: 80,
+    batteryPct: 96,
+    signalStrength: "-72 dBm (4G LTE)",
+    protocol: "LoRaWAN 920 MHz & 4G Backup",
+    description:
+      "Sensor ultrasonik pengukur dinamika pasang laut pesisir Eretan untuk deteksi dini banjir rob di pemukiman nelayan dan jalur Pantura.",
+    historicalTrend: [
+      { time: "00:00", value: 38 },
+      { time: "03:00", value: 44 },
+      { time: "06:00", value: 52 },
+      { time: "09:00", value: 61 },
+      { time: "12:00", value: 65 },
+      { time: "Sekarang", value: 68 },
+    ],
+  },
+  {
+    id: "st-02",
+    name: "Bendung Rentang Hulu Cimanuk (AWS-02)",
+    code: "AWS-02",
+    waterLevel: "305 m³/s",
+    status: "NORMAL",
+    trend: "STABIL",
+    lastUpdate: "Baru saja",
+    lat: -6.62,
+    lng: 108.28,
+    value: 305,
+    currentValue: 305,
+    unit: "m³/s",
+    type: "SUNGAI_CIMANUK",
+    location: "Kec. Jatitujuh - Majalengka / Perbatasan Indramayu",
+    district: "Hulu Cimanuk",
+    readingLabel: "Debit Buangan Air (Q)",
+    trendText: "Kondisi Stabil",
+    rawStatus: "NORMAL",
+    normalMax: 450,
+    waspadaMax: 700,
+    dangerThreshold: 900,
+    batteryPct: 100,
+    signalStrength: "-65 dBm (Fiber BPBD)",
+    protocol: "SCADA BBWS & Fiber Optic Dedicated",
+    description:
+      "Pintu pengendali utama limpasan debit air Waduk Jatigede menuju hilir Sungai Cimanuk Indramayu untuk pencegahan luapan tanggul.",
+    historicalTrend: [
+      { time: "00:00", value: 290 },
+      { time: "03:00", value: 295 },
+      { time: "06:00", value: 312 },
+      { time: "09:00", value: 308 },
+      { time: "12:00", value: 302 },
+      { time: "Sekarang", value: 305 },
+    ],
+  },
+  {
+    id: "st-03",
+    name: "Muara Sungai Cantigi (AWS-03)",
+    code: "AWS-03",
+    waterLevel: "59 cm",
+    status: "WASPADA",
+    trend: "STABIL",
+    lastUpdate: "Baru saja",
+    lat: -6.295,
+    lng: 108.267,
+    value: 59,
+    currentValue: 59,
+    unit: "cm",
+    type: "ROB_PESISIR",
+    location: "Muara Pesisir Laut Cantigi Kulon",
+    district: "Cantigi",
+    readingLabel: "Elevasi Genangan Pasang",
+    trendText: "Penurunan (-1 cm/10dtk)",
+    rawStatus: "WASPADA / SIAGA 2",
+    normalMax: 40,
+    waspadaMax: 80,
+    dangerThreshold: 80,
+    batteryPct: 92,
+    signalStrength: "-84 dBm (LoRa Gateway)",
+    protocol: "LoRa Gateway Long-Range BPBD",
+    description:
+      "Pemantau pertemuan pasang air laut dan muara sungai Cantigi yang rawan memicu genangan rob pada kawasan tambak dan pemukiman pesisir.",
+    historicalTrend: [
+      { time: "00:00", value: 32 },
+      { time: "03:00", value: 39 },
+      { time: "06:00", value: 47 },
+      { time: "09:00", value: 55 },
+      { time: "12:00", value: 57 },
+      { time: "Sekarang", value: 59 },
+    ],
+  },
+  {
+    id: "st-04",
+    name: "Tanggul Kritis Sukagumiwang (AWS-04)",
+    code: "AWS-04",
+    waterLevel: "3.4 meter",
+    status: "NORMAL",
+    trend: "STABIL",
+    lastUpdate: "Baru saja",
+    lat: -6.545,
+    lng: 108.325,
+    value: 3.4,
+    currentValue: 3.4,
+    unit: "meter",
+    type: "SUNGAI_CIMANUK",
+    location: "Tanggul Kali Cimanuk Km 34",
+    district: "Sukagumiwang",
+    readingLabel: "Tinggi Muka Air (TMA)",
+    trendText: "Kondisi Stabil",
+    rawStatus: "NORMAL",
+    normalMax: 4.5,
+    waspadaMax: 5.5,
+    dangerThreshold: 6.5,
+    batteryPct: 88,
+    signalStrength: "-78 dBm (4G LTE)",
+    protocol: "Pressure Transducer & 4G Telemetri",
+    description:
+      "Pemantau elevasi debit air limpasan tanggul kritis Kali Cimanuk hilir guna antisipasi banjir kiriman di kawasan Sukagumiwang dan sekitarnya.",
+    historicalTrend: [
+      { time: "00:00", value: 3.1 },
+      { time: "03:00", value: 3.2 },
+      { time: "06:00", value: 3.3 },
+      { time: "09:00", value: 3.5 },
+      { time: "12:00", value: 3.4 },
+      { time: "Sekarang", value: 3.4 },
+    ],
+  },
+];
+
+// Generator Custom Marker Pin Telemetri Sesuai Spesifikasi PRD (Ukuran Rapi & Radius Transparan)
+export const createTelemetryPinIcon = (
+  tel: MapTelemetryPoint,
+  isSelected: boolean = false,
+  zoom: number = 12
+): L.DivIcon => {
+  const isDanger =
+    tel.status === "AWAS" ||
+    tel.status === "BAHAYA" ||
+    tel.rawStatus?.includes("BAHAYA") ||
+    tel.rawStatus?.includes("SIAGA 1");
+  const isWarning =
+    tel.status === "WASPADA" ||
+    tel.status === "SIAGA" ||
+    tel.rawStatus?.includes("WASPADA") ||
+    tel.rawStatus?.includes("SIAGA 2");
+
+  // Tosca/Teal #0D9488 untuk Normal, Amber #F59E0B untuk Waspada, Rose #EF4444 untuk Bahaya
+  const color = isDanger ? "#EF4444" : isWarning ? "#F59E0B" : "#0D9488";
+
+  // Transparansi Radius Lembut: maksimal fillOpacity 0.15, ditempatkan di belakang ikon utama (z-0)
+  const pulseHtml = isSelected
+    ? `<span class="absolute -inset-1.5 rounded-full bg-teal-400/20 ring-1 ring-teal-400/40 animate-pulse pointer-events-none z-0"></span>`
+    : (isDanger || isWarning
+      ? `<span class="absolute -inset-1 rounded-full ${
+          isDanger ? "bg-rose-500/15" : "bg-amber-500/15"
+        } pointer-events-none z-0 animate-pulse"></span>`
+      : "");
+
+  // Format label ringkas di bawah pin (misal: "24 m³/s", "185 m³/s", "+85 cm")
+  let valText = tel.waterLevel || "";
+  if (!valText || valText.length > 14) {
+    valText = `${tel.currentValue ?? tel.value ?? "--"} ${tel.unit ?? ""}`.trim();
+  } else {
+    const shortMatch = valText.match(/^([+]?\d+(?:[.,]\d+)?\s*[a-zA-Z³/]+)/);
+    if (shortMatch) {
+      valText = shortMatch[1];
+    }
+  }
+
+  // Water Wave Icon (Gelombang Air) proporsional
+  const iconSvg = `
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white drop-shadow-xs">
+      <path d="M2 10c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0" />
+      <path d="M2 15c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0" />
+    </svg>
+  `;
+
+  // Ketika zoom out jauh (<= 10) dan tidak terseleksi, sembunyikan box teks agar peta tidak bertumpuk
+  const showBadge = isSelected || zoom >= 11;
+
+  const html = `
+    <div class="relative flex flex-col items-center cursor-pointer select-none group transition-transform duration-200 ${
+      isSelected ? "scale-110 z-[9999]" : "hover:scale-105 z-[100]"
+    }">
+      <div class="relative flex flex-col items-center">
+        ${pulseHtml}
+        <div class="w-7 h-7 rounded-full border-[1.5px] border-white shadow-xs flex items-center justify-center relative z-10 transition-all ${
+          isSelected
+            ? "ring-2 ring-teal-400 shadow-md scale-105"
+            : "group-hover:scale-105"
+        }" style="background-color: ${color};">
+          ${iconSvg}
+        </div>
+        <div class="w-0 h-0 border-l-[3.5px] border-r-[3.5px] border-t-[5px] border-l-transparent border-r-transparent -mt-[0.5px] relative z-10" style="border-t-color: ${color};"></div>
+      </div>
+      ${
+        showBadge
+          ? `<div class="mt-0.5 px-1.5 py-0.2 rounded-md text-[9px] font-bold tracking-tight shadow-2xs border whitespace-nowrap relative z-10 transition-all ${
+              isSelected
+                ? "bg-[#093531] text-white border-teal-300 ring-1 ring-teal-400/50"
+                : "bg-white/95 text-slate-800 border-slate-200/90 group-hover:border-slate-300"
+            }">
+              ${valText}
+            </div>`
+          : ""
+      }
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: `custom-telemetry-pin ${isSelected ? "active-pin" : ""}`,
+    iconSize: [44, showBadge ? 42 : 28],
+    iconAnchor: [22, showBadge ? 21 : 28],
+    popupAnchor: [0, -22],
+  });
 };
 
 // Metadata Tambahan: Foto Realistis, Rating Kesiapan, ETA, & Rute Bebas Banjir
@@ -870,10 +1149,103 @@ export default function PetugasSpatialMap({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // State Search & Filter Toggles Khusus Petugas: "Semua Posko Aktif" vs "Posko Saya" vs "Laporan & Genangan"
+  // State Search & Filter Toggles Khusus Petugas: "Semua Posko Aktif" vs "Posko Saya" vs "Laporan & Genangan" vs "Sensor Telemetri"
   const [searchQuery, setSearchQuery] = useState("");
-  const [poskoFilter, setPoskoFilter] = useState<"ALL_ACTIVE" | "MINE" | "REPORTS">("ALL_ACTIVE");
+  const [poskoFilter, setPoskoFilter] = useState<"ALL_ACTIVE" | "MINE" | "REPORTS" | "TELEMETRY">("ALL_ACTIVE");
   const [showAllShelters, setShowAllShelters] = useState(false);
+
+  // State Dataset Sensor Telemetri Real-Time
+  const [internalTelemetry, setInternalTelemetry] = useState<MapTelemetryPoint[]>(DEFAULT_TELEMETRY_STATIONS);
+
+  // Auto-Sync Polling Data Telemetri dari /api/v1/telemetry
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTelemetryData = async () => {
+      try {
+        const res = await fetch("/api/v1/telemetry", { cache: "no-store" });
+        if (res.ok && isMounted) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.stations) && json.stations.length > 0) {
+            setInternalTelemetry((prevStations) => {
+              const mapped: MapTelemetryPoint[] = json.stations.map((st: any) => {
+                const prev = prevStations.find((p) => p.id === st.id) || DEFAULT_TELEMETRY_STATIONS.find((d) => d.id === st.id);
+                const coords = TELEMETRY_STATION_COORDS[st.id] || (prev ? [prev.lat, prev.lng] : [-6.35, 108.15]);
+                const isDanger =
+                  st.status?.includes("BAHAYA") || st.status?.includes("SIAGA 1");
+                const isWarning =
+                  st.status?.includes("WASPADA") || st.status?.includes("SIAGA 2");
+                const normStatus: "AWAS" | "WASPADA" | "NORMAL" = isDanger
+                  ? "AWAS"
+                  : isWarning
+                  ? "WASPADA"
+                  : "NORMAL";
+
+                const currentVal = st.currentValue ?? st.value ?? prev?.currentValue ?? 0;
+                const baseHistory = prev?.historicalTrend || [
+                  { time: "00:00", value: currentVal * 0.8 },
+                  { time: "03:00", value: currentVal * 0.86 },
+                  { time: "06:00", value: currentVal * 0.92 },
+                  { time: "09:00", value: currentVal * 0.96 },
+                  { time: "12:00", value: currentVal * 0.98 },
+                  { time: "Sekarang", value: currentVal },
+                ];
+                const updatedHistory = baseHistory.map((item, idx) =>
+                  idx === baseHistory.length - 1 ? { ...item, value: currentVal } : item
+                );
+
+                return {
+                  id: st.id,
+                  name: st.name,
+                  code: st.code || prev?.code || (st.id === "st-01" ? "AWS-01" : st.id === "st-02" ? "AWS-02" : st.id === "st-03" ? "AWS-03" : "AWS-04"),
+                  waterLevel: `${currentVal} ${st.unit || prev?.unit || ""}`.trim(),
+                  status: normStatus,
+                  trend: prev?.trend || (isDanger ? "NAIK" : isWarning ? "TURUN" : "STABIL"),
+                  trendText: prev?.trendText || (isDanger ? "Tren Naik Kritis" : isWarning ? "Penurunan (-1 cm/10dtk)" : "Kondisi Stabil"),
+                  lastUpdate: "Live SCADA",
+                  lat: coords[0],
+                  lng: coords[1],
+                  value: currentVal,
+                  currentValue: currentVal,
+                  unit: st.unit || prev?.unit,
+                  type: st.type || prev?.type,
+                  location: st.location || prev?.location,
+                  district: st.district || prev?.district,
+                  readingLabel: st.readingLabel || prev?.readingLabel,
+                  rawStatus: st.status || prev?.rawStatus,
+                  normalMax: st.normalMax ?? prev?.normalMax,
+                  waspadaMax: st.waspadaMax ?? prev?.waspadaMax,
+                  dangerThreshold: st.dangerThreshold ?? prev?.dangerThreshold,
+                  batteryPct: st.batteryPct ?? prev?.batteryPct ?? 96,
+                  signalStrength: st.signalStrength || prev?.signalStrength || "-72 dBm (4G LTE)",
+                  protocol: prev?.protocol || "LoRaWAN 920 MHz & 4G Backup",
+                  description: prev?.description || "Sensor ultrasonik pemantau ketinggian air terintegrasi BPBD Indramayu.",
+                  historicalTrend: updatedHistory,
+                };
+              });
+
+              // Jaga konsistensi data jika sensor sedang dibuka di panel detail
+              setActiveTelemetryDetail((currentActive) => {
+                if (!currentActive) return null;
+                const match = mapped.find((m) => m.id === currentActive.id);
+                return match ? { ...currentActive, ...match } : currentActive;
+              });
+
+              return mapped;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Polling Telemetri fetch warning:", err);
+      }
+    };
+
+    fetchTelemetryData();
+    const interval = setInterval(fetchTelemetryData, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const displayedReports = useMemo(() => {
     if (!searchQuery.trim()) return allReports;
@@ -1038,12 +1410,22 @@ export default function PetugasSpatialMap({
   const processedShelters = useMemo(() => {
     const [uLat, uLng] = userCoords;
 
-    const list = internalShelters.map((sh) => {
-      const distMeters = calculateDistanceInMeters(uLat, uLng, sh.lat, sh.lng);
+    const validShelters = (internalShelters || []).filter((sh) => {
+      const lat = Number(sh?.lat);
+      const lng = Number(sh?.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    });
+
+    const list = validShelters.map((sh) => {
+      const sLat = Number(sh.lat);
+      const sLng = Number(sh.lng);
+      const distMeters = calculateDistanceInMeters(uLat, uLng, sLat, sLng);
       const distStr = formatDistanceText(distMeters);
       const etaStr = formatEtaText(distMeters);
       return {
         ...sh,
+        lat: sLat,
+        lng: sLng,
         distMeters,
         distance: `${distStr} (${etaStr})`,
         displayDistance: distStr,
@@ -1140,10 +1522,22 @@ export default function PetugasSpatialMap({
 
   // Skema Kemunculan Titik Peta (LoD by Zoom Level):
   const mapVisibleShelters = useMemo(() => {
+    const isInsideBounds = (sh: MapShelterPoint) => {
+      if (!mapBounds || typeof mapBounds.contains !== "function") return true;
+      const lat = Number(sh?.lat);
+      const lng = Number(sh?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+      try {
+        return mapBounds.contains([lat, lng]);
+      } catch {
+        return false;
+      }
+    };
+
     // Jika User memilih "Posko Saya" atau melakukan text search, render seluruh marker yang relevan di viewport/peta
     if (poskoFilter === "MINE" || searchQuery.trim()) {
       if (mapBounds && mapZoom >= 11) {
-        const inView = displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)));
+        const inView = displayedShelters.filter(isInsideBounds);
         return inView.length > 0 ? inView : displayedShelters;
       }
       return displayedShelters;
@@ -1151,7 +1545,7 @@ export default function PetugasSpatialMap({
 
     // Viewport Bounding Box: HANYA data yang koordinatnya berada di dalam area layar aktif
     const inView = mapBounds
-      ? displayedShelters.filter((sh) => mapBounds.contains(L.latLng(sh.lat, sh.lng)))
+      ? displayedShelters.filter(isInsideBounds)
       : displayedShelters;
 
     let result: typeof displayedShelters = [];
@@ -1197,10 +1591,19 @@ export default function PetugasSpatialMap({
   // Status tampilan default vs mode dinamis/ekspansi
   const isDefaultView = !showAllShelters && !searchQuery.trim();
 
-  // Judul dinamis untuk header Card Posko / Laporan Petugas
+  // Judul dinamis untuk header Card Posko / Laporan / Sensor Petugas
   const getCardHeaderTitle = () => {
     if (searchQuery.trim()) {
-      return `Hasil Pencarian: "${searchQuery}" (${poskoFilter === "REPORTS" ? displayedReports.length : displayedShelters.length})`;
+      return `Hasil Pencarian: "${searchQuery}" (${
+        poskoFilter === "TELEMETRY"
+          ? internalTelemetry.length
+          : poskoFilter === "REPORTS"
+          ? displayedReports.length
+          : displayedShelters.length
+      })`;
+    }
+    if (poskoFilter === "TELEMETRY") {
+      return `Sensor Telemetri TMA & Rob (${internalTelemetry.length})`;
     }
     if (poskoFilter === "REPORTS") {
       return `Laporan & Titik Genangan (${displayedReports.length})`;
@@ -1227,7 +1630,7 @@ export default function PetugasSpatialMap({
     : (activeShelterDetail || activeReportDetail || activeTelemetryDetail)
       ? "DETAIL"
       : "IDLE";
-  const isDetailActive = viewMode !== "IDLE";
+  const isDetailActive = viewMode !== "IDLE" || !!editingPoskoId;
 
   // 3-Level Sheet Snap ala Google Maps: 'min' (~74px mentok bawah), 'mid' (~42vh default), 'full' (calc(100vh - 80px))
   type SheetSnap = "min" | "mid" | "full";
@@ -1519,14 +1922,15 @@ export default function PetugasSpatialMap({
 
         const marker = L.marker([rep.lat, rep.lng], { icon, title: rep.title }).bindPopup(popupContent);
 
-        // Lingkaran Radius Hambatan Genangan (200 meter)
+        // Lingkaran Radius Hambatan Genangan (Transparan, tipis, di belakang marker)
         const floodCircle = L.circle([rep.lat, rep.lng], {
-          radius: 200,
+          radius: 120,
           color: isCritical ? "#DC2626" : "#EA580C",
           fillColor: isCritical ? "#EF4444" : "#F97316",
-          fillOpacity: 0.18,
-          weight: 1.5,
-          dashArray: "4, 6",
+          fillOpacity: 0.12,
+          weight: 1,
+          dashArray: "3, 5",
+          interactive: false,
         });
         reportsLayerRef.current?.addLayer(floodCircle);
 
@@ -1536,9 +1940,51 @@ export default function PetugasSpatialMap({
 
         reportsLayerRef.current?.addLayer(marker);
       });
+    } else if (poskoFilter === "TELEMETRY") {
+      // ==============================================================
+      // KASUS 2: FILTER "SENSOR TELEMETRI" AKTIF (HANYA PIN SENSOR)
+      // ==============================================================
+      internalTelemetry.forEach((tel) => {
+        const isSelected = activeTelemetryDetail?.id === tel.id;
+        const icon = createTelemetryPinIcon(tel, isSelected, mapZoom);
+
+        const marker = L.marker([tel.lat, tel.lng], {
+          icon,
+          title: tel.name,
+          zIndexOffset: isSelected ? 4000 : 2000,
+        });
+
+        marker.on("click", () => {
+          setActiveTelemetryDetail(tel);
+          setActiveShelterDetail(null);
+          setActiveReportDetail(null);
+          setPoskoExpanded(true);
+          setSheetSnap("mid");
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([tel.lat, tel.lng], 14, { duration: 0.8 });
+          }
+        });
+
+        marker.bindTooltip(
+          `<div style="font-family: inherit; font-size: 11px; font-weight: 800; color: #0f172a; padding: 2px 4px;">
+            <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+              <span style="display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: ${
+                tel.status === 'AWAS' ? '#EF4444' : tel.status === 'WASPADA' ? '#F59E0B' : '#10B981'
+              };"></span>
+              <span>${tel.name}</span>
+            </div>
+            <div style="font-size: 10px; font-weight: 600; color: #475569;">
+              ${tel.readingLabel || 'Sensor'}: <b style="color: #0f172a;">${tel.waterLevel}</b>
+            </div>
+          </div>`,
+          { direction: "top", offset: [0, -32], opacity: 0.95 }
+        );
+
+        telemetryLayerRef.current?.addLayer(marker);
+      });
     } else {
       // ==============================================================
-      // KASUS 2: FILTER "SEMUA POSKO AKTIF" ATAU "POSKO SAYA"
+      // KASUS 3: FILTER "SEMUA POSKO AKTIF" ATAU "POSKO SAYA" (HANYA POSKO)
       // ==============================================================
       mapVisibleShelters.forEach((sh) => {
         const isEditingThis = sh.id === editingPoskoId;
@@ -1684,6 +2130,8 @@ export default function PetugasSpatialMap({
     poskoFilter,
     displayedReports,
     mapVisibleShelters,
+    internalTelemetry,
+    activeTelemetryDetail,
     editingPoskoId,
     editFormData.lat,
     editFormData.lng,
@@ -1714,6 +2162,7 @@ export default function PetugasSpatialMap({
     setActiveShelterDetail(null);
     setActiveNavRoute(null);
     setPoskoExpanded(true);
+    setSheetSnap("mid");
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([sh.lat, sh.lng], 16, { duration: 1 });
     }
@@ -3258,12 +3707,148 @@ export default function PetugasSpatialMap({
     );
   };
 
+  // Render Item Card Sensor Telemetri TMA & Rob
+  const renderTelemetryCardItem = (tel: MapTelemetryPoint, index: number) => {
+    const isDanger =
+      tel.status === "AWAS" ||
+      tel.rawStatus?.includes("BAHAYA") ||
+      tel.rawStatus?.includes("SIAGA 1");
+    const isWarning =
+      tel.status === "WASPADA" ||
+      tel.status === "SIAGA" ||
+      tel.rawStatus?.includes("WASPADA") ||
+      tel.rawStatus?.includes("SIAGA 2");
+    const isSelected = activeTelemetryDetail?.id === tel.id;
+
+    const statusBadge =
+      tel.rawStatus || (isDanger ? "Bahaya" : isWarning ? "Waspada" : "Normal");
+    const badgeColor = isDanger
+      ? "text-rose-600"
+      : isWarning
+      ? "text-amber-600"
+      : "text-emerald-600";
+    const dotColor = isDanger
+      ? "bg-rose-500 animate-pulse"
+      : isWarning
+      ? "bg-amber-500 animate-pulse"
+      : "bg-emerald-500";
+
+    const typeBadge =
+      tel.type === "ROB_PESISIR" ? "Pasang Rob" : "Aliran Sungai";
+    const typeBadgeBg =
+      tel.type === "ROB_PESISIR" ? "bg-amber-500" : "bg-[#38746D]";
+
+    return (
+      <div
+        key={tel.id}
+        onClick={() => {
+          setActiveTelemetryDetail(tel);
+          setActiveShelterDetail(null);
+          setActiveReportDetail(null);
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([tel.lat, tel.lng], 15, { duration: 0.8 });
+          }
+        }}
+        className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col gap-2 text-left ${
+          isSelected
+            ? "bg-emerald-50/90 border-[#38746D] shadow-xs ring-1 ring-[#38746D]"
+            : "bg-white hover:bg-emerald-50/30 border-gray-100 hover:border-emerald-200"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-slate-500 font-medium flex items-center gap-1 shrink-0">
+              <Radio className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+              <span>{tel.district || "Indramayu"}</span>
+            </span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[8px] font-bold text-white tracking-wider shrink-0 ${typeBadgeBg}`}
+            >
+              {typeBadge}
+            </span>
+          </div>
+          <span
+            className={`text-[9.5px] font-bold flex items-center gap-1 shrink-0 ${badgeColor}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+            <span>{statusBadge}</span>
+          </span>
+        </div>
+
+        <div className="space-y-0.5">
+          <h5 className="font-extrabold text-[12px] text-slate-800 leading-tight">
+            {tel.name}
+          </h5>
+          <p className="text-[10px] text-slate-500 flex items-center gap-1 truncate">
+            <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
+            <span>{tel.location || "Wilayah Pantau Indramayu"}</span>
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100/90">
+          <span className="text-[10px] font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
+            {tel.readingLabel || "Nilai Sensor"}:{" "}
+            <strong className="text-slate-900">{tel.waterLevel}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTelemetryDetail(tel);
+              setActiveShelterDetail(null);
+              setActiveReportDetail(null);
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.flyTo([tel.lat, tel.lng], 15, {
+                  duration: 0.8,
+                });
+              }
+            }}
+            className="text-[10.5px] font-bold text-[#38746D] hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>Pusatkan Peta</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Render Inline Form Edit Posko & Pindah Pin Manual
   const renderInlineEditForm = () => {
     return (
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
+        {/* Drag Handle Bar (Khusus Tampilan Mobile) */}
+        <div
+          className="md:hidden pt-2 px-4 pb-1 shrink-0 cursor-grab active:cursor-grabbing border-b border-slate-100/60 select-none bg-white"
+          style={{ touchAction: "none" }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+        >
+          <div
+            className="py-1.5 -my-1 cursor-pointer flex justify-center items-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSheetSnap((prev) => (prev === "min" ? "mid" : prev === "mid" ? "min" : "mid"));
+            }}
+            title={sheetSnap === "min" ? "Buka Form Edit Posko" : "Perkecil ke Bawah"}
+          >
+            <div className="w-10 h-1.5 bg-slate-300 hover:bg-slate-400 rounded-full transition active:scale-95" />
+          </div>
+        </div>
+
         {/* Header Panel Edit */}
-        <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#EEF5F3] border-b border-[#D5E4E0]">
+        <div
+          className={`p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#EEF5F3] border-b border-[#D5E4E0] select-none ${
+            sheetSnap === "min" ? "cursor-pointer" : ""
+          }`}
+          onClick={() => {
+            if (sheetSnap === "min") {
+              setSheetSnap("mid");
+            }
+          }}
+        >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-8 h-8 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0 shadow-xs">
               <Pencil className="w-4 h-4" />
@@ -3278,22 +3863,96 @@ export default function PetugasSpatialMap({
                 </span>
               </div>
               <p className="text-[10px] text-[#4B635F] truncate">
-                ID: {editingPoskoId}
+                {sheetSnap === "min" ? "Geser pin di peta • Ketuk untuk buka form" : `ID: ${editingPoskoId}`}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleCancelEditPosko}
-            className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-500 hover:text-slate-800 transition cursor-pointer"
-            title="Batal Edit"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          {/* Kontrol Snap Mobile & Tombol Batal/Tutup */}
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="md:hidden flex items-center">
+              {sheetSnap === "min" ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSheetSnap("mid");
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                  title="Buka Form Edit Posko"
+                  aria-label="Buka Form Edit Posko"
+                >
+                  <ChevronUp className="w-5 h-5 text-slate-600" />
+                </button>
+              ) : sheetSnap === "mid" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("full");
+                    }}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                    title="Perbesar Layar Penuh"
+                    aria-label="Perbesar Layar Penuh"
+                  >
+                    <ChevronUp className="w-5 h-5 text-slate-600" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetSnap("min");
+                    }}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                    title="Perkecil ke Bawah (Hanya Header)"
+                    aria-label="Perkecil ke Bawah"
+                  >
+                    <ChevronDown className="w-5 h-5 text-slate-600" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSheetSnap("mid");
+                  }}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 transition active:scale-90 cursor-pointer"
+                  title="Perkecil ke Setengah Layar"
+                  aria-label="Perkecil ke Setengah Layar"
+                >
+                  <ChevronDown className="w-5 h-5 text-slate-600" />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelEditPosko();
+              }}
+              className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+              title="Batal Edit"
+              aria-label="Batal Edit"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Body Form */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 sm:p-4 space-y-3 text-left">
+        <div
+          onScroll={handleBodyScroll}
+          onTouchStart={handleBodyTouchStart}
+          onTouchMove={handleBodyTouchMove}
+          onTouchEnd={handleBodyTouchEnd}
+          onTouchCancel={handleBodyTouchEnd}
+          className={`flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-thin p-3 sm:p-4 space-y-3 text-left touch-pan-y ${
+            sheetSnap === "min" ? "hidden md:block" : "block"
+          }`}
+        >
           {/* Banner Petunjuk Geser Pin */}
           <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 flex items-start gap-2">
             <span className="w-2 h-2 rounded-full bg-[#38746D] animate-ping mt-1 shrink-0" />
@@ -3450,7 +4109,11 @@ export default function PetugasSpatialMap({
         </div>
 
         {/* Footer Aksi */}
-        <div className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
+        <div
+          className={`p-3 bg-white border-t border-slate-100 items-center gap-2 shrink-0 ${
+            sheetSnap === "min" ? "hidden md:flex" : "flex"
+          }`}
+        >
           <button
             type="button"
             onClick={handleCancelEditPosko}
@@ -4377,11 +5040,20 @@ export default function PetugasSpatialMap({
             />
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#38746D]">
+                    {activeTelemetryDetail.code || (activeTelemetryDetail.id === "st-01" ? "AWS-01" : activeTelemetryDetail.id === "st-02" ? "AWS-02" : activeTelemetryDetail.id === "st-03" ? "AWS-03" : "AWS-04")} • {activeTelemetryDetail.type === "ROB_PESISIR" ? "Sensor Pasang Rob" : "Sensor Aliran Cimanuk"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-slate-100 text-[8.5px] font-bold text-slate-600 border border-slate-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 leading-tight truncate">
                   {activeTelemetryDetail.name}
                 </h3>
-                <p className="text-xs text-sky-700 font-bold mt-0.5 truncate max-w-[280px]">
-                  TMA: {activeTelemetryDetail.waterLevel} &bull; Tren: {activeTelemetryDetail.trend}
+                <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[280px]">
+                  {activeTelemetryDetail.location || "Pesisir Indramayu"}, Kec. {activeTelemetryDetail.district || "Indramayu"}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0 -mr-1">
@@ -5346,19 +6018,45 @@ export default function PetugasSpatialMap({
     }
 
     if (activeTelemetryDetail) {
+      const isDanger =
+        activeTelemetryDetail.status === "AWAS" ||
+        activeTelemetryDetail.rawStatus?.includes("BAHAYA") ||
+        activeTelemetryDetail.rawStatus?.includes("SIAGA 1");
+      const isWarning =
+        activeTelemetryDetail.status === "WASPADA" ||
+        activeTelemetryDetail.status === "SIAGA" ||
+        activeTelemetryDetail.rawStatus?.includes("WASPADA") ||
+        activeTelemetryDetail.rawStatus?.includes("SIAGA 2");
+
+      const statusLabel =
+        activeTelemetryDetail.rawStatus ||
+        (isDanger ? "BAHAYA / SIAGA 1" : isWarning ? "WASPADA / SIAGA 2" : "NORMAL");
+
       if (isMobileSheet && sheetSnap === "min") {
         return (
           <div className="flex items-center justify-between gap-2.5 p-1 animate-in fade-in duration-150">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center shrink-0">
-                <Activity className="w-5 h-5 text-sky-600" />
+              <div
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                  isDanger
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : isWarning
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+              >
+                <Radio className="w-5 h-5 animate-pulse" />
               </div>
               <div className="min-w-0">
                 <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
                   {activeTelemetryDetail.name}
                 </h4>
-                <p className="text-[10px] text-sky-800 font-bold truncate mt-0.5">
-                  TMA: {activeTelemetryDetail.waterLevel} &bull; Tren: {activeTelemetryDetail.trend}
+                <p className="text-[10px] text-slate-600 font-bold truncate mt-0.5">
+                  {activeTelemetryDetail.readingLabel || "Nilai"}:{" "}
+                  <span className="font-extrabold text-slate-900">
+                    {activeTelemetryDetail.waterLevel}
+                  </span>{" "}
+                  &bull; {statusLabel}
                 </p>
               </div>
             </div>
@@ -5369,7 +6067,7 @@ export default function PetugasSpatialMap({
                   e.stopPropagation();
                   setSheetSnap("mid");
                 }}
-                className="h-8 px-2.5 rounded-lg bg-sky-50 text-sky-800 text-[10.5px] font-bold hover:bg-sky-100 border border-sky-200/80 transition active:scale-95 cursor-pointer"
+                className="h-8 px-2.5 rounded-lg bg-[#38746D]/10 text-[#38746D] text-[10.5px] font-bold hover:bg-[#38746D]/20 border border-[#38746D]/30 transition active:scale-95 cursor-pointer"
               >
                 Detail
               </button>
@@ -5389,45 +6087,284 @@ export default function PetugasSpatialMap({
         );
       }
 
+      // Perhitungan data kurva sparkline riwayat ketinggian 12 jam
+      const historyPoints =
+        activeTelemetryDetail.historicalTrend && activeTelemetryDetail.historicalTrend.length > 0
+          ? activeTelemetryDetail.historicalTrend
+          : [
+              { time: "00:00", value: (activeTelemetryDetail.currentValue ?? 50) * 0.8 },
+              { time: "03:00", value: (activeTelemetryDetail.currentValue ?? 50) * 0.86 },
+              { time: "06:00", value: (activeTelemetryDetail.currentValue ?? 50) * 0.92 },
+              { time: "09:00", value: (activeTelemetryDetail.currentValue ?? 50) * 0.96 },
+              { time: "12:00", value: (activeTelemetryDetail.currentValue ?? 50) * 0.98 },
+              { time: "Sekarang", value: activeTelemetryDetail.currentValue ?? 50 },
+            ];
+
+      const sparkline = (() => {
+        const width = 340;
+        const height = 90;
+        const padding = 12;
+        const values = historyPoints.map((item) => item.value);
+        const minVal = Math.min(...values) * 0.95;
+        const maxVal = Math.max(...values) * 1.05 || 1;
+        const range = maxVal - minVal || 1;
+
+        const pts = historyPoints.map((item, index) => {
+          const x = padding + (index / (historyPoints.length - 1)) * (width - padding * 2);
+          const y = height - padding - ((item.value - minVal) / range) * (height - padding * 2);
+          return { x, y, time: item.time, value: item.value };
+        });
+
+        let pathD = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          const prev = pts[i - 1];
+          const curr = pts[i];
+          const cx = (prev.x + curr.x) / 2;
+          pathD += ` C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
+        }
+        const areaD = `${pathD} L ${pts[pts.length - 1].x} ${height} L ${pts[0].x} ${height} Z`;
+        return { pathD, areaD, points: pts };
+      })();
+
+      const normalMax = activeTelemetryDetail.normalMax ?? 40;
+      const waspadaMax = activeTelemetryDetail.waspadaMax ?? 80;
+      const dangerThreshold = activeTelemetryDetail.dangerThreshold ?? 80;
+
       return (
-        <div className={`overflow-y-auto flex-1 min-h-0 space-y-2 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${isMobileSheet ? "space-y-2.5 pb-2" : "p-2.5"}`}>
-          {/* Header Info Sensor */}
-          <div className="space-y-0.5">
+        <div
+          className={`overflow-y-auto flex-1 min-h-0 space-y-3.5 scrollbar-none md:scrollbar-thin animate-in fade-in slide-in-from-left-2 duration-200 ${
+            isMobileSheet ? "space-y-3 pb-3 px-1" : "p-1"
+          }`}
+        >
+          {/* Status Chip & Metrik Kritis Utama */}
+          <div
+            className={`p-4 rounded-2xl border transition-colors ${
+              isDanger
+                ? "bg-rose-50/80 border-rose-200"
+                : isWarning
+                ? "bg-amber-50/70 border-amber-200"
+                : "bg-[#EEF5F3] border-[#D5E4E0]"
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold bg-sky-100 text-sky-800 border border-sky-300">
-                📡 SENSOR TELEMETRI TMA
+              <span className="text-xs text-[#4B635F] font-semibold">
+                {activeTelemetryDetail.readingLabel || "Pembacaan Sensor"}
               </span>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                {activeTelemetryDetail.status}
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  isDanger
+                    ? "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse"
+                    : isWarning
+                    ? "bg-amber-100 text-amber-900 border border-amber-300"
+                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                }`}
+              >
+                {statusLabel}
               </span>
             </div>
-            <h3 className="text-xs font-black text-[#132422] leading-tight">
-              {activeTelemetryDetail.name}
-            </h3>
-            <p className="text-[9.5px] text-[#64748B]">
-              DAS Cimanuk Hilir • Stasiun Pemantau Pasang Surut
-            </p>
-          </div>
 
-          {/* TMA Compact Display */}
-          <div className="p-2 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 flex items-center justify-between">
-            <div>
-              <span className="text-[8.5px] text-sky-800 font-bold uppercase tracking-wider block">
-                Tinggi Muka Air (TMA)
-              </span>
-              <div className="text-[9.5px] text-sky-700 font-semibold flex items-center gap-1.5 mt-0.5">
-                <span>Tren: <strong>{activeTelemetryDetail.trend}</strong></span>
-                <span>&bull;</span>
-                <span>{activeTelemetryDetail.lastUpdate}</span>
+            <div className="flex items-baseline justify-between mt-2">
+              <div className="flex items-baseline gap-1.5">
+                <span
+                  className={`text-3xl lg:text-4xl font-black tracking-tight ${
+                    isDanger
+                      ? "text-rose-700 animate-pulse"
+                      : isWarning
+                      ? "text-amber-800"
+                      : "text-[#1D443F]"
+                  }`}
+                >
+                  {activeTelemetryDetail.currentValue ?? activeTelemetryDetail.value}
+                </span>
+                <span className="text-sm font-bold text-[#38746D]">
+                  {activeTelemetryDetail.unit}
+                </span>
+              </div>
+
+              <div className="text-right">
+                <div
+                  className={`text-xs font-bold flex items-center gap-1 justify-end ${
+                    activeTelemetryDetail.trend === "NAIK" || isDanger
+                      ? "text-amber-700"
+                      : activeTelemetryDetail.trend === "TURUN" || isWarning
+                      ? "text-sky-700"
+                      : "text-emerald-700"
+                  }`}
+                >
+                  {activeTelemetryDetail.trend === "NAIK" || isDanger ? (
+                    <>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                      <span>{activeTelemetryDetail.trendText || "Tren Naik"}</span>
+                    </>
+                  ) : activeTelemetryDetail.trend === "TURUN" || isWarning ? (
+                    <>
+                      <ArrowDownRight className="w-3.5 h-3.5 text-sky-600" />
+                      <span>{activeTelemetryDetail.trendText || "Penurunan (-1 cm/10dtk)"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{activeTelemetryDetail.trendText || "Kondisi Stabil"}</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Ambang Siaga: &gt; {dangerThreshold} {activeTelemetryDetail.unit}
+                </p>
               </div>
             </div>
-            <div className="text-lg font-black text-sky-900">
-              {activeTelemetryDetail.waterLevel}
+          </div>
+
+          {/* Indikator Ambang Batas 3 Level */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-semibold">
+              <span className={!isDanger && !isWarning ? "text-emerald-700 font-bold" : "text-slate-500"}>
+                Normal (&lt;{normalMax})
+              </span>
+              <span className={isWarning ? "text-amber-700 font-bold" : "text-slate-500"}>
+                Waspada ({normalMax}-{waspadaMax})
+              </span>
+              <span className={isDanger ? "text-rose-600 font-bold animate-pulse" : "text-slate-500"}>
+                Bahaya (&gt;{dangerThreshold})
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-slate-100 flex overflow-hidden p-0.5 gap-0.5">
+              <div
+                className={`h-full rounded-l-full transition-all duration-500 ${
+                  !isDanger && !isWarning ? "bg-emerald-500 shadow-xs" : "bg-emerald-500/50"
+                }`}
+                style={{ width: "33.3%" }}
+              />
+              <div
+                className={`h-full transition-all duration-500 ${
+                  isWarning ? "bg-amber-400 shadow-xs" : "bg-amber-400/50"
+                }`}
+                style={{ width: "33.3%" }}
+              />
+              <div
+                className={`h-full rounded-r-full transition-all duration-500 ${
+                  isDanger ? "bg-rose-500 shadow-xs animate-pulse" : "bg-rose-500/40"
+                }`}
+                style={{ width: "33.4%" }}
+              />
             </div>
           </div>
 
-          <div className="text-[9.5px] p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100 text-emerald-900 leading-snug">
-            <strong>Rekomendasi BPBD:</strong> Warga pesisir tetap waspada potensi air pasang rob pada malam hari.
+          {/* Grafik Fluktuasi Ketinggian (12 Jam Terakhir) */}
+          <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-[#38746D]" />
+                <span className="text-[11px] font-bold text-slate-800">
+                  Fluktuasi Ketinggian (12 Jam Terakhir)
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Live Proxy SCADA</span>
+            </div>
+
+            {/* Kurva Grafik Vector SVG Proporsional */}
+            <div className="w-full h-24 relative">
+              <svg className="w-full h-full overflow-visible" viewBox="0 0 340 90" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="spatialDetailGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#38746D" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#38746D" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {sparkline.areaD && (
+                  <path d={sparkline.areaD} fill="url(#spatialDetailGrad)" />
+                )}
+
+                {sparkline.pathD && (
+                  <path
+                    d={sparkline.pathD}
+                    fill="none"
+                    stroke="#1D443F"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                )}
+
+                {sparkline.points.map((pt, i) => (
+                  <g key={i}>
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={i === sparkline.points.length - 1 ? 4.5 : 3}
+                      fill={
+                        i === sparkline.points.length - 1
+                          ? isDanger
+                            ? "#EF4444"
+                            : isWarning
+                            ? "#F59E0B"
+                            : "#10B981"
+                          : "#38746D"
+                      }
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                  </g>
+                ))}
+              </svg>
+            </div>
+
+            <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono pt-1 border-t border-slate-200">
+              {sparkline.points.map((item, idx) => (
+                <span key={idx}>{item.time}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Deskripsi Sensor */}
+          <p className="text-xs text-slate-600 leading-relaxed bg-[#F8FAF9] p-3 rounded-xl border border-slate-100">
+            {activeTelemetryDetail.description ||
+              "Sensor telemetri pemantau ketinggian air terintegrasi BPBD Indramayu untuk peringatan dini pasang rob dan luapan DAS Cimanuk."}
+          </p>
+
+          {/* Hardware & IoT Health Diagnostics (Sesuai Desain Ikhtisar Telemetri) */}
+          <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <BatteryCharging className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div>
+                <div className="text-[10px] text-slate-400">Daya Baterai</div>
+                <div className="font-bold text-slate-800">
+                  Solar {activeTelemetryDetail.batteryPct ?? 96}%
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <Wifi className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-slate-400">Sinyal IoT</div>
+                <div className="font-bold text-slate-800 truncate">
+                  {activeTelemetryDetail.signalStrength || "-72 dBm (4G LTE)"}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 col-span-2">
+              <Radio className="w-3.5 h-3.5 text-[#1D443F] shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-slate-400">Protokol Transmisi</div>
+                <div className="font-bold text-slate-800 truncate">
+                  {activeTelemetryDetail.protocol || "LoRaWAN 920 MHz & 4G Backup"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tombol ke Halaman Dasbor Telemetri untuk Melihat Ikhtisar */}
+          <div className="pt-1">
+            <Link
+              href="/petugas/telemetri"
+              className="w-full py-2.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#2C5B55] active:scale-[0.98] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            >
+              <Activity className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Lihat Ikhtisar di Dasbor Telemetri</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       );
@@ -5457,14 +6394,15 @@ export default function PetugasSpatialMap({
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className={`pointer-events-auto ${viewMode === "IDLE"
-              ? "absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5"
-              : "hidden md:flex absolute inset-x-3.5 top-16 bottom-20 md:inset-x-auto md:top-4 md:bottom-6 md:left-6 md:w-[400px] z-[300] flex-col"
-              }`}
+            className={`pointer-events-auto ${
+              !editingPoskoId && viewMode === "IDLE"
+                ? "absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5 max-h-[calc(100vh-80px)]"
+                : "hidden md:flex absolute inset-x-3.5 top-16 bottom-20 md:inset-x-auto md:top-4 md:bottom-6 md:left-6 md:w-[400px] z-[300] flex-col"
+            }`}
             style={{ zIndex: 1000 }}
           >
-          {/* Tampilkan Search Bar dan Filter Chips HANYA saat viewMode === 'IDLE' */}
-          {viewMode === "IDLE" && (
+          {/* Tampilkan Search Bar dan Filter Chips HANYA saat viewMode === 'IDLE' dan bukan sedang edit */}
+          {viewMode === "IDLE" && !editingPoskoId && (
             <>
               {/* Baris 1: Card Search Bar */}
               <motion.div
@@ -5577,6 +6515,27 @@ export default function PetugasSpatialMap({
                   <AlertTriangle className={`w-3.5 h-3.5 ${poskoFilter === "REPORTS" ? "text-amber-200" : "text-rose-500"}`} />
                   <span>Laporan &amp; Genangan ({displayedReports.length})</span>
                 </button>
+
+                {/* Tombol Filter: Sensor Telemetri */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPoskoFilter("TELEMETRY");
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer font-medium ${
+                    poskoFilter === "TELEMETRY"
+                      ? "bg-[#38746D] text-white shadow-xs font-bold"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300"
+                  }`}
+                >
+                  <Radio
+                    className={`w-3.5 h-3.5 ${
+                      poskoFilter === "TELEMETRY" ? "text-white" : "text-[#38746D]"
+                    }`}
+                  />
+                  <span>Sensor Telemetri ({internalTelemetry.length || 4})</span>
+                </button>
               </motion.div>
             </>
           )}
@@ -5657,30 +6616,71 @@ export default function PetugasSpatialMap({
                   className="flex flex-col flex-1 min-h-0 overflow-hidden"
                 >
                   {/* Header Panel Detail */}
-                  <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                        <Building2 className="w-4 h-4 text-[#38746D]" />
-                      </div>
+                  {activeTelemetryDetail ? (
+                    <div className="p-3.5 sm:p-4 flex items-start justify-between gap-3 shrink-0 bg-white border-b border-slate-100">
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
-                          {activeShelterDetail?.name || activeReportDetail?.title || activeTelemetryDetail?.name || "Detail Lokasi"}
-                        </h4>
-                        <p className="text-[10px] text-[#4B635F] truncate">
-                          {activeShelterDetail?.location || "Kawasan Pantau Evakuasi"}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#38746D]">
+                            {activeTelemetryDetail.code || (activeTelemetryDetail.id === "st-01" ? "AWS-01" : activeTelemetryDetail.id === "st-02" ? "AWS-02" : activeTelemetryDetail.id === "st-03" ? "AWS-03" : "AWS-04")} • {activeTelemetryDetail.type === "ROB_PESISIR" ? "Sensor Pasang Rob" : "Sensor Aliran Cimanuk"}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold text-slate-600 border border-slate-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Live
+                          </span>
+                        </div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#132422] mt-0.5 leading-snug">
+                          {activeTelemetryDetail.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          {activeTelemetryDetail.location || "Pesisir Indramayu"}, Kec. {activeTelemetryDetail.district || "Indramayu"}
                         </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer shrink-0"
+                        title="Tutup Detail Sensor"
+                        aria-label="Tutup Detail"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={clearSelection}
-                      className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                      title="Tutup Detail"
-                      aria-label="Tutup Detail"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                            poskoFilter === "REPORTS"
+                              ? "bg-rose-50 text-rose-600 border-rose-200"
+                              : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                          }`}
+                        >
+                          {poskoFilter === "REPORTS" ? (
+                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          ) : (
+                            <Building2 className="w-4 h-4 text-[#38746D]" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
+                            {activeShelterDetail?.name || activeReportDetail?.title || "Detail Lokasi"}
+                          </h4>
+                          <p className="text-[10px] text-[#4B635F] truncate">
+                            {activeShelterDetail?.location || "Kawasan Pantau Evakuasi"}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
+                        title="Tutup Detail"
+                        aria-label="Tutup Detail"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 sm:p-3.5">
                     {renderDetailContent(false)}
                   </div>
@@ -5700,8 +6700,22 @@ export default function PetugasSpatialMap({
                       className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer select-none"
                       onClick={() => setPoskoExpanded((prev) => !prev)}
                     >
-                      <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                        <Building2 className="w-4 h-4 text-[#38746D]" />
+                      <div
+                        className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                          poskoFilter === "TELEMETRY"
+                            ? "bg-emerald-50 text-[#38746D] border-emerald-200"
+                            : poskoFilter === "REPORTS"
+                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                            : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                        }`}
+                      >
+                        {poskoFilter === "TELEMETRY" ? (
+                          <Radio className="w-4 h-4 text-[#38746D]" />
+                        ) : poskoFilter === "REPORTS" ? (
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        ) : (
+                          <Building2 className="w-4 h-4 text-[#38746D]" />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
@@ -5736,7 +6750,11 @@ export default function PetugasSpatialMap({
                     className="overflow-hidden"
                   >
                     <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
-                      {poskoFilter === "REPORTS" ? (
+                      {poskoFilter === "TELEMETRY" ? (
+                        internalTelemetry.map((tel, index) =>
+                          renderTelemetryCardItem(tel, index)
+                        )
+                      ) : poskoFilter === "REPORTS" ? (
                         displayedReports.length === 0 ? (
                           <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
                             <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-500">
@@ -5827,14 +6845,12 @@ export default function PetugasSpatialMap({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
-              className={`md:hidden fixed inset-x-0 bottom-[68px] z-[350] bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] border-t border-slate-200/80 flex flex-col overflow-hidden pointer-events-auto ${
-                editingPoskoId
-                  ? "h-[70vh] max-h-[calc(100vh-100px)]"
-                  : sheetSnap === "min"
+              className={`md:hidden fixed inset-x-0 bottom-[68px] z-[350] bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] border-t border-slate-200/80 flex flex-col overflow-hidden pointer-events-auto transition-[height] duration-300 ease-out ${
+                sheetSnap === "min"
                   ? "h-[85px]"
                   : sheetSnap === "mid"
-                  ? "h-[45vh]"
-                  : "h-[calc(100dvh-170px)] max-h-[calc(100vh-100px)]"
+                  ? "h-[48vh]"
+                  : "h-[calc(100dvh-150px)] max-h-[calc(100vh-80px)]"
               }`}
             >
               <AnimatePresence mode="wait">

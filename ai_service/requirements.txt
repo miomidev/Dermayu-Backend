@@ -1,8 +1,6 @@
 # Dependensi Layanan Inferensi AI DERMAYU (CNN Flood Validation)
-# Direkomendasikan menggunakan Python 3.10, 3.11, atau 3.12 (TensorFlow kompatibel)
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
-tensorflow>=2.15.0
 pillow>=10.0.0
 python-multipart>=0.0.9
 numpy>=1.24.0

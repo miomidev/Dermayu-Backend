@@ -16,9 +16,9 @@ docker compose build
 echo "🔄 Running database schema migration..."
 docker compose run --rm migrator
 
-# Start / restart application container
-echo "▶️ Starting application..."
-docker compose up -d --remove-orphans app
+# Start / restart application & AI microservice containers
+echo "▶️ Starting application & AI service..."
+docker compose up -d --remove-orphans app ai
 
 # Clean up dangling images to save disk space
 docker image prune -f

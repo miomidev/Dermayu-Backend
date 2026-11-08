@@ -10,12 +10,26 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://ai:8000}
       - PORT=3000
       - NODE_ENV=production
+    depends_on:
+      - ai
     networks:
       - dermayu_network
     volumes:
       - dermayu_uploads:/app/public/uploads
+
+  ai:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    container_name: dermayu-ai-service
+    restart: always
+    environment:
+      - AI_INTERNAL_KEY=${AI_INTERNAL_KEY:-internal_ai_secret_key_dermayu}
+    networks:
+      - dermayu_network
 
   migrator:
     build:

@@ -359,39 +359,105 @@ function WargaEvakuasiContent() {
     [wargaPoskoData]
   );
 
-  // Telemetry Points
-  const telemetryPoints: MapTelemetryPoint[] = [
+  // Telemetry Points (State Dinamis yang Terhubung ke REST API /api/telemetry)
+  const [telemetryPoints, setTelemetryPoints] = useState<MapTelemetryPoint[]>([
     {
-      id: "tel-1",
-      name: "Sensor TMA Radar Muara Cantigi",
-      waterLevel: "+65 cm (Siaga II)",
+      id: "INFRA-AIR-001",
+      name: "Bendung Rentang (Pusat Kendali Cimanuk)",
+      waterLevel: "310 m³/s (25.8% Kapasitas)",
+      status: "NORMAL",
+      trend: "STABIL",
+      lastUpdate: "Sinkron Satelit GloFAS & BMKG",
+      lat: -6.6626,
+      lng: 108.2209,
+      tipeBangunan: "Bendung Gerak Radial Utama",
+      lokasiDetail: "Panongan, Jatitujuh - Kertasmaya",
+      agency: "BBWS Cimanuk Cisanggarung (PUPR)",
+      impactAreas: "Desa Tulungagung, Sukawera, Sindang",
+    },
+    {
+      id: "INFRA-AIR-002",
+      name: "Bendung Bangkir (Pembagi Aliran)",
+      waterLevel: "185 m³/s (TMA 7.2 mdpl)",
+      status: "WASPADA",
+      trend: "STABIL",
+      lastUpdate: "Sinkron Satelit GloFAS & BMKG",
+      lat: -6.3856,
+      lng: 108.2928,
+      tipeBangunan: "Bendung Pembagi Aliran",
+      lokasiDetail: "Desa Rambatan Wetan, Lohbener",
+      agency: "BBWS Cimanuk Cisanggarung",
+      impactAreas: "Bantaran Sindang & Paoman",
+    },
+    {
+      id: "INFRA-AIR-006",
+      name: "Pintu Air Muara Kali Ciputih (Eretan Wetan)",
+      waterLevel: "+65 cm (Pasang Rob)",
       status: "SIAGA",
       trend: "NAIK",
-      lastUpdate: "5 Menit lalu",
-      lat: -6.295,
-      lng: 108.272,
+      lastUpdate: "Radar Pemantau Pesisir",
+      lat: -6.3468,
+      lng: 108.1215,
+      tipeBangunan: "Pintu Air Muara Klep Gravitasi",
+      lokasiDetail: "Desa Eretan Wetan Pantura",
+      agency: "Dinas PUPR & BPBD Indramayu",
+      impactAreas: "Jalur Nasional Pantura & Dusun Muara",
     },
     {
-      id: "tel-2",
-      name: "Stasiun Debit Bendung Rentang Cimanuk",
-      waterLevel: "310 m³/s (Normal)",
-      status: "NORMAL",
-      trend: "STABIL",
-      lastUpdate: "12:45 WIB",
-      lat: -6.471,
-      lng: 108.275,
+      id: "INFRA-AIR-005",
+      name: "Stasiun Pompa Polder Karangsong",
+      waterLevel: "+85 cm (Siaga Rob Pasang)",
+      status: "SIAGA",
+      trend: "NAIK",
+      lastUpdate: "Radar Pompa Polder",
+      lat: -6.312,
+      lng: 108.365,
+      tipeBangunan: "Stasiun Pompa Banjir Polder Pesisir",
+      lokasiDetail: "Muara Prajagumiwang & Pelabuhan Karangsong",
+      agency: "Dinas PUPR Kabupaten Indramayu",
+      impactAreas: "Permukiman Nelayan & TPI Karangsong",
     },
-    {
-      id: "tel-3",
-      name: "Sensor TMA Kali Cimanuk Sindang",
-      waterLevel: "+140 cm (Normal)",
-      status: "NORMAL",
-      trend: "STABIL",
-      lastUpdate: "12:30 WIB",
-      lat: -6.338,
-      lng: 108.309,
-    },
-  ];
+  ]);
+
+  // Sinkronisasi Otomatis dari REST API Telemetri (/api/telemetry)
+  useEffect(() => {
+    let isMounted = true;
+    async function loadTelemetry() {
+      try {
+        const res = await fetch("/api/telemetry");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data.success && Array.isArray(data.stations)) {
+          setTelemetryPoints(
+            data.stations.map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              waterLevel: s.waterLevel,
+              status: s.status,
+              trend: s.trend,
+              lastUpdate: s.lastUpdate,
+              lat: s.lat,
+              lng: s.lng,
+              tipeBangunan: s.tipeBangunan,
+              lokasiDetail: s.lokasiDetail,
+              agency: s.instansiPengelola,
+              impactAreas: s.potensiDampakHilir,
+              isLive: data.isLiveExternal,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("Gagal sinkron telemetri:", err);
+      }
+    }
+
+    loadTelemetry();
+    const interval = setInterval(loadTelemetry, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Emergency Contacts
   const emergencyContacts: EmergencyContactItem[] = [

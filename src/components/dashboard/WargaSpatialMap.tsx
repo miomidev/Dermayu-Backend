@@ -177,6 +177,14 @@ export interface MapTelemetryPoint {
   lastUpdate: string;
   lat: number;
   lng: number;
+  agency?: string;
+  impactAreas?: string;
+  isLive?: boolean;
+  percentage?: number;
+  capacity?: number;
+  debit?: number;
+  tipeBangunan?: string;
+  lokasiDetail?: string;
 }
 
 export interface NavigationStep {
@@ -864,6 +872,7 @@ export default function WargaSpatialMap({
   const FILTER_CHIPS = [
     { id: "terdekat", label: "Terdekat (GPS)", type: "default" },
     { id: "semua", label: "Semua Posko", type: "category" },
+    { id: "telemetri", label: "🌊 Sensor Air (Live)", type: "category" },
     { id: "medis", label: "Posko Medis", type: "category" },
     { id: "dapur", label: "Dapur Umum", type: "category" },
     { id: "gor", label: "GOR/Gedung Besar", type: "category" },
@@ -5038,18 +5047,27 @@ export default function WargaSpatialMap({
           {/* Header Info Sensor */}
           <div className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="px-1.5 py-0.2 rounded-md text-[8.5px] font-extrabold bg-sky-100 text-sky-800 border border-sky-300">
-                📡 SENSOR TELEMETRI TMA
+              <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold bg-sky-100 text-sky-800 border border-sky-300 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span>LIVE API SATELIT HIDROLOGI</span>
               </span>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border ${
+                activeTelemetryDetail.status === "AWAS"
+                  ? "bg-red-50 text-red-700 border-red-300"
+                  : activeTelemetryDetail.status === "SIAGA"
+                  ? "bg-amber-50 text-amber-700 border-amber-300"
+                  : activeTelemetryDetail.status === "WASPADA"
+                  ? "bg-yellow-50 text-yellow-800 border-yellow-300"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-300"
+              }`}>
                 {activeTelemetryDetail.status}
               </span>
             </div>
-            <h3 className="text-xs font-black text-[#132422] leading-tight">
+            <h3 className="text-xs font-black text-[#132422] leading-tight mt-1">
               {activeTelemetryDetail.name}
             </h3>
             <p className="text-[9.5px] text-[#64748B]">
-              DAS Cimanuk Hilir • Stasiun Pemantau Pasang Surut
+              {activeTelemetryDetail.lokasiDetail || "DAS Cimanuk Hilir • Stasiun Pemantau Pasang Surut & Debit Air"}
             </p>
           </div>
 
@@ -5057,7 +5075,7 @@ export default function WargaSpatialMap({
           <div className="p-2 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 flex items-center justify-between">
             <div>
               <span className="text-[8.5px] text-sky-800 font-bold uppercase tracking-wider block">
-                Tinggi Muka Air (TMA)
+                Elevasi &amp; Debit Aliran
               </span>
               <div className="text-[9.5px] text-sky-700 font-semibold flex items-center gap-1.5 mt-0.5">
                 <span>Tren: <strong>{activeTelemetryDetail.trend}</strong></span>
@@ -5065,13 +5083,30 @@ export default function WargaSpatialMap({
                 <span>{activeTelemetryDetail.lastUpdate}</span>
               </div>
             </div>
-            <div className="text-lg font-black text-sky-900">
+            <div className="text-sm sm:text-base font-black text-sky-900 text-right">
               {activeTelemetryDetail.waterLevel}
             </div>
           </div>
 
-          <div className="text-[9.5px] p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100 text-emerald-900 leading-snug">
-            <strong>Rekomendasi BPBD:</strong> Warga pesisir tetap waspada potensi air pasang rob pada malam hari.
+          {/* Informasi Pengelola & Wilayah Terdampak */}
+          {(activeTelemetryDetail.agency || activeTelemetryDetail.impactAreas) && (
+            <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-[9.5px] text-slate-700 space-y-1">
+              {activeTelemetryDetail.agency && (
+                <div><strong className="text-slate-900">Pengelola:</strong> {activeTelemetryDetail.agency}</div>
+              )}
+              {activeTelemetryDetail.impactAreas && (
+                <div><strong className="text-slate-900">Potensi Wilayah Hilir:</strong> {activeTelemetryDetail.impactAreas}</div>
+              )}
+            </div>
+          )}
+
+          <div className="text-[9.5px] p-2 rounded-lg bg-emerald-50/80 border border-emerald-100 text-emerald-900 leading-snug">
+            <strong>Rekomendasi BPBD:</strong>{" "}
+            {activeTelemetryDetail.status === "AWAS" || activeTelemetryDetail.status === "SIAGA"
+              ? "Status siaga aktif. Warga di bantaran hilir Cimanuk & pesisir rob diminta siaga evakuasi darurat."
+              : activeTelemetryDetail.status === "WASPADA"
+              ? "Ketinggian air meningkat. Petugas pintu air bersiaga dan warga bantaran sungai diimbau waspada."
+              : "Aliran air dan debit tanggul dalam ambang batas normal dan aman terkendali."}
           </div>
         </div>
       );
@@ -5356,7 +5391,61 @@ export default function WargaSpatialMap({
                     className="overflow-hidden"
                   >
                     <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
-                      {displayedShelters.length === 0 ? (
+                      {activeFilterChip === "telemetri" ? (
+                        <div className="space-y-2">
+                          <div className="px-2.5 py-2 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-sky-800 text-[10px] font-bold">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                              <span>Live API Satelit GloFAS &amp; BMKG</span>
+                            </div>
+                            <span className="text-[9px] text-sky-600 font-bold bg-white px-2 py-0.5 rounded-full border border-sky-200">
+                              {telemetry.length} Titik Terpantau
+                            </span>
+                          </div>
+                          {telemetry.map((tel) => {
+                            const statusBg =
+                              tel.status === "AWAS"
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : tel.status === "SIAGA"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : tel.status === "WASPADA"
+                                ? "bg-yellow-50 text-yellow-800 border-yellow-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200";
+                            return (
+                              <div
+                                key={tel.id}
+                                onClick={() => {
+                                  setActiveTelemetryDetail(tel);
+                                  setSelectedMarker({ type: "telemetry", data: tel });
+                                  if (mapInstanceRef.current) {
+                                    mapInstanceRef.current.flyTo([tel.lat, tel.lng], 16, { duration: 1.2 });
+                                  }
+                                }}
+                                className="p-2.5 rounded-xl border border-slate-200 hover:border-sky-400 bg-white hover:bg-sky-50/40 transition-all cursor-pointer shadow-xs group"
+                              >
+                                <div className="flex items-center justify-between gap-1.5 mb-1">
+                                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
+                                    📡 {tel.tipeBangunan || "Infrastruktur Air"}
+                                  </span>
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${statusBg}`}>
+                                    {tel.status}
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-slate-800 group-hover:text-sky-700 leading-tight">
+                                  {tel.name}
+                                </h4>
+                                <div className="text-[10px] text-slate-500 mt-1.5 flex items-center justify-between">
+                                  <span>Level: <strong className="text-slate-800">{tel.waterLevel}</strong></span>
+                                  <span>Tren: <strong className={tel.trend === "NAIK" ? "text-red-600 font-bold" : "text-slate-700"}>{tel.trend}</strong></span>
+                                </div>
+                                <div className="text-[9px] text-slate-400 mt-1 truncate">
+                                  {tel.lokasiDetail || tel.agency || "DAS Cimanuk Indramayu"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : displayedShelters.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
                           <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
                             <Building2 className="w-6 h-6" />

@@ -184,50 +184,17 @@ export function HeroSection() {
             }}
             className="relative z-10 flex items-center justify-center w-full overflow-visible origin-bottom"
           >
-            {/* Container utama: posisi relative menjadi referensi absolut screen wrapper */}
-            <div className="relative w-[300px] sm:w-[390px] md:w-[450px] lg:w-[500px] xl:w-[560px] max-w-none mx-auto select-none translate-x-7.5 md:translate-x-0">
-
-              {/* Backing hitam solid di bawah layer screen: mengeliminasi 100% celah/kebocoran latar belakang */}
-              <div
-                className="absolute z-0 bg-[#080808] rounded-[20px] sm:rounded-[25px] md:rounded-[30px] lg:rounded-[34px]"
-                style={{
-                  top: "3.2%",
-                  left: "15.8%",
-                  right: "38.2%",
-                  bottom: "22.6%",
-                }}
-              />
-
-              {/* LAYER 1 (z-0): Screen Wrapper – meluncur presisi di bawah bezel fisik iPhone */}
-              <div
-                className="absolute z-0 bg-black isolate overflow-hidden rounded-[16px] sm:rounded-[20px] md:rounded-[23px] lg:rounded-[26px] xl:rounded-[29px] shadow-[inset_0_0_2px_1px_rgba(0,0,0,0.85)]"
-                style={{
-                  top: "3.45%",
-                  left: "16.21%",
-                  right: "38.87%",
-                  bottom: "23.09%",
-                }}
-              >
-                <Image
-                  src="/hero-screen-iphone14promax.png"
-                  alt="Tampilan Layar Dasbor Resmi DERMAYU Kabupaten Indramayu"
-                  fill
-                  priority={true}
-                  quality={100}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="w-full h-full object-fill select-none"
-                />
-              </div>
-
-              {/* LAYER 2 (z-10): Frame Tangan & Bezel Transparan – menutup tepat di atas screen layer */}
+            {/* Container gambar hero tunggal: digeser ke kanan pada mobile (translate-x) agar posisi fisik layar ponsel tepat di tengah sumbu layar */}
+            <div className="relative w-[300px] sm:w-[380px] md:w-[440px] lg:w-[480px] xl:w-[520px] max-w-full mx-auto select-none translate-x-[7.5%] sm:translate-x-[8%] lg:translate-x-0">
               <Image
-                src="/hero-hand-frame.png"
-                alt="Antarmuka Pemantauan TMA dan Peringatan Dini DERMAYU Kabupaten Indramayu"
-                width={512}
-                height={667}
+                src="/hero-dermayu.png"
+                alt="Aplikasi Mobile DERMAYU Tanggap Darurat Bencana Kabupaten Indramayu"
+                width={4320}
+                height={5400}
                 priority={true}
                 quality={100}
-                className="relative z-10 w-full h-auto object-contain drop-shadow-2xl select-none pointer-events-none"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 520px"
+                className="w-full h-auto object-contain drop-shadow-2xl select-none pointer-events-none"
               />
             </div>
           </motion.div>

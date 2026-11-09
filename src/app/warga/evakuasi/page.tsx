@@ -20,6 +20,7 @@ import {
 import { getActiveSession } from "@/utils/authSession";
 import { FLOOD_OBSTACLES, REALISTIC_FLOOD_PHOTOS } from "@/data/curatedEvakuasiData";
 import { getWargaPosko, fetchPoskoFromApi } from "@/utils/poskoService";
+import { INITIAL_CITIZEN_REPORTS } from "@/data/citizenReports";
 import type {
   MapReportPoint,
   MapShelterPoint,
@@ -332,89 +333,46 @@ function WargaEvakuasiContent() {
     };
   }, []);
 
-  // Community Reports (Laporan warga sekitar tersinkronisasi)
-  const [communityReports] = useState<ComplaintTicket[]>([
-    {
-      id: "DMY-PUB-01",
-      ticketCode: "DMY-PUB-01",
-      category: "FLOOD",
-      categoryLabel: "Rob Pemukiman",
-      title: "Air pasang rob laut rendam jalan pemukiman nelayan",
-      location: "Blok Karanganyar RT 04 / RW 02, Eretan Wetan",
-      severity: "HIGH",
-      waterLevel: "KNEE",
-      waterLevelText: "Setinggi Lutut (55 cm)",
-      status: "IN_PROGRESS",
-      createdAt: "15 Menit lalu",
-      note: "Regu SAR Pos Eretan bersama 1 perahu karet LCR sedang bergerak evakuasi warga rentan.",
-      photos: [
-        "https://images.unsplash.com/photo-1534862262637-373c120dcbcc?auto=format&fit=crop&w=600&q=80",
-      ],
-      urgentNeeds: ["Perahu Karet Evakuasi", "Bantuan Lansia"],
-      lat: -6.3475,
-      lng: 108.1189,
-    },
-    {
-      id: "DMY-PUB-02",
-      ticketCode: "DMY-PUB-02",
-      category: "LEVEE",
-      categoryLabel: "Rembesan Tanggul",
-      title: "Rembesan tanggul tanah saluran tambak mendekati pemukiman",
-      location: "Blok Tanggul RT 02 / RW 01, Cantigi Kulon",
-      severity: "MEDIUM",
-      waterLevel: "ANKLE",
-      waterLevelText: "Semata Kaki (30 cm)",
-      status: "VERIFIED",
-      createdAt: "45 Menit lalu",
-      note: "Posko menyiapkan 150 karung pasir bronjong darurat untuk pengamanan darurat tanggul.",
-      photos: [
-        "https://images.unsplash.com/photo-1672559987522-897ef4612604?auto=format&fit=crop&w=600&q=80",
-      ],
-      urgentNeeds: ["Karung Pasir Bronjong"],
-      lat: -6.2842,
-      lng: 108.2635,
-    },
-    {
-      id: "DMY-PUB-03",
-      ticketCode: "DMY-PUB-03",
-      category: "DRAINAGE",
-      categoryLabel: "Drainase Mampet",
-      title: "Drainase pembuang sekunder tersumbat eceng gondok & sampah ranting",
-      location: "Jl. Muara Lama KM 2, Parean Girang",
-      severity: "MEDIUM",
-      waterLevel: "KNEE",
-      waterLevelText: "Genangan 40 cm",
-      status: "IN_PROGRESS",
-      createdAt: "1 Jam lalu",
-      note: "Satgas Dinas PUPR Indramayu bersama relawan telah mulai pembersihan pintu air saluran pembuang.",
-      photos: [
-        "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=600&q=80",
-      ],
-      urgentNeeds: ["Alat Berat Mini"],
-      lat: -6.368,
-      lng: 108.092,
-    },
-    {
-      id: "DMY-PUB-04",
-      ticketCode: "DMY-PUB-04",
-      category: "FLOOD",
-      categoryLabel: "Limpasan Dermaga",
-      title: "Limpasan gelombang pasang rob di area dermaga perahu",
-      location: "Dermaga Muara Karangsong, Indramayu",
-      severity: "LOW",
-      waterLevel: "ANKLE",
-      waterLevelText: "Semata Kaki (25 cm)",
-      status: "VERIFIED",
-      createdAt: "2 Jam lalu",
-      note: "Pompa submersible menyala normal, genangan air berangsur surut kembali ke alur muara sungai.",
-      photos: [
-        "https://images.unsplash.com/photo-1741110539426-fce3268c3c0d?auto=format&fit=crop&w=600&q=80",
-      ],
-      urgentNeeds: ["Pompa Sedot"],
-      lat: -6.315,
-      lng: 108.358,
-    },
-  ]);
+  // Community Reports (Laporan warga sekitar tersinkronisasi dari data warga/aduan)
+  const [communityReports] = useState<ComplaintTicket[]>(() =>
+    INITIAL_CITIZEN_REPORTS.map((item) => ({
+      id: item.id,
+      ticketCode: item.id,
+      category: item.id.includes("LEVEE")
+        ? "LEVEE"
+        : item.id.includes("DRAINAGE")
+        ? "DRAINAGE"
+        : "FLOOD",
+      categoryLabel: item.title.slice(0, 24),
+      title: item.title,
+      location: item.location,
+      severity:
+        item.status === "PENANGANAN"
+          ? "HIGH"
+          : item.status === "DIVERIFIKASI"
+          ? "MEDIUM"
+          : "LOW",
+      waterLevel:
+        item.waterDepthCm >= 50
+          ? "KNEE"
+          : item.waterDepthCm >= 25
+          ? "ANKLE"
+          : "ANKLE",
+      waterLevelText: item.waterLevelText,
+      status:
+        item.status === "PENANGANAN"
+          ? "IN_PROGRESS"
+          : item.status === "DIVERIFIKASI"
+          ? "VERIFIED"
+          : "RESOLVED",
+      createdAt: item.timeAgo,
+      note: item.statusNote,
+      photos: item.photoUrl ? [item.photoUrl] : [],
+      urgentNeeds: ["Bantuan Logistik"],
+      lat: item.lat,
+      lng: item.lng,
+    }))
+  );
 
   // Shelters Data: 100 Data Posko Terkurasi (Hanya yang berstatus isActive = true)
   const shelters: ShelterItem[] = useMemo(

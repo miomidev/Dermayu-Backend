@@ -8,6 +8,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
+import { INITIAL_CITIZEN_REPORTS } from "@/data/citizenReports";
 import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
 import { WeatherDetailPanel } from "@/components/weather/WeatherDetailPanel";
 import { useWeatherData } from "@/components/weather/useWeatherData";
@@ -1637,35 +1638,116 @@ function WargaSpatialMap({
     }
   }, []);
 
-  // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor
-  const hasFocusedAduanRef = useRef(false);
+  // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor atau Daftar Aduan
+  const lastFocusedKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!mapInstanceRef.current || hasFocusedAduanRef.current) return;
-    if (focusReportId || focusCoords) {
-      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan dengan fit GPS default
-    }
-    if (focusReportId && reports && reports.length > 0) {
-      const target = reports.find(
+    if (!focusReportId && !focusCoords) return;
+    const focusKey = `${focusReportId || ""}_${focusCoords?.lat || ""}_${focusCoords?.lng || ""}`;
+    if (lastFocusedKeyRef.current === focusKey) return;
+
+    initialGpsFittedRef.current = true; // Jangan timpa fokus aduan dengan fit GPS default
+
+    const tryFocus = () => {
+      const map = mapInstanceRef.current;
+      if (!map) return false;
+
+      // 1. Cari target dari props reports
+      let target = (reports || []).find(
         (r) => r.id === focusReportId || r.ticketCode === focusReportId
       );
+
+      // 2. Jika tidak ditemukan di props, cari di INITIAL_CITIZEN_REPORTS
+      if (!target && focusReportId) {
+        const foundCitizen = INITIAL_CITIZEN_REPORTS.find(
+          (c) => c.id === focusReportId
+        );
+        if (foundCitizen) {
+          target = {
+            id: foundCitizen.id,
+            ticketCode: foundCitizen.id,
+            title: foundCitizen.title,
+            category: "Genangan Banjir",
+            severity:
+              foundCitizen.status === "PENANGANAN"
+                ? "HIGH"
+                : foundCitizen.status === "DIVERIFIKASI"
+                ? "MEDIUM"
+                : "LOW",
+            waterLevelText: foundCitizen.waterLevelText,
+            status:
+              foundCitizen.status === "PENANGANAN"
+                ? "Regu SAR Menuju Lokasi"
+                : "Terverifikasi Siaga Posko",
+            location: foundCitizen.location,
+            lat: foundCitizen.lat,
+            lng: foundCitizen.lng,
+            timeAgo: foundCitizen.timeAgo,
+            photos: foundCitizen.photoUrl ? [foundCitizen.photoUrl] : [],
+            photoUrl: foundCitizen.photoUrl,
+            note: foundCitizen.statusNote,
+            urgentNeeds: ["Bantuan Logistik"],
+          };
+        }
+      }
+
+      // 3. Jika masih belum ditemukan tapi ada koordinat, buat fallback titik aduan
+      if (!target && focusCoords) {
+        target = {
+          id: focusReportId || `LOC-${focusCoords.lat}-${focusCoords.lng}`,
+          ticketCode: focusReportId || "ADUAN",
+          title: "Titik Lokasi Aduan Terpilih",
+          location: "Kawasan Terpantau Indramayu",
+          category: "Genangan Banjir",
+          severity: "HIGH",
+          waterLevelText: "Dalam Pemantauan",
+          status: "Terverifikasi Aktif",
+          lat: focusCoords.lat,
+          lng: focusCoords.lng,
+          timeAgo: "Terkini",
+          photos: [],
+        };
+      }
+
       if (target) {
-        hasFocusedAduanRef.current = true;
+        lastFocusedKeyRef.current = focusKey;
         setActiveReportDetail(target);
         setActiveShelterDetail(null);
         setActiveTelemetryDetail(null);
         setSelectedMarker({ type: "report", data: target });
         setPoskoExpanded(true);
         setSheetSnap("mid");
-        mapInstanceRef.current.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
         if (onSelectReport) onSelectReport(target);
-        return;
+        return true;
       }
-    }
-    if (focusCoords && focusCoords.lat && focusCoords.lng) {
-      hasFocusedAduanRef.current = true;
-      mapInstanceRef.current.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
-    }
-  }, [focusReportId, focusCoords, reports, onSelectReport]);
+
+      if (focusCoords) {
+        lastFocusedKeyRef.current = focusKey;
+        map.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
+        return true;
+      }
+
+      return false;
+    };
+
+    if (tryFocus()) return;
+
+    // Retry dengan interval sampai map Leaflet siap di-mount (maksimal 3.5 detik)
+    const interval = setInterval(() => {
+      if (tryFocus()) {
+        clearInterval(interval);
+      }
+    }, 150);
+
+    const timer = setTimeout(() => {
+      clearInterval(interval);
+    }, 3500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, [focusReportId, focusCoords?.lat, focusCoords?.lng, reports, onSelectReport]);
 
   // Kalkulasi jarak real-time & Skema 5-Level Tiering Posko (LoD by Zoom Level)
   const processedShelters = useMemo(() => {

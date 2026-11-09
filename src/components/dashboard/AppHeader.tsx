@@ -34,7 +34,7 @@ const titleMap: Record<string, string> = {
   "/warga/evakuasi": "Navigasi Rute Evakuasi",
   "/warga/lapor": "Lapor Titik Banjir",
   "/warga/posko": "Pantauan Posko",
-  "/warga/aduan": "Riwayat Aduan Saya",
+  "/warga/aduan": "Daftar Aduan",
   "/warga/kontak": "Kontak Darurat 24 Jam",
   "/warga/komunitas": "Komunitas Warga Siaga",
   "/warga/profile": "Profil Pengguna",

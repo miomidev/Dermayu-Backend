@@ -816,6 +816,12 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
+    recordAuditLogFrontend(
+      "USER_LOGOUT",
+      "USER",
+      currentUser?.id || "1",
+      `Logout sesi admin: ${currentUser?.fullName || currentUser?.name || "Super Admin"} (${currentUser?.email})`
+    );
     await performLogout("/");
   };
 
@@ -855,6 +861,24 @@ export default function AdminDashboard() {
 
   const getAuditActionBadge = (action: string) => {
     switch (action) {
+      case "FEATURE_ACCESS":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200 inline-flex items-center gap-1">🧭 AKSES FITUR</span>;
+      case "GPS_ROUTE":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">📍 RUTE GPS</span>;
+      case "EMERGENCY_CALL":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">📞 PANGGILAN</span>;
+      case "USER_LOGIN":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 inline-flex items-center gap-1">🔑 LOGIN</span>;
+      case "LOGIN_FAILED":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">⚠️ LOGIN GAGAL</span>;
+      case "LOGIN_BLOCKED":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">🚫 DIBLOKIR</span>;
+      case "USER_REGISTER":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 inline-flex items-center gap-1">📝 REGISTRASI</span>;
+      case "USER_LOGOUT":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">🚪 LOGOUT</span>;
+      case "SUBMIT_REPORT":
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">📢 LAPORAN WARGA</span>;
       case "VERIFY_REPORT":
         return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/30 inline-flex items-center gap-1">✓ VERIFIKASI</span>;
       case "REJECT_REPORT":
@@ -1802,13 +1826,21 @@ export default function AdminDashboard() {
                     className="px-3 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs font-semibold text-[#132422] focus:outline-hidden focus:border-[#38746D] cursor-pointer"
                   >
                     <option value="ALL">Semua Aksi Audit</option>
+                    <option value="FEATURE_ACCESS">Akses Modul / Fitur</option>
+                    <option value="GPS_ROUTE">Navigasi Rute GPS</option>
+                    <option value="EMERGENCY_CALL">Panggilan Darurat / Posko</option>
+                    <option value="USER_LOGIN">Login Sesi</option>
+                    <option value="LOGIN_FAILED">Login Gagal</option>
+                    <option value="USER_REGISTER">Registrasi Akun</option>
+                    <option value="USER_LOGOUT">Logout Sesi</option>
+                    <option value="SUBMIT_REPORT">Laporan Baru Warga</option>
                     <option value="VERIFY_REPORT">Verifikasi Laporan</option>
                     <option value="REJECT_REPORT">Penolakan Laporan</option>
                     <option value="ASSIGN_REPORT">Penugasan Petugas</option>
                     <option value="BROADCAST_ALERT">Siaran Dering Darurat</option>
                     <option value="END_ALERT">Akhiri Dering Darurat</option>
                     <option value="UPDATE_SHELTER">Update Data Posko</option>
-                    <option value="CREATE_USER">Pendaftaran Akun</option>
+                    <option value="CREATE_USER">Pendaftaran Petugas</option>
                     <option value="EXPORT_DATA">Ekspor Data CSV</option>
                   </select>
                 </div>

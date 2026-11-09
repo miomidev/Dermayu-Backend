@@ -3,6 +3,7 @@ import { z } from "zod";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { generateAccessToken, generateRefreshToken, verifyPassword, hashToken } from "@/lib/auth";
+import { recordAuditLog } from "@/lib/audit";
 
 const loginSchema = z.object({
   identifier: z.string().min(3, "Email atau nomor HP wajib diisi"),
@@ -28,17 +29,56 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
+      await recordAuditLog({
+        req,
+        action: "LOGIN_FAILED",
+        entityType: "AUTH",
+        entityId: identifier,
+        metadata: `Percobaan login gagal: identitas "${identifier}" tidak terdaftar`,
+      });
       return apiError("UNAUTHORIZED", "Identitas atau kata sandi salah", 401);
     }
 
     if (!user.is_active) {
+      await recordAuditLog({
+        req,
+        actorId: user.id.toString(),
+        actorName: user.full_name,
+        actorRole: user.role,
+        action: "LOGIN_BLOCKED",
+        entityType: "USER",
+        entityId: user.public_id,
+        metadata: `Login ditolak: Akun ${user.email || user.phone} berstatus nonaktif`,
+      });
       return apiError("FORBIDDEN", "Akun Anda telah dinonaktifkan", 403);
     }
 
     const isValidPassword = await verifyPassword(password, user.password_hash);
     if (!isValidPassword) {
+      await recordAuditLog({
+        req,
+        actorId: user.id.toString(),
+        actorName: user.full_name,
+        actorRole: user.role,
+        action: "LOGIN_FAILED",
+        entityType: "AUTH",
+        entityId: user.public_id,
+        metadata: `Percobaan login gagal: kata sandi salah untuk "${identifier}"`,
+      });
       return apiError("UNAUTHORIZED", "Identitas atau kata sandi salah", 401);
     }
+
+    // Record successful audit login
+    await recordAuditLog({
+      req,
+      actorId: user.id.toString(),
+      actorName: user.full_name,
+      actorRole: user.role,
+      action: "USER_LOGIN",
+      entityType: "USER",
+      entityId: user.public_id,
+      metadata: `Login sesi berhasil (${user.role}) via ${identifier}`,
+    });
 
     // Update last login
     await db.user.update({

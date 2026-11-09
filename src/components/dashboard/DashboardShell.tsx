@@ -11,6 +11,25 @@ import {
   touchDashboardActivity,
   type UserSession,
 } from "@/utils/authSession";
+import { trackFeatureAccess } from "@/utils/activityTracker";
+
+const ROUTE_LABELS: Record<string, string> = {
+  "/warga": "Dasbor Kesiapsiagaan Warga",
+  "/warga/evakuasi": "Peta & Rute Evakuasi",
+  "/warga/lapor": "Lapor Titik Banjir",
+  "/warga/aduan": "Daftar Aduan Warga",
+  "/warga/posko": "Pantauan Posko Pengungsian",
+  "/warga/komunitas": "Komunitas Warga",
+  "/warga/panduan": "Buku Panduan Siaga",
+  "/warga/profil": "Profil Saya",
+  "/petugas": "Dasbor Utama Petugas SAR",
+  "/petugas/dashboard": "Dasbor Utama Petugas SAR",
+  "/petugas/triage": "Triage & Validasi Aduan",
+  "/petugas/peta-sar": "Peta Taktis Lapangan",
+  "/petugas/posko": "Manajemen Posko & Pengungsi",
+  "/petugas/telemetri": "Pantauan Sensor Telemetri",
+  "/petugas/panduan": "SOP Operasi Tanggap Darurat",
+};
 
 export interface DashboardShellProps {
   role: "warga" | "petugas";
@@ -23,13 +42,15 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [session, setSession] = useState<UserSession | null>(null);
 
-  // Close mobile sidebar on route change & touch activity
+  // Close mobile sidebar on route change & touch activity & log feature access
   useEffect(() => {
     setMobileMenuOpen(false);
     if (getActiveSession()) {
       touchDashboardActivity();
     }
-  }, [pathname]);
+    const label = ROUTE_LABELS[pathname] || (role === "petugas" ? "Portal Petugas" : "Portal Warga");
+    trackFeatureAccess(role, label, pathname);
+  }, [pathname, role]);
 
   // Load saved sidebar preference
   useEffect(() => {

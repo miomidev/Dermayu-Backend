@@ -3,6 +3,7 @@ import { z } from "zod";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { extractBearerToken, verifyAccessToken, hashToken } from "@/lib/auth";
+import { recordAuditLog } from "@/lib/audit";
 
 const logoutSchema = z.object({
   refreshToken: z.string().optional(),
@@ -38,6 +39,19 @@ export async function POST(req: NextRequest) {
           revoked_at: null,
         },
         data: { revoked_at: new Date() },
+      });
+    }
+
+    if (userPayload) {
+      await recordAuditLog({
+        req,
+        actorId: userPayload.userId,
+        actorName: userPayload.fullName,
+        actorRole: userPayload.role,
+        action: "USER_LOGOUT",
+        entityType: "USER",
+        entityId: userPayload.publicId,
+        metadata: `Logout sesi akun: ${userPayload.fullName || userPayload.email} (${userPayload.role})`,
       });
     }
 

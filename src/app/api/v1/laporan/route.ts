@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api-response";
+import { recordAuditLog } from "@/lib/audit";
 import {
   getDbReportsList,
   getCitizenReports,
@@ -136,6 +137,17 @@ export async function POST(req: NextRequest) {
     };
 
     const saved = addCitizenReport(newRecord);
+
+    // Record audit log for new incoming report
+    recordAuditLog({
+      req,
+      actorName: reporterName,
+      actorRole: "CITIZEN",
+      action: "SUBMIT_REPORT",
+      entityType: "REPORT",
+      entityId: ticketCode,
+      metadata: `Aduan baru warga: "${newRecord.description.slice(0, 50)}" di ${location} (${waterLevel}, AI: ${aiConfidence}%)`,
+    });
 
     return apiSuccess({
       message: "Laporan berhasil dikirim dan tersimpan di antrean Pusdalops BPBD",

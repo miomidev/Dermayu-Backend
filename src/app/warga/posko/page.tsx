@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { getWargaPosko, fetchPoskoFromApi, type PoskoRecord } from "@/utils/poskoService";
+import { trackFeatureInteraction } from "@/utils/activityTracker";
 import {
   Building2,
   MapPin,
@@ -606,6 +607,7 @@ export default function WargaPoskoPage() {
                   {/* Tombol Sekunder 1: Telepon */}
                   <a
                     href={`tel:${sh.kontak.telp.replace(/[^0-9]/g, "")}`}
+                    onClick={() => trackFeatureInteraction("EMERGENCY_CALL", "Kontak Posko", `Warga menghubungi PJ posko ${sh.nama} (${sh.kontak.telp})`)}
                     className="h-9.5 px-3 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#F8FAF9] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
                     title={`Hubungi Pengelola Posko: ${sh.kontak.pj} (${sh.kontak.telp})`}
                   >
@@ -616,6 +618,7 @@ export default function WargaPoskoPage() {
                   {/* Tombol Sekunder 2: Google Maps (Alternatif Audio Turn-by-Turn) */}
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}`}
+                    onClick={() => trackFeatureInteraction("GPS_ROUTE", "Navigasi Google Maps", `Warga membuka rute Google Maps ke ${sh.nama} (${sh.kecamatan})`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="h-9.5 px-3 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#EEF5F3] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
@@ -628,6 +631,7 @@ export default function WargaPoskoPage() {
                   {/* Tombol Utama (Primary): Rute Evakuasi Bebas Banjir DERMAYU (Flex-1, Proporsi Terbesar, Hijau Global) */}
                   <Link
                     href={`/warga/evakuasi?shelterId=${sh.id}&lat=${sh.lat}&lng=${sh.lng}`}
+                    onClick={() => trackFeatureInteraction("GPS_ROUTE", "Peta Rute Bebas Banjir", `Warga membuka rute evakuasi peta DERMAYU ke ${sh.nama} (${sh.kecamatan})`)}
                     className="h-9.5 flex-1 px-4 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
                     title="Buka Navigasi Rute Bebas Banjir di Peta Evakuasi DERMAYU"
                   >

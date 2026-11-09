@@ -3,6 +3,7 @@ import { z } from "zod";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { generateAccessToken, generateRefreshToken, hashPassword, hashToken } from "@/lib/auth";
+import { recordAuditLog } from "@/lib/audit";
 
 const registerSchema = z.object({
   fullName: z.string().min(3, "Nama lengkap minimal 3 karakter"),
@@ -103,6 +104,18 @@ export async function POST(req: NextRequest) {
         expires_at: expiresAt,
         device_info: req.headers.get("user-agent") || "unknown",
       },
+    });
+
+    // Record audit for new user registration
+    await recordAuditLog({
+      req,
+      actorId: user.id.toString(),
+      actorName: user.full_name,
+      actorRole: user.role,
+      action: "USER_REGISTER",
+      entityType: "USER",
+      entityId: user.public_id,
+      metadata: `Registrasi akun warga baru: ${user.full_name} (${user.email || user.phone})`,
     });
 
     return apiSuccess(

@@ -22,6 +22,8 @@ import {
   Crosshair,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   ShieldAlert,
   Layers,
@@ -300,6 +302,8 @@ function TelemetrySpatialMap() {
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLogEntry[]>(generateInitialLogs);
   const [tableFilter, setTableFilter] = useState<"SELECTED" | "ALL">("SELECTED");
   const [tableSearch, setTableSearch] = useState<string>("");
+  const [tableCurrentPage, setTableCurrentPage] = useState<number>(1);
+  const [tableItemsPerPage, setTableItemsPerPage] = useState<number>(10);
 
   // State Prediksi Cuaca Real-Time (Open-Meteo Proxy)
   const [weatherData, setWeatherData] = useState<{
@@ -321,7 +325,16 @@ function TelemetrySpatialMap() {
       })
       .then((data) => {
         if (isMounted && data) {
-          setWeatherData(data);
+          const w = data.data || data;
+          setWeatherData({
+            kondisiSekarang: w.kondisiSekarang || "Cerah Berawan",
+            suhu: typeof w.suhu === "number" ? w.suhu : 29,
+            prediksiCurahHujan: typeof w.prediksiCurahHujan === "number" ? w.prediksiCurahHujan : 1.4,
+            isAntisipasiKenaikanDebit: Boolean(w.isAntisipasiKenaikanDebit),
+            pesanPrediksi: w.pesanPrediksi || "Curah hujan hulu terpantau normal dan tidak memicu lonjakan debit air sungai.",
+            ikonCuaca: w.ikonCuaca || "🌤️",
+            hourlyForecast: Array.isArray(w.hourlyForecast) ? w.hourlyForecast : [],
+          });
         }
       })
       .catch(() => {
@@ -745,6 +758,21 @@ function TelemetrySpatialMap() {
     });
   }, [telemetryLogs, selectedSensorId, tableFilter, tableSearch]);
 
+  // Perhitungan Pagination Tabel Telemetri
+  const totalTablePages = Math.max(1, Math.ceil(displayedLogs.length / tableItemsPerPage));
+  const validTablePage = Math.min(tableCurrentPage, totalTablePages);
+  const tableStartIndex = (validTablePage - 1) * tableItemsPerPage;
+  const paginatedLogs = useMemo(() => {
+    return displayedLogs.slice(tableStartIndex, tableStartIndex + tableItemsPerPage);
+  }, [displayedLogs, tableStartIndex, tableItemsPerPage]);
+
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, "...", total];
+    if (current >= total - 2) return [1, "...", total - 3, total - 2, total - 1, total];
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  };
+
   const renderWeatherIcon = (type: "rain" | "cloud" | "drizzle" | "sun") => {
     switch (type) {
       case "rain":
@@ -832,14 +860,14 @@ function TelemetrySpatialMap() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {displayedLogs.length === 0 ? (
+              {paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     Tidak ada riwayat log yang sesuai dengan filter.
                   </td>
                 </tr>
               ) : (
-                displayedLogs.map((log, idx) => {
+                paginatedLogs.map((log, idx) => {
                   const isDanger = log.status.includes("BAHAYA");
                   const isWarning = log.status.includes("WASPADA");
 
@@ -847,7 +875,7 @@ function TelemetrySpatialMap() {
                     <tr
                       key={log.id}
                       className={`hover:bg-slate-50/90 transition-colors ${
-                        log.isLatest && idx === 0 ? "bg-emerald-50/40" : ""
+                        log.isLatest && idx === 0 && validTablePage === 1 ? "bg-emerald-50/40" : ""
                       }`}
                     >
                       {/* 1. Timestamp (HH:mm:ss WIB) */}
@@ -855,7 +883,7 @@ function TelemetrySpatialMap() {
                         <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-slate-700">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span>{log.timestamp}</span>
-                          {log.isLatest && idx === 0 && (
+                          {log.isLatest && idx === 0 && validTablePage === 1 && (
                             <span className="ml-1 px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 animate-pulse border border-emerald-200">
                               LIVE
                             </span>
@@ -955,6 +983,86 @@ function TelemetrySpatialMap() {
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION UNTUK TABEL TELEMETRI */}
+        {displayedLogs.length > 0 && (
+          <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 select-none bg-white">
+            <div className="text-xs text-[#4B635F] font-medium order-2 sm:order-1">
+              Menampilkan <strong className="text-[#132422]">{tableStartIndex + 1}</strong> -{" "}
+              <strong className="text-[#132422]">
+                {Math.min(displayedLogs.length, tableStartIndex + tableItemsPerPage)}
+              </strong>{" "}
+              dari <strong className="text-[#132422]">{displayedLogs.length}</strong> entri log
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
+              <button
+                type="button"
+                onClick={() => setTableCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={validTablePage <= 1}
+                className="w-10 h-10 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs active:scale-95 cursor-pointer"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center bg-[#F8FAF9] border border-[#D5E4E0] rounded-full px-2 py-1 gap-1">
+                {getPageNumbers(validTablePage, totalTablePages).map((p, idx) => {
+                  if (p === "...") {
+                    return (
+                      <span key={`dots-${idx}`} className="w-9 h-9 flex items-center justify-center text-gray-400 font-bold text-xs select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const pageNum = p as number;
+                  const isActive = pageNum === validTablePage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setTableCurrentPage(pageNum)}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs transition cursor-pointer ${
+                        isActive
+                          ? "border-2 border-[#38746D] text-[#38746D] font-black bg-white shadow-xs"
+                          : "text-gray-600 hover:text-[#38746D] font-semibold hover:bg-white"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTableCurrentPage((p) => Math.min(totalTablePages, p + 1))}
+                disabled={validTablePage >= totalTablePages}
+                className="w-10 h-10 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs active:scale-95 cursor-pointer"
+                title="Halaman Berikutnya"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-medium text-[#4B635F] order-3">
+              <span>Tampilkan:</span>
+              <select
+                value={tableItemsPerPage}
+                onChange={(e) => {
+                  setTableItemsPerPage(Number(e.target.value));
+                  setTableCurrentPage(1);
+                }}
+                className="h-9 px-2.5 rounded-xl border border-[#D5E4E0] bg-white text-xs font-bold text-[#1D443F] outline-none focus:border-[#38746D] transition cursor-pointer shadow-2xs"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1528,7 +1636,9 @@ function TelemetrySpatialMap() {
             <div className="flex items-baseline justify-between pt-0.5">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 tracking-tight">
-                  {weatherData ? weatherData.prediksiCurahHujan.toFixed(1) : "1.4"}
+                  {typeof weatherData?.prediksiCurahHujan === "number"
+                    ? weatherData.prediksiCurahHujan.toFixed(1)
+                    : "1.4"}
                 </span>
                 <span className="text-xs font-semibold text-slate-500">mm / 3 jam</span>
               </div>
@@ -1548,7 +1658,9 @@ function TelemetrySpatialMap() {
                 {weatherData.hourlyForecast.slice(0, 3).map((item, idx) => (
                   <div key={idx} className="bg-white/80 py-1 px-1.5 rounded-lg border border-sky-100/60 shadow-2xs">
                     <div className="text-[9px] text-slate-400 font-medium">{item.jam}</div>
-                    <div className="text-[10.5px] font-bold text-slate-800">{item.curahHujan.toFixed(1)} mm</div>
+                    <div className="text-[10.5px] font-bold text-slate-800">
+                      {typeof item.curahHujan === "number" ? item.curahHujan.toFixed(1) : "0.0"} mm
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1919,7 +2031,9 @@ function TelemetrySpatialMap() {
                 <div className="flex items-baseline justify-between pt-0.5">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-slate-900 tracking-tight">
-                      {weatherData ? weatherData.prediksiCurahHujan.toFixed(1) : "1.4"}
+                      {typeof weatherData?.prediksiCurahHujan === "number"
+                        ? weatherData.prediksiCurahHujan.toFixed(1)
+                        : "1.4"}
                     </span>
                     <span className="text-xs font-semibold text-slate-500">mm / 3 jam</span>
                   </div>
@@ -1939,7 +2053,9 @@ function TelemetrySpatialMap() {
                     {weatherData.hourlyForecast.slice(0, 3).map((item, idx) => (
                       <div key={idx} className="bg-white/80 py-1 px-1.5 rounded-lg border border-sky-100/60 shadow-2xs">
                         <div className="text-[9px] text-slate-400 font-medium">{item.jam}</div>
-                        <div className="text-[10.5px] font-bold text-slate-800">{item.curahHujan.toFixed(1)} mm</div>
+                        <div className="text-[10.5px] font-bold text-slate-800">
+                          {typeof item.curahHujan === "number" ? item.curahHujan.toFixed(1) : "0.0"} mm
+                        </div>
                       </div>
                     ))}
                   </div>

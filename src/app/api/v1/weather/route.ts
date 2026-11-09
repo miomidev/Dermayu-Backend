@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
       const fallback = getRealisticFallbackData();
       return NextResponse.json({
         success: true,
+        ...fallback,
         data: fallback,
         isFallback: true,
       });
@@ -186,6 +187,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        ...payload,
         data: payload,
         isFallback: false,
       },
@@ -201,6 +203,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        ...fallback,
         data: fallback,
         isFallback: true,
       },

@@ -314,12 +314,13 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
       })
       .then((data) => {
         if (isMounted && data) {
+          const w = data.data || data;
           setWeatherData({
-            kondisiSekarang: data.kondisiSekarang || "Cerah Berawan",
-            suhu: typeof data.suhu === "number" ? Math.round(data.suhu) : 29,
-            prediksiCurahHujan: data.prediksiCurahHujan ?? 1.4,
-            pesanPrediksi: data.pesanPrediksi || "Curah hujan 3 jam ke depan relatif aman.",
-            ikonCuaca: data.ikonCuaca || "🌤️",
+            kondisiSekarang: w.kondisiSekarang || "Cerah Berawan",
+            suhu: typeof w.suhu === "number" ? Math.round(w.suhu) : 29,
+            prediksiCurahHujan: typeof w.prediksiCurahHujan === "number" ? w.prediksiCurahHujan : 1.4,
+            pesanPrediksi: w.pesanPrediksi || "Curah hujan 3 jam ke depan relatif aman.",
+            ikonCuaca: w.ikonCuaca || "🌤️",
           });
         }
       })

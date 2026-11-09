@@ -69,7 +69,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return apiSuccess({
+    const sessionPayload = {
+      id: user.id.toString(),
+      name: user.full_name,
+      fullName: user.full_name,
+      email: user.email,
+      role: (user.role || "warga").toLowerCase(),
+      district: "Kandanghaur - Eretan Wetan",
+      loginTime: Date.now(),
+      lastDashboardActive: Date.now(),
+    };
+
+    const res = apiSuccess({
       user: {
         id: user.id,
         publicId: user.public_id,
@@ -88,6 +99,19 @@ export async function POST(req: NextRequest) {
         expiresIn: 900,
       },
     });
+
+    res.cookies.set("user_session", encodeURIComponent(JSON.stringify(sessionPayload)), {
+      path: "/",
+      maxAge: 604800,
+      sameSite: "lax",
+    });
+    res.cookies.set("dermayu_token", accessToken, {
+      path: "/",
+      maxAge: 604800,
+      sameSite: "lax",
+    });
+
+    return res;
   } catch (error) {
     console.error("Login error:", error);
     return apiError("INTERNAL_ERROR", "Terjadi kesalahan pada server", 500);

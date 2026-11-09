@@ -296,14 +296,22 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       touchDashboardActivity();
       const targetDashboard = getDashboardUrl(session.role);
 
-      // Berikan jeda 480ms agar transisi exit mobile (form turun & header morph) tuntas
+      // Pastikan token dan session cookie juga tertulis langsung di document.cookie
+      try {
+        document.cookie = `user_session=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `dermayu_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
+      } catch {}
+
+      // Navigasi ke dashboard: gunakan router.replace dengan fallback window.location.href
       setTimeout(() => {
         router.replace(targetDashboard);
-        // Reset kembali state exit setelah navigasi terpicu agar halaman login tidak blank saat logout
+        // Jika dalam 450ms path belum berpindah (misal di simulator iframe atau RSC cache delay), paksa hard navigation
         setTimeout(() => {
-          setIsLoggingIn(false);
-        }, 600);
-      }, 480);
+          if (typeof window !== "undefined" && window.location.pathname.startsWith("/login")) {
+            window.location.href = targetDashboard;
+          }
+        }, 450);
+      }, 350);
     };
 
     try {
@@ -994,11 +1002,13 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           initial={{ opacity: 0 }}
           animate={
             isRegisterMode
-              ? { x: 0, opacity: 1, pointerEvents: "auto" }
-              : { x: -60, opacity: 0, pointerEvents: "none" }
+              ? { x: 0, opacity: 1 }
+              : { x: -60, opacity: 0 }
           }
           transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
-          className="w-full md:w-[63%] md:absolute md:left-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10"
+          className={`w-full md:w-[63%] md:absolute md:left-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10 ${
+            isRegisterMode ? "pointer-events-auto" : "pointer-events-none"
+          }`}
         >
           <div className="w-full max-w-lg my-auto pt-20 sm:pt-20 pb-10 sm:pb-8 text-left">
             {/* Header Register */}
@@ -1218,11 +1228,13 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
           initial={{ opacity: 0 }}
           animate={
             !isRegisterMode
-              ? { x: 0, opacity: 1, pointerEvents: "auto" }
-              : { x: 60, opacity: 0, pointerEvents: "none" }
+              ? { x: 0, opacity: 1 }
+              : { x: 60, opacity: 0 }
           }
           transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
-          className="w-full md:w-[63%] md:absolute md:right-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10"
+          className={`w-full md:w-[63%] md:absolute md:right-0 md:top-0 h-full flex items-center justify-center p-6 sm:p-10 lg:p-14 overflow-y-auto z-10 ${
+            !isRegisterMode ? "pointer-events-auto" : "pointer-events-none"
+          }`}
         >
           <div className="w-full max-w-md my-auto pt-20 sm:pt-20 pb-10 sm:pb-8 text-left">
             {/* Header Login */}

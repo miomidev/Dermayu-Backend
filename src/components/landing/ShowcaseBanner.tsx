@@ -604,7 +604,7 @@ export function ShowcaseBanner() {
 
             {/* 3. Panel Filter Search: Adaptif Mobile (Slide Up dari Bawah) vs Desktop */}
             <motion.div
-              className="pt-1 sm:pt-2"
+              className={`pt-1 sm:pt-2 ${isInView ? "pointer-events-auto" : "pointer-events-none"}`}
               initial={isMobile ? { opacity: 0, y: 25, x: 0 } : { opacity: 0, x: 40, y: 15 }}
               animate={
                 isInView
@@ -612,7 +612,6 @@ export function ShowcaseBanner() {
                       opacity: 1,
                       x: 0,
                       y: 0,
-                      pointerEvents: "auto",
                       transition: {
                         duration: isMobile ? 0.6 : 0.7,
                         delay: isMobile ? 0.74 : 1.3,
@@ -624,14 +623,12 @@ export function ShowcaseBanner() {
                       opacity: 0,
                       y: 25,
                       x: 0,
-                      pointerEvents: "none",
                       transition: { duration: 0.2 },
                     }
                   : {
                       opacity: 0,
                       x: 40,
                       y: 15,
-                      pointerEvents: "none",
                       transition: { duration: 0.2 },
                     }
               }

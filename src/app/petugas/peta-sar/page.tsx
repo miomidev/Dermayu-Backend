@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   ShieldCheck,
@@ -396,7 +396,7 @@ export default function PetugasPetaSarPage() {
     note: obs.description,
   }));
 
-  const mapReportPoints: MapReportPoint[] = [
+  const mapReportPoints: MapReportPoint[] = useMemo(() => [
     ...floodObstacleReports,
     ...complaints.map((c, idx) => ({
       id: c.id,
@@ -423,10 +423,10 @@ export default function PetugasPetaSarPage() {
       aiScore: c.aiScore,
       urgentNeeds: c.urgentNeeds,
     })),
-  ];
+  ], [floodObstacleReports, complaints]);
 
   // Untuk Petugas, tampilkan seluruh posko aktif dan yang dikelola
-  const mapShelterPoints: MapShelterPoint[] = sheltersData.map((p) => {
+  const mapShelterPoints: MapShelterPoint[] = useMemo(() => sheltersData.map((p) => {
     const rawPhotos =
       p.photos && p.photos.length > 0
         ? p.photos
@@ -458,7 +458,10 @@ export default function PetugasPetaSarPage() {
       petugasId: p.petugasId,
       isActive: p.isActive,
     };
-  });
+  }), [sheltersData]);
+
+  const handleOpenReportModal = useCallback(() => setShowReportModal(true), []);
+  const handleOpenContactsModal = useCallback(() => setShowContactsModal(true), []);
 
   return (
     <>
@@ -469,8 +472,8 @@ export default function PetugasPetaSarPage() {
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
           currentUserId={session.id || "petugas-01"}
-          onOpenReport={() => setShowReportModal(true)}
-          onOpenContacts={() => setShowContactsModal(true)}
+          onOpenReport={handleOpenReportModal}
+          onOpenContacts={handleOpenContactsModal}
         />
       </div>
 

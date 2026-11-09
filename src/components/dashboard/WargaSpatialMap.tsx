@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { renderToStaticMarkup } from "react-dom/server";
 import { motion, AnimatePresence } from "framer-motion";
@@ -857,7 +857,7 @@ const SHELTER_METADATA: Record<
   },
 };
 
-export default function WargaSpatialMap({
+function WargaSpatialMap({
   reports = [],
   shelters = [],
   telemetry = [],
@@ -6832,3 +6832,24 @@ export default function WargaSpatialMap({
     </div>
   );
 }
+
+export default React.memo(WargaSpatialMap, (prevProps, nextProps) => {
+  if (prevProps.className !== nextProps.className) return false;
+  if (prevProps.focusReportId !== nextProps.focusReportId) return false;
+  if (
+    prevProps.focusCoords?.lat !== nextProps.focusCoords?.lat ||
+    prevProps.focusCoords?.lng !== nextProps.focusCoords?.lng
+  ) {
+    return false;
+  }
+  if (prevProps.reports !== nextProps.reports && prevProps.reports?.length !== nextProps.reports?.length) {
+    return false;
+  }
+  if (prevProps.shelters !== nextProps.shelters && prevProps.shelters?.length !== nextProps.shelters?.length) {
+    return false;
+  }
+  if (prevProps.telemetry !== nextProps.telemetry && prevProps.telemetry?.length !== nextProps.telemetry?.length) {
+    return false;
+  }
+  return true;
+});

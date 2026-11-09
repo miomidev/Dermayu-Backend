@@ -104,6 +104,8 @@ export function touchDashboardActivity(): void {
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `dermayu_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `auth_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
   } catch (e) {
     console.error("Error updating dashboard activity:", e);
   }
@@ -175,6 +177,8 @@ export function saveUserSession(user: {
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `dermayu_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `auth_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
     window.dispatchEvent(new Event("dermayu_session_updated"));
   }
 

@@ -27,8 +27,8 @@ export function middleware(request: NextRequest) {
       const decoded = decodeURIComponent(sessionCookie);
       session = JSON.parse(decoded) as UserSessionPayload;
 
-      // Cek apakah session grace period (15 menit) sudah kedaluwarsa
-      if (session?.lastDashboardActive) {
+      // Cek apakah session grace period (15 menit) sudah kedaluwarsa (hanya jika tidak ada token cookie)
+      if (session?.lastDashboardActive && !tokenCookie) {
         const elapsed = Date.now() - session.lastDashboardActive;
         if (elapsed > TIMEOUT_MS) {
           session = null;
@@ -41,9 +41,9 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = Boolean(session || tokenCookie);
 
-  // 2. Proteksi Rute Dasbor: Jika sesi tidak ada / tidak valid, redirect ke Landing Page (/)
+  // 2. Proteksi Rute Dasbor: Jika sesi tidak ada / tidak valid, redirect ke Login (/login)
   if (!isAuthenticated) {
-    const redirectUrl = new URL("/", request.url);
+    const redirectUrl = new URL("/login", request.url);
     const response = NextResponse.redirect(redirectUrl);
 
     // Hapus sisa-sisa cookie yang mungkin invalid

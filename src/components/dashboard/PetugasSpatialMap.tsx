@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { renderToStaticMarkup } from "react-dom/server";
 import { motion, AnimatePresence } from "framer-motion";
@@ -812,7 +812,7 @@ const SHELTER_METADATA: Record<
   },
 };
 
-export default function PetugasSpatialMap({
+function PetugasSpatialMap({
   reports = [],
   shelters = [],
   telemetry = [],
@@ -7203,3 +7203,18 @@ export default function PetugasSpatialMap({
     </div>
   );
 }
+
+export default React.memo(PetugasSpatialMap, (prevProps, nextProps) => {
+  if (prevProps.className !== nextProps.className) return false;
+  if (prevProps.currentUserId !== nextProps.currentUserId) return false;
+  if (prevProps.reports !== nextProps.reports && prevProps.reports?.length !== nextProps.reports?.length) {
+    return false;
+  }
+  if (prevProps.shelters !== nextProps.shelters && prevProps.shelters?.length !== nextProps.shelters?.length) {
+    return false;
+  }
+  if (prevProps.telemetry !== nextProps.telemetry && prevProps.telemetry?.length !== nextProps.telemetry?.length) {
+    return false;
+  }
+  return true;
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
@@ -282,7 +282,7 @@ function generateInitialLogs(): TelemetryLogEntry[] {
   return logs;
 }
 
-export default function TelemetrySpatialMap() {
+function TelemetrySpatialMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
@@ -2018,3 +2018,5 @@ export default function TelemetrySpatialMap() {
     </div>
   );
 }
+
+export default React.memo(TelemetrySpatialMap);

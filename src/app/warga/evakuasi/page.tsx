@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, Suspense } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -881,7 +881,7 @@ function WargaEvakuasiContent() {
     note: obs.description,
   }));
 
-  const mapReportPoints: MapReportPoint[] = [
+  const mapReportPoints: MapReportPoint[] = useMemo(() => [
     ...floodObstacleReports,
     ...complaints.map((c, idx) => ({
       id: c.id,
@@ -935,9 +935,9 @@ function WargaEvakuasiContent() {
       note: c.note,
       urgentNeeds: c.urgentNeeds,
     })),
-  ];
+  ], [floodObstacleReports, complaints, communityReports]);
 
-  const mapShelterPoints: MapShelterPoint[] = wargaPoskoData.map((p) => {
+  const mapShelterPoints: MapShelterPoint[] = useMemo(() => wargaPoskoData.map((p) => {
     const isKemdikbudPhoto = p.foto && p.foto.includes("kemendikdasmen.go.id");
     const rawPhotos = isKemdikbudPhoto
       ? [p.foto]
@@ -969,7 +969,10 @@ function WargaEvakuasiContent() {
       photos: photos,
       tier: p.tier,
     };
-  });
+  }), [wargaPoskoData]);
+
+  const handleOpenReportModal = useCallback(() => setShowReportModal(true), []);
+  const handleOpenContactsModal = useCallback(() => setShowContactsModal(true), []);
 
   return (
     <>
@@ -979,8 +982,8 @@ function WargaEvakuasiContent() {
           reports={mapReportPoints}
           shelters={mapShelterPoints}
           telemetry={telemetryPoints}
-          onOpenReport={() => setShowReportModal(true)}
-          onOpenContacts={() => setShowContactsModal(true)}
+          onOpenReport={handleOpenReportModal}
+          onOpenContacts={handleOpenContactsModal}
           focusReportId={reportIdParam}
           focusCoords={focusCoords}
         />

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 
 // Simulasi in-memory untuk fluktuasi data natural antar-request (random-walk halus)
 let stateRentangDebit = 305;
@@ -10,6 +10,7 @@ let lastRequestTime = Date.now();
 
 export async function GET(req: NextRequest) {
   try {
+    await connection();
     const now = Date.now();
     const elapsedSeconds = Math.max(1, Math.round((now - lastRequestTime) / 1000));
     lastRequestTime = now;

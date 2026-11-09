@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 
 export interface WeatherResponseData {
   kondisiSekarang: string;
@@ -184,6 +184,7 @@ function getRealisticFallbackData(): WeatherResponseData {
 }
 
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const targetUrl =
       "https://api.open-meteo.com/v1/forecast?latitude=-6.32&longitude=108.32&current_weather=true&hourly=precipitation,weathercode&timezone=Asia%2FJakarta";

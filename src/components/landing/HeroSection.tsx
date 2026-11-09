@@ -6,19 +6,26 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { UserPlus, LogIn, ArrowRight } from "lucide-react";
 import { PwaInstallModal } from "@/components/ui/PwaInstallModal";
+import { ApkDevModal } from "@/components/ui/ApkDevModal";
 import { useIsPwa } from "@/utils/useIsPwa";
 import { getActiveSession, getDashboardUrl, type UserSession } from "@/utils/authSession";
 
 export function HeroSection() {
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showApkModal, setShowApkModal] = useState(false);
   const isPwa = useIsPwa();
   const [session, setSession] = useState<UserSession | null>(null);
 
-  // Sinkronisasi pendengar event global jika tombol PWA di CtaBanner atau navbar diklik
+  // Sinkronisasi pendengar event global jika tombol PWA atau APK di CtaBanner atau navbar diklik
   useEffect(() => {
-    const handleOpen = () => setShowInstallModal(true);
-    window.addEventListener("open-pwa-modal", handleOpen);
-    return () => window.removeEventListener("open-pwa-modal", handleOpen);
+    const handleOpenPwa = () => setShowInstallModal(true);
+    const handleOpenApk = () => setShowApkModal(true);
+    window.addEventListener("open-pwa-modal", handleOpenPwa);
+    window.addEventListener("open-apk-modal", handleOpenApk);
+    return () => {
+      window.removeEventListener("open-pwa-modal", handleOpenPwa);
+      window.removeEventListener("open-apk-modal", handleOpenApk);
+    };
   }, []);
 
   // Cek active session
@@ -191,20 +198,17 @@ export function HeroSection() {
             ) : (
               <>
                 {/* 1. Tombol Primer: Unduh .APK */}
-                <a
-                  href="#unduh-apk"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("File instalasi DERMAYU .APK sedang disiapkan untuk rilis publik Kabupaten Indramayu.");
-                  }}
-                  className="bg-[#38746D] text-white hover:bg-[#24544E] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 w-full sm:w-auto"
+                <button
+                  type="button"
+                  onClick={() => setShowApkModal(true)}
+                  className="bg-[#38746D] text-white hover:bg-[#24544E] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all duration-150 active:scale-95 cursor-pointer w-full sm:w-auto"
                 >
                   {/* Android SVG Icon */}
                   <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9993.4486.9993 1.0003s-.4482 1.0003-.9993 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.411 13.8533 8.125 12 8.125c-1.8533 0-3.5902.286-5.1378.8247L4.84 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396" />
                   </svg>
                   <span>Unduh .APK</span>
-                </a>
+                </button>
 
                 {/* 2. Tombol Sekunder: Pasang PWA untuk iOS */}
                 <button
@@ -298,6 +302,16 @@ export function HeroSection() {
       <PwaInstallModal
         isOpen={showInstallModal}
         onClose={() => setShowInstallModal(false)}
+      />
+
+      {/* Modal Pemberitahuan .APK Dalam Pengembangan */}
+      <ApkDevModal
+        isOpen={showApkModal}
+        onClose={() => setShowApkModal(false)}
+        onSwitchToPwa={() => {
+          setShowApkModal(false);
+          setShowInstallModal(true);
+        }}
       />
     </section>
   );

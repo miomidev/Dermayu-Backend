@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import PageTransition from "@/components/PageTransition";
 
 export const metadata = {
   title: "Portal Warga Siaga | DERMAYU",
@@ -10,6 +11,10 @@ export default function WargaRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell role="warga">{children}</DashboardShell>;
+  return (
+    <DashboardShell role="warga">
+      <PageTransition>{children}</PageTransition>
+    </DashboardShell>
+  );
 }
 

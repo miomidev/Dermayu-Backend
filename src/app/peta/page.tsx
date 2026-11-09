@@ -374,7 +374,7 @@ export default function PetaSpasialPage() {
       <SiteHeader path="/peta" />
 
       {/* 2. Halaman Peta Spasial Full Screen (Di bawah navbar, tanpa container kecil) */}
-      <main className="flex-1 w-full h-full relative overflow-hidden">
+      <main className="flex-1 w-full h-full relative overflow-hidden" data-lenis-prevent="true">
         <WargaSpatialMap
           className="h-full w-full"
           reports={mapReportPoints}

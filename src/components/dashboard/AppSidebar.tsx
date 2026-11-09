@@ -82,13 +82,14 @@ export function AppSidebar({
   const secondaryNavItems: NavItem[] =
     role === "petugas"
       ? [
+          { label: "Buku Panduan Siaga", href: "/petugas/panduan", icon: BookOpen },
           { label: "Profil Petugas", href: "/petugas/profile", icon: User },
           { label: "Pengaturan Sistem", href: "/petugas/settings", icon: Settings },
         ]
       : [
           { label: "Kontak Darurat 112", href: "/warga/kontak", icon: PhoneCall },
+          { label: "Buku Panduan Siaga", href: "/warga/panduan", icon: BookOpen },
           { label: "Profil Saya", href: "/warga/profile", icon: User },
-          { label: "Panduan Mitigasi", href: "/panduan", icon: BookOpen },
         ];
 
   const renderNavLink = (item: NavItem) => {
@@ -151,6 +152,7 @@ export function AppSidebar({
         duration: 0.25,
         ease: [0.16, 1, 0.3, 1] as const,
       }}
+      data-lenis-prevent="true"
       className={`hidden md:flex bg-[#1D443F] text-white fixed top-0 bottom-0 left-0 flex-col justify-between z-40 shadow-md select-none overscroll-none touch-pan-y ${
         collapsed ? "w-20" : "w-64"
       }`}

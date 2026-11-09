@@ -213,7 +213,7 @@ export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanel
 
   // Konten UI Cuaca yang Elegan & Komprehensif
   const panelContent = (
-    <div className="flex-1 overflow-y-auto scrollbar-thin px-4 sm:px-6 py-4 space-y-4 sm:space-y-5 text-slate-800 select-none">
+    <div data-lenis-prevent="true" className="flex-1 overflow-y-auto scrollbar-thin px-4 sm:px-6 py-4 space-y-4 sm:space-y-5 text-slate-800 select-none">
       {/* 1. OVERVIEW HEADER */}
       <div className="flex items-start justify-between gap-4 pt-1">
         <div className="min-w-0">

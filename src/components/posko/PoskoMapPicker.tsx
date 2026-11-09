@@ -270,10 +270,12 @@ export default function PoskoMapPicker({
           ? "fixed inset-0 z-50 w-screen h-screen rounded-none"
           : "rounded-3xl border border-[#D5E4E0] shadow-xs"
       }`}
+      data-lenis-prevent="true"
     >
       {/* Container Leaflet */}
       <div
         ref={mapContainerRef}
+        data-lenis-prevent="true"
         className={`w-full z-10 ${
           isFullscreen ? "h-screen" : "h-[360px] sm:h-[420px]"
         }`}

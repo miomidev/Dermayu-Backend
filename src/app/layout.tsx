@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import DynamicThemeColor from "@/components/DynamicThemeColor";
 import { ServiceWorkerRegister } from "@/components/ui/ServiceWorkerRegister";
+import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -61,7 +62,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans bg-white text-gray-900 selection:bg-[#38746D] selection:text-white">
         <ServiceWorkerRegister />
         <DynamicThemeColor />
-        {children}
+        <SmoothScrollProvider>
+          {children}
+        </SmoothScrollProvider>
       </body>
     </html>
   );

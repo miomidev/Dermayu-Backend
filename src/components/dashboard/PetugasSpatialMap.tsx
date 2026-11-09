@@ -6376,15 +6376,16 @@ function PetugasSpatialMap({
   return (
     <div
       ref={rootContainerRef}
+      data-lenis-prevent="true"
       className={`relative w-full rounded-none overflow-hidden border-0 bg-white shadow-none flex flex-col isolate z-0 [&_.leaflet-bottom.leaflet-right]:bottom-20 md:[&_.leaflet-bottom.leaflet-right]:bottom-3 ${isFullscreen
         ? "fixed inset-0 !z-[9999] w-screen h-screen"
         : className || "h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)]"
         }`}
     >
       {/* Map Canvas & Floating Controls Wrapper (100% Edge-to-Edge) */}
-      <div className="relative flex-1 w-full h-full overflow-hidden">
+      <div className="relative flex-1 w-full h-full overflow-hidden" data-lenis-prevent="true">
         {/* Leaflet Map Body Container */}
-        <div ref={mapContainerRef} className="w-full h-full relative z-0" />
+        <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full relative z-0" />
 
         {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}

@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import PageTransition from "@/components/PageTransition";
 
 export const metadata = {
   title: "Pusdalops PB BPBD | DERMAYU",
@@ -10,6 +11,10 @@ export default function PetugasRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell role="petugas">{children}</DashboardShell>;
+  return (
+    <DashboardShell role="petugas">
+      <PageTransition>{children}</PageTransition>
+    </DashboardShell>
+  );
 }
 

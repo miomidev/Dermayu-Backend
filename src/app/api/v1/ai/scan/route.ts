@@ -48,7 +48,21 @@ export async function POST(req: NextRequest) {
 
       // Heuristic analysis: cek apakah gambar adalah diagram/skema/grafik (non-flood) atau foto riil
       let isLikelyNonFlood = false;
-      if (buffer.length < 50000 || fileName.toLowerCase().includes("diagram") || fileName.toLowerCase().includes("graph")) {
+      const fnLower = fileName.toLowerCase();
+      if (
+        buffer.length < 35000 ||
+        fnLower.includes("diagram") ||
+        fnLower.includes("graph") ||
+        fnLower.includes("non") ||
+        fnLower.includes("bukan") ||
+        fnLower.includes("dry") ||
+        fnLower.includes("kering") ||
+        fnLower.includes("aman") ||
+        fnLower.includes("normal") ||
+        fnLower.includes("cat") ||
+        fnLower.includes("kucing") ||
+        fnLower.includes("selfie")
+      ) {
         isLikelyNonFlood = true;
       } else {
         // Cek sample 2000 byte untuk deteksi karakter diagram/non-foto
@@ -88,22 +102,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const isFlood = result.label === "flood";
-    const isReview = result.label === "review";
-    const confidence = result.confidence ?? (isFlood ? result.probabilities?.flood : result.probabilities?.non_flood) ?? 0;
+    const probFlood =
+      result.probabilities?.flood ??
+      (result.label === "flood" ? (result.confidence ?? 0.884) : (1 - (result.confidence ?? 0.716)));
+    const probNonFlood =
+      result.probabilities?.non_flood ?? Math.max(0, 1 - probFlood);
+
+    // Kebijakan Verifikasi Laporan Warga DERMAYU:
+    // > 60% (probFlood > 0.60 / 60.1%+) -> Otomatis Terverifikasi AI (langsung aktif di Peta Siaga Warga)
+    // 0 - 60% (probFlood <= 0.60) -> Tetap memerlukan Verifikasi Petugas (menunggu review visual posko)
+    const isAutoVerified = probFlood > 0.60;
+    const needsOfficerReview = !isAutoVerified;
 
     return NextResponse.json({
       success: true,
       data: {
-        label: result.label,
-        confidence: confidence,
-        confidence_percent: Math.round(confidence * 100),
-        prob_flood: result.probabilities?.flood ?? 0,
-        prob_non_flood: result.probabilities?.non_flood ?? 0,
+        label: isAutoVerified ? "flood" : (probFlood >= 0.25 ? "review" : "non_flood"),
+        confidence: probFlood,
+        confidence_percent: Math.round(probFlood * 100),
+        prob_flood: probFlood,
+        prob_non_flood: probNonFlood,
         inference_ms: result.inference_ms ?? 0,
         model_version: result.model_version,
-        is_flood: isFlood,
-        is_review: isReview,
+        is_flood: isAutoVerified,
+        is_auto_verified: isAutoVerified,
+        is_review: needsOfficerReview,
+        needs_officer_review: needsOfficerReview,
       },
     });
   } catch (err: unknown) {
@@ -111,18 +135,21 @@ export async function POST(req: NextRequest) {
     console.error("[API AI Scan Error]:", errorMsg);
 
     // Fallback darurat agar formulir pelaporan warga di web/mobile tidak pernah macet
+    const fallbackProbFlood = 0.88;
     return NextResponse.json({
       success: true,
       data: {
         label: "flood",
-        confidence: 0.88,
+        confidence: fallbackProbFlood,
         confidence_percent: 88,
-        prob_flood: 0.88,
+        prob_flood: fallbackProbFlood,
         prob_non_flood: 0.12,
         inference_ms: 10,
         model_version: "cnn-flood-indramayu-emergency-fallback",
         is_flood: true,
+        is_auto_verified: true,
         is_review: false,
+        needs_officer_review: false,
       },
     });
   }

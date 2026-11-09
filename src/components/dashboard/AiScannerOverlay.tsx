@@ -13,6 +13,9 @@ export interface AiScanResult {
   inference_ms: number;
   model_version: string;
   is_flood: boolean;
+  is_auto_verified?: boolean;
+  is_review?: boolean;
+  needs_officer_review?: boolean;
 }
 
 export interface AiScannerOverlayProps {
@@ -41,10 +44,10 @@ export function AiScannerOverlay({
     // Ketika inferensi selesai dari server
     if (!isAnalyzing) {
       setHasCompleted(true);
-      // Tampilkan hasil selama 900ms agar terbaca dengan jelas, lalu buka formulir
+      // Tampilkan hasil selama 1050ms agar terbaca dengan jelas, lalu buka formulir
       const timer = setTimeout(() => {
         onScanComplete();
-      }, 950);
+      }, 1050);
 
       return () => clearTimeout(timer);
     }
@@ -52,10 +55,12 @@ export function AiScannerOverlay({
 
   if (!isOpen || !photoUrl) return null;
 
-  const isFlood = scanResult ? scanResult.is_flood : true;
-  const isReview = scanResult?.label === "review";
-  const floodPct = scanResult ? (scanResult.prob_flood * 100).toFixed(1) : "94.2";
-  const nonFloodPct = scanResult ? (scanResult.prob_non_flood * 100).toFixed(1) : "97.0";
+  const probFlood = scanResult ? scanResult.prob_flood : 0.942;
+  // Aturan Ambang Batas: > 60% (60.1%+) otomatis verifikasi AI, 0 - 60% tetap verifikasi petugas
+  const isAutoVerified = scanResult
+    ? (scanResult.is_auto_verified ?? (probFlood > 0.60))
+    : true;
+  const floodPct = (probFlood * 100).toFixed(1);
 
   return (
     <AnimatePresence>
@@ -73,7 +78,7 @@ export function AiScannerOverlay({
           {/* Header Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm shadow-sm">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Pemeriksaan Bukti Foto</span>
+            <span>Pemeriksaan Bukti Foto AI</span>
           </div>
 
           {/* Photo Frame Container */}
@@ -105,53 +110,41 @@ export function AiScannerOverlay({
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.25 }}
                 className={`absolute inset-0 ${
-                  isFlood
+                  isAutoVerified
                     ? "bg-emerald-950/85"
-                    : isReview
-                    ? "bg-amber-950/85"
-                    : "bg-slate-950/85"
+                    : "bg-amber-950/85"
                 } backdrop-blur-xs flex flex-col items-center justify-center p-5 text-center`}
               >
                 <div
                   className={`w-14 h-14 rounded-2xl ${
-                    isFlood
+                    isAutoVerified
                       ? "bg-emerald-500/20 text-emerald-400 border border-emerald-400/40"
-                      : isReview
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-400/40"
-                      : "bg-sky-500/20 text-sky-400 border border-sky-400/40"
+                      : "bg-amber-500/20 text-amber-400 border border-amber-400/40"
                   } flex items-center justify-center mb-3 shadow-lg`}
                 >
-                  {isFlood ? (
+                  {isAutoVerified ? (
                     <CheckCircle2 className="w-7 h-7" />
-                  ) : isReview ? (
-                    <AlertTriangle className="w-7 h-7" />
                   ) : (
-                    <AlertCircle className="w-7 h-7" />
+                    <AlertTriangle className="w-7 h-7" />
                   )}
                 </div>
 
                 <h4 className="text-base font-bold text-white leading-tight">
-                  {isFlood
-                    ? "Genangan Terkonfirmasi"
-                    : isReview
-                    ? "Perlu Peninjauan Petugas"
-                    : "Bukan Genangan Air"}
+                  {isAutoVerified
+                    ? "Genangan Terkonfirmasi (Valid)"
+                    : "Perlu Verifikasi Petugas"}
                 </h4>
 
                 <p
                   className={`text-xs font-bold mt-1 px-3 py-1 rounded-full ${
-                    isFlood
+                    isAutoVerified
                       ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/30"
-                      : isReview
-                      ? "bg-amber-500/30 text-amber-200 border border-amber-400/30"
-                      : "bg-sky-500/30 text-sky-200 border border-sky-400/30"
+                      : "bg-amber-500/30 text-amber-200 border border-amber-400/30"
                   }`}
                 >
-                  {isFlood
-                    ? `Keyakinan: ${floodPct}%`
-                    : isReview
-                    ? `Keyakinan: ${floodPct}% (Ambang)`
-                    : `Keyakinan Bukan Banjir: ${nonFloodPct}%`}
+                  {isAutoVerified
+                    ? `Otomatis Terverifikasi AI: ${floodPct}%`
+                    : `Keyakinan AI: ${floodPct}% (Menunggu Review Petugas)`}
                 </p>
               </motion.div>
             )}
@@ -167,12 +160,20 @@ export function AiScannerOverlay({
                 </p>
               </div>
             ) : (
-              <p className="text-xs sm:text-sm font-semibold text-emerald-300">
-                Pemeriksaan selesai. Menyiapkan formulir...
+              <p
+                className={`text-xs sm:text-sm font-semibold ${
+                  isAutoVerified ? "text-emerald-300" : "text-amber-300"
+                }`}
+              >
+                {isAutoVerified
+                  ? "Pemeriksaan selesai. Laporan terverifikasi AI (> 60%)."
+                  : "Pemeriksaan selesai. Laporan diteruskan untuk verifikasi petugas (0-60%)."}
               </p>
             )}
             <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-              Sistem memverifikasi bukti foto secara otomatis sebelum diteruskan ke posko darurat.
+              {isAutoVerified
+                ? "Foto tervalidasi otomatis dan langsung aktif di Peta Spasial Siaga."
+                : "Tingkat keyakinan ≤ 60%, laporan menunggu verifikasi visual posko sebelum dipetakan."}
             </p>
           </div>
         </div>

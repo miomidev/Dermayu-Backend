@@ -1,2 +1,1 @@
-export { GET } from "../v1/laporan/route";
-
+export { GET, POST, DELETE } from "../v1/laporan/route";

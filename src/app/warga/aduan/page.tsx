@@ -474,7 +474,7 @@ export default function WargaAduanPage() {
                   </span>
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    {(item.aiConfidence * 100).toFixed(0)}% Valid
+                    {(item.aiConfidence <= 1 ? item.aiConfidence * 100 : item.aiConfidence).toFixed(0)}% Valid
                   </span>
                 </div>
 

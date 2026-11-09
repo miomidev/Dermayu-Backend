@@ -127,9 +127,11 @@ interface ComplaintTicket {
   note: string;
   photos: string[];
   urgentNeeds: string[];
+  isFloodDetected?: boolean;
   aiScore?: {
     label: string;
     confidence: number;
+    is_flood?: boolean;
   };
   lat?: number;
   lng?: number;
@@ -196,94 +198,119 @@ function WargaEvakuasiContent() {
   const [reportPhotos, setReportPhotos] = useState<string[]>([]);
   const [reportSubmittedSuccess, setReportSubmittedSuccess] = useState(false);
 
-  // Complaints / Reports
-  const STORAGE_KEY = "dermayu_user_reports";
+  // Complaints / Reports (Storage key v2 fresh)
+  const STORAGE_KEY = "dermayu_user_reports_v2";
 
-  const [complaints, setComplaints] = useState<ComplaintTicket[]>([
-    {
-      id: "1",
-      ticketCode: "DMY-20261030-0089",
-      category: "FLOOD",
-      categoryLabel: "Banjir / Rob",
-      title: "Luapan Rob Pantai Rendam Jalan Pemukiman RT 04",
-      location: "Blok Karanganyar, Eretan Wetan",
-      severity: "CRITICAL",
-      waterLevel: "KNEE",
-      waterLevelText: "Setinggi Lutut (60 cm)",
-      status: "ASSIGNED",
-      createdAt: "15 Menit yang lalu",
-      note: "Regu SAR Pos Eretan bersama perahu LCR sedang evakuasi warga kelompok rentan.",
-      photos: ["/login-art.png"],
-      urgentNeeds: ["Perahu Evakuasi", "Bantuan Medis Lansia"],
-      aiScore: {
-        label: "flood",
-        confidence: 0.94,
-      },
-      lat: -6.3475,
-      lng: 108.1189,
-    },
-    {
-      id: "2",
-      ticketCode: "DMY-20261030-0042",
-      category: "LEVEE",
-      categoryLabel: "Tanggul Kritis",
-      title: "Rembesan Tanggul Saluran Sekunder Kali Cimanuk",
-      location: "Jl. Muara Lama No. 12, Kandanghaur",
-      severity: "MEDIUM",
-      waterLevel: "ANKLE",
-      waterLevelText: "Semata Kaki (35 cm)",
-      status: "VERIFIED",
-      createdAt: "3 Jam yang lalu",
-      note: "Laporan terverifikasi. Masuk antrean penanganan karung pasir pengaman.",
-      photos: [],
-      urgentNeeds: ["Karung Pasir"],
-      lat: -6.355,
-      lng: 108.135,
-    },
-  ]);
+  const [complaints, setComplaints] = useState<ComplaintTicket[]>([]);
 
-  // Sinkronisasi data laporan dari LocalStorage (/warga/lapor) secara real-time
+  // Sinkronisasi data laporan dari Server API & LocalStorage secara real-time
   const syncReportsFromStorage = () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const loadedTickets: ComplaintTicket[] = parsed.map((t: any, idx: number) => {
-            const catCode = (t.categoryCode || "FLOOD") as ReportCategoryCode;
-            const sevLevel = (t.severity || (t.status === "PENANGANAN" ? "CRITICAL" : "HIGH")) as SeverityLevel;
-            const statusMapped: ReportStatusCode =
-              t.status === "PENANGANAN"
-                ? "ASSIGNED"
-                : t.status === "DIVERIFIKASI"
-                ? "VERIFIED"
-                : "SUBMITTED";
-
-            return {
-              id: t.id || `ticket-${idx}`,
-              ticketCode: t.id || `DMY-TKT-${idx}`,
-              category: catCode,
-              categoryLabel: t.category || "Banjir / Rob Pesisir",
-              title: t.title,
-              location: t.location,
-              severity: sevLevel,
-              waterLevelText: t.waterLevel || "Genangan Air",
-              status: statusMapped,
-              createdAt: t.time || "Baru saja",
-              note: t.statusNote || t.notes || "Laporan masuk antrean tim siaga Posko BPBD.",
-              photos: Array.isArray(t.photos) ? t.photos : [],
-              urgentNeeds: Array.isArray(t.urgentNeeds) ? t.urgentNeeds : ["Evakuasi Warga"],
-              aiScore: t.aiConfidence
-                ? { label: "flood", confidence: t.aiConfidence }
-                : undefined,
-              lat: t.gps?.lat ?? (-6.3475 + (idx % 3) * 0.005),
-              lng: t.gps?.lng ?? (108.1189 + (idx % 3) * 0.005),
-            };
-          });
-
-          setComplaints(loadedTickets);
-        }
+      if (localStorage.getItem("dermayu_user_reports")) {
+        localStorage.removeItem("dermayu_user_reports");
       }
+
+      // 1. Fetch dari server sebagai single source of truth
+      fetch("/api/laporan?type=citizen", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((json) => {
+          const list = json.data?.data || json.data || [];
+          const apiTickets: ComplaintTicket[] = Array.isArray(list)
+            ? list.map((item: any) => ({
+                id: item.id || item.ticketCode,
+                ticketCode: item.ticketCode || item.id,
+                category: "FLOOD" as ReportCategoryCode,
+                categoryLabel: item.disasterCategory || "Banjir / Rob Pesisir",
+                title: item.description || "Laporan Titik Banjir",
+                location: item.location || "Indramayu",
+                severity: (item.severity === "TINGGI" ? "HIGH" : "MEDIUM") as SeverityLevel,
+                waterLevelText: item.waterLevel || "Genangan Air",
+                status: (item.status === "ARMADA_DIKERAHKAN" ? "ASSIGNED" : item.status === "VERIFIED" ? "VERIFIED" : "SUBMITTED") as ReportStatusCode,
+                createdAt: item.timeReceived || "Hari ini",
+                note: item.description || "Laporan terverifikasi sistem",
+                photos: item.photos || (item.photoUrl ? [item.photoUrl] : []),
+                urgentNeeds: ["Bantuan Evakuasi"],
+                isFloodDetected: item.status === "VERIFIED" || (item.aiConfidence && item.aiConfidence > 60),
+                lat: item.lat || -6.4093,
+                lng: item.lng || 108.2817,
+              }))
+            : [];
+
+          // 2. Gabungkan hanya tiket antrean offline lokal yang belum tersinkron
+          let offlineTickets: ComplaintTicket[] = [];
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                offlineTickets = parsed
+                  .filter((t: any) => t.isOfflineQueue === true)
+                  .map((t: any, idx: number) => ({
+                    id: t.id || `ticket-off-${idx}`,
+                    ticketCode: t.id || `DMY-OFF-${idx}`,
+                    category: (t.categoryCode || "FLOOD") as ReportCategoryCode,
+                    categoryLabel: t.category || "Banjir / Rob Pesisir",
+                    title: t.title,
+                    location: t.location,
+                    severity: "HIGH" as SeverityLevel,
+                    waterLevelText: t.waterLevel || "Genangan Air",
+                    status: "SUBMITTED" as ReportStatusCode,
+                    createdAt: t.time || "Baru saja",
+                    note: t.statusNote || "Antrean offline",
+                    photos: Array.isArray(t.photos) ? t.photos : [],
+                    urgentNeeds: ["Evakuasi Warga"],
+                    isFloodDetected: false,
+                    lat: t.gps?.lat ?? -6.3475,
+                    lng: t.gps?.lng ?? 108.1189,
+                  }));
+              }
+            }
+          } catch {}
+
+          const uniqueMap = new Map<string, ComplaintTicket>();
+          [...apiTickets, ...offlineTickets].forEach((it) => {
+            if (!uniqueMap.has(it.ticketCode)) uniqueMap.set(it.ticketCode, it);
+          });
+          setComplaints(Array.from(uniqueMap.values()));
+        })
+        .catch(() => {
+          // Fallback bila server tidak dapat dijangkau
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                const loadedTickets: ComplaintTicket[] = parsed.map((t: any, idx: number) => {
+                  const catCode = (t.categoryCode || "FLOOD") as ReportCategoryCode;
+                  const sevLevel = (t.severity || (t.status === "PENANGANAN" ? "CRITICAL" : "HIGH")) as SeverityLevel;
+                  const statusMapped: ReportStatusCode =
+                    t.status === "PENANGANAN" ? "ASSIGNED" : t.status === "DIVERIFIKASI" ? "VERIFIED" : "SUBMITTED";
+                  const isFloodDetected =
+                    t.isFloodDetected === true || t.status === "DIVERIFIKASI" || t.status === "VERIFIED";
+                  return {
+                    id: t.id || `ticket-${idx}`,
+                    ticketCode: t.id || `DMY-TKT-${idx}`,
+                    category: catCode,
+                    categoryLabel: t.category || "Banjir / Rob Pesisir",
+                    title: t.title,
+                    location: t.location,
+                    severity: sevLevel,
+                    waterLevelText: t.waterLevel || "Genangan Air",
+                    status: statusMapped,
+                    createdAt: t.time || "Baru saja",
+                    note: t.statusNote || t.notes || "Laporan masuk antrean tim siaga Posko BPBD.",
+                    photos: Array.isArray(t.photos) ? t.photos : [],
+                    urgentNeeds: Array.isArray(t.urgentNeeds) ? t.urgentNeeds : ["Evakuasi Warga"],
+                    isFloodDetected,
+                    lat: t.gps?.lat ?? -6.3475,
+                    lng: t.gps?.lng ?? 108.1189,
+                  };
+                });
+                setComplaints(loadedTickets);
+              }
+            }
+          } catch {}
+        });
     } catch (err) {
       console.warn("Gagal membaca laporan dari storage:", err);
     }
@@ -881,9 +908,21 @@ function WargaEvakuasiContent() {
     note: obs.description,
   }));
 
+  // FILTER KETAT: Hanya laporan yang BENAR-BENAR TERDETEKSI BANJIR yang masuk ke peta
+  const floodConfirmedComplaints = useMemo(() => {
+    return complaints.filter((c) => {
+      return (
+        c.isFloodDetected === true ||
+        c.status === "VERIFIED" ||
+        c.status === "ASSIGNED" ||
+        (c.aiScore?.label === "flood" && (c.aiScore?.confidence ?? 0) >= 0.6)
+      );
+    });
+  }, [complaints]);
+
   const mapReportPoints: MapReportPoint[] = useMemo(() => [
     ...floodObstacleReports,
-    ...complaints.map((c, idx) => ({
+    ...floodConfirmedComplaints.map((c, idx) => ({
       id: c.id,
       ticketCode: c.ticketCode,
       title: c.title,
@@ -891,11 +930,9 @@ function WargaEvakuasiContent() {
       severity: c.severity,
       waterLevelText: c.waterLevelText,
       status:
-        c.status === "ASSIGNED"
-          ? "Petugas Ditugaskan"
-          : c.status === "VERIFIED"
-          ? "Terverifikasi"
-          : "Menunggu Verifikasi",
+        c.status === "IN_PROGRESS" || (c.status as string) === "PENANGANAN"
+          ? "Regu SAR Menuju Lokasi"
+          : "Terverifikasi Aktif",
       location: c.location,
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
@@ -909,6 +946,7 @@ function WargaEvakuasiContent() {
           ? c.photos[0]
           : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
       note: c.note,
+      isFloodDetected: true,
       aiScore: c.aiScore,
       urgentNeeds: c.urgentNeeds,
     })),
@@ -935,7 +973,7 @@ function WargaEvakuasiContent() {
       note: c.note,
       urgentNeeds: c.urgentNeeds,
     })),
-  ], [floodObstacleReports, complaints, communityReports]);
+  ], [floodObstacleReports, floodConfirmedComplaints, communityReports]);
 
   const mapShelterPoints: MapShelterPoint[] = useMemo(() => wargaPoskoData.map((p) => {
     const isKemdikbudPhoto = p.foto && p.foto.includes("kemendikdasmen.go.id");

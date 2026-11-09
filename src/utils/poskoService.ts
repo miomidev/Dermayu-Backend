@@ -9,7 +9,7 @@ export interface PoskoRecord extends PoskoItem {
   photos?: string[];
 }
 
-const STORAGE_KEY = "dermayu_posko_simulated_v3";
+const STORAGE_KEY = "dermayu_posko_simulated_v4";
 
 const INDO_FIRST_NAMES_L = [
   "Ahmad", "Budi", "Dedi", "Eko", "Hendra", "Kusnan", "Lukman", "Rahmat", "Slamet", "Ujang",
@@ -49,7 +49,9 @@ function generateInitialPengungsi(poskoId: string, terisi: number, alamat: strin
   ];
 
   const list: PengungsiItem[] = [];
-  const targetCount = Math.max(0, terisi);
+  // Batasi sampel data pengungsi awal ke maksimal 8 orang per posko
+  // agar payload JSON sangat ringan (~80KB total vs 4.5MB) dan tidak melebihi kuota 5MB localStorage
+  const targetCount = Math.min(Math.max(0, terisi), 8);
   const namedCount = Math.min(targetCount, namedSamples.length);
 
   for (let i = 0; i < namedCount; i++) {
@@ -180,14 +182,18 @@ export function getAllPosko(): PoskoRecord[] {
   }
 
   try {
-    // Bersihkan cache versi lama jika ada
+    // Bersihkan cache versi lama jika ada untuk membebaskan kuota 5MB localStorage
     try {
-      if (localStorage.getItem("dermayu_posko_simulated_v1")) {
-        localStorage.removeItem("dermayu_posko_simulated_v1");
-      }
-      if (localStorage.getItem("dermayu_posko_simulated_v2")) {
-        localStorage.removeItem("dermayu_posko_simulated_v2");
-      }
+      [
+        "dermayu_posko_simulated",
+        "dermayu_posko_simulated_v1",
+        "dermayu_posko_simulated_v2",
+        "dermayu_posko_simulated_v3",
+      ].forEach((oldKey) => {
+        if (localStorage.getItem(oldKey)) {
+          localStorage.removeItem(oldKey);
+        }
+      });
     } catch {
       // ignore
     }
@@ -195,7 +201,20 @@ export function getAllPosko(): PoskoRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial = getInitialPoskoDataset();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      } catch (quotaErr) {
+        console.warn("Storage quota fallback on initial write:", quotaErr);
+        const compact = initial.map((it) => ({
+          ...it,
+          pengungsi: (it.pengungsi || []).slice(0, 4),
+        }));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(compact));
+        } catch {
+          // ignore
+        }
+      }
       return initial;
     }
     const parsed: PoskoRecord[] = JSON.parse(raw);
@@ -302,7 +321,33 @@ function savePoskoDataset(items: PoskoRecord[], broadcast = true) {
       window.dispatchEvent(new CustomEvent("dermayu_posko_updated", { detail: items }));
     }
   } catch (err) {
-    console.error("Error saving posko data:", err);
+    console.warn("Storage quota limit reached in savePoskoDataset, performing quota cleanup:", err);
+    try {
+      // 1. Hapus semua key cache versi lama untuk membebaskan ruang penyimpanan
+      [
+        "dermayu_posko_simulated",
+        "dermayu_posko_simulated_v1",
+        "dermayu_posko_simulated_v2",
+        "dermayu_posko_simulated_v3",
+      ].forEach((k) => {
+        try {
+          localStorage.removeItem(k);
+        } catch {}
+      });
+
+      // 2. Ringankan array pengungsi menjadi maksimal 5 item per posko
+      const compactItems = items.map((it) => ({
+        ...it,
+        pengungsi: (it.pengungsi || []).slice(0, 5),
+      }));
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(compactItems));
+      if (broadcast) {
+        window.dispatchEvent(new CustomEvent("dermayu_posko_updated", { detail: compactItems }));
+      }
+    } catch (fallbackErr) {
+      console.error("Critical: localStorage quota fully exhausted:", fallbackErr);
+    }
   }
 }
 

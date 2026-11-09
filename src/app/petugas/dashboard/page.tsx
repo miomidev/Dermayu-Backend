@@ -26,7 +26,6 @@ import {
   Eye,
   Plus,
   Minus,
-  Sparkles,
   ExternalLink,
   ClipboardList,
   Map,
@@ -55,7 +54,7 @@ interface CivicReport {
   reporterPhone: string;
   location: string;
   district: string;
-  disasterCategory: "Rob Pesisir" | "Luapan Cimanuk" | "Tanggul Kritis" | "Genangan Drainase";
+  disasterCategory: string;
   waterLevel: string;
   vulnerableCount: string; // e.g. "3 Lansia, 2 Balita"
   status: "MENUNGGU_VERIFIKASI" | "ARMADA_DIKERAHKAN" | "DITOLAK" | "SELESAI";
@@ -97,65 +96,8 @@ export default function PetugasDashboard() {
     { day: "Min", date: "7 Nov", total: 18, resolved: 15 },
   ];
 
-  // Triage Queue State
-  const [reports, setReports] = useState<CivicReport[]>([
-    {
-      id: "rep-1",
-      ticketCode: "DMY-20261030-0089",
-      timeReceived: "13:05 WIB (5 mnt lalu)",
-      reporterName: "Pak Kusnan",
-      reporterPhone: "0812-9844-1120",
-      location: "RT 04 / RW 02 Blok Karanganyar",
-      district: "Kandanghaur (Eretan Wetan)",
-      disasterCategory: "Rob Pesisir",
-      waterLevel: "60 cm (Lutut Dewasa)",
-      vulnerableCount: "3 Lansia, 2 Balita",
-      status: "MENUNGGU_VERIFIKASI",
-      notes: "Arus air masuk dari tanggul nelayan barat. Perahu karet dibutuhkan segera.",
-    },
-    {
-      id: "rep-2",
-      ticketCode: "DMY-20261030-0092",
-      timeReceived: "12:48 WIB (22 mnt lalu)",
-      reporterName: "Ibu Maryati",
-      reporterPhone: "0857-3321-9981",
-      location: "Depan SDN 2 Cantigi Kulon",
-      district: "Cantigi",
-      disasterCategory: "Luapan Cimanuk",
-      waterLevel: "85 cm (Paha Dewasa)",
-      vulnerableCount: "1 Balita & Ibu Hamil",
-      status: "MENUNGGU_VERIFIKASI",
-      notes: "Air rembes dari pintu air sekunder yang tersumbat eceng gondok.",
-    },
-    {
-      id: "rep-3",
-      ticketCode: "DMY-20261030-0084",
-      timeReceived: "12:15 WIB (55 mnt lalu)",
-      reporterName: "Budi Santoso",
-      reporterPhone: "0813-2211-4450",
-      location: "Jl. Kali Cimanuk Lama KM 4",
-      district: "Sindang",
-      disasterCategory: "Tanggul Kritis",
-      waterLevel: "40 cm (Betis Dewasa)",
-      vulnerableCount: "Tidak ada warga terjebak",
-      status: "MENUNGGU_VERIFIKASI",
-      notes: "Tanggul tanah mengalami retakan rembesan sepanjang 8 meter.",
-    },
-    {
-      id: "rep-4",
-      ticketCode: "DMY-20261030-0078",
-      timeReceived: "11:20 WIB (2 jam lalu)",
-      reporterName: "Wawan Sudrajat",
-      reporterPhone: "0821-7788-0099",
-      location: "Blok Karang Baru RT 01",
-      district: "Losarang",
-      disasterCategory: "Rob Pesisir",
-      waterLevel: "70 cm (Paha)",
-      vulnerableCount: "4 Lansia",
-      status: "ARMADA_DIKERAHKAN",
-      notes: "Tim SAR Unit 2 bersama 1 LCR telah tiba dan mengevakuasi warga ke GOR.",
-    },
-  ]);
+  // Triage Queue State (Synced from Server DB & LocalStorage)
+  const [reports, setReports] = useState<CivicReport[]>([]);
 
   // Shelter Capacity Data State
   const [shelters, setShelters] = useState<ShelterData[]>([
@@ -223,8 +165,95 @@ export default function PetugasDashboard() {
       );
     };
     updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
+    const clockInterval = setInterval(updateClock, 1000);
+
+    // Sync reports from API and LocalStorage
+    const loadDashboardReports = async () => {
+      let serverList: CivicReport[] = [];
+      try {
+        const res = await fetch("/api/laporan?type=citizen", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const list = json.data?.data || json.data || [];
+          if (Array.isArray(list)) {
+            serverList = list.map((item: any) => ({
+              id: item.id || item.ticketCode,
+              ticketCode: item.ticketCode || item.id,
+              timeReceived: item.timeReceived || "Hari ini",
+              reporterName: item.reporterName || "Warga Siaga",
+              reporterPhone: item.reporterPhone || "0812-XXXX-XXXX",
+              location: item.location || "Indramayu",
+              district: item.district || "Indramayu",
+              disasterCategory: item.disasterCategory || "Banjir / Rob Pesisir",
+              waterLevel: item.waterLevel || "Genangan Air",
+              vulnerableCount: "Warga terdampak",
+              status:
+                item.status === "ARMADA_DIKERAHKAN"
+                  ? "ARMADA_DIKERAHKAN"
+                  : item.status === "SELESAI"
+                  ? "SELESAI"
+                  : item.status === "DITOLAK"
+                  ? "DITOLAK"
+                  : "MENUNGGU_VERIFIKASI",
+              notes: item.description,
+            }));
+            setReports(serverList);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Gagal memuat aduan dashboard dari server, mencoba fallback lokal:", err);
+      }
+
+      let localList: CivicReport[] = [];
+      try {
+        const saved = localStorage.getItem("dermayu_user_reports_v2");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            localList = parsed
+              .filter((r: any) => r.id !== "DMY-20261102-8912" && r.id !== "DMY-20261101-7421")
+              .map((r: any) => ({
+                id: r.id,
+                ticketCode: r.id,
+                timeReceived: r.time || "Hari ini",
+                reporterName: "Warga Siaga (Pelapor)",
+                reporterPhone: "0812-XXXX-XXXX",
+                location: r.location || "Indramayu",
+                district: "Indramayu",
+                disasterCategory: r.category || "Banjir / Rob Pesisir",
+                waterLevel: r.waterLevel || "Genangan Air",
+                vulnerableCount: "Warga terdampak",
+                status:
+                  r.status === "PENANGANAN"
+                    ? "ARMADA_DIKERAHKAN"
+                    : r.status === "SELESAI"
+                    ? "SELESAI"
+                    : r.status === "DITOLAK"
+                    ? "DITOLAK"
+                    : "MENUNGGU_VERIFIKASI",
+                notes: r.notes || r.title,
+              }));
+          }
+        }
+      } catch {}
+
+      setReports(localList);
+    };
+
+    loadDashboardReports();
+    window.addEventListener("storage", loadDashboardReports);
+    window.addEventListener("dermayu_reports_updated", loadDashboardReports);
+    window.addEventListener("focus", loadDashboardReports);
+    const syncInterval = setInterval(loadDashboardReports, 5000);
+
+    return () => {
+      clearInterval(clockInterval);
+      clearInterval(syncInterval);
+      window.removeEventListener("storage", loadDashboardReports);
+      window.removeEventListener("dermayu_reports_updated", loadDashboardReports);
+      window.removeEventListener("focus", loadDashboardReports);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -238,6 +267,36 @@ export default function PetugasDashboard() {
         rep.id === reportId ? { ...rep, status: "ARMADA_DIKERAHKAN" } : rep
       )
     );
+
+    // Sync to API
+    fetch(`/api/laporan/${reportId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ARMADA_DIKERAHKAN" }),
+    }).catch(() => {});
+
+    // Sync to LocalStorage
+    try {
+      const saved = localStorage.getItem("dermayu_user_reports_v2");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((item: any) =>
+            item.id === ticketCode
+              ? {
+                  ...item,
+                  status: "PENANGANAN",
+                  statusNote: "Regu SAR LCR BPBD Indramayu telah dikerahkan ke lokasi aduan.",
+                }
+              : item
+          );
+          localStorage.setItem("dermayu_user_reports_v2", JSON.stringify(updated));
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new CustomEvent("dermayu_reports_updated", { detail: updated }));
+        }
+      }
+    } catch {}
+
     setActionSuccessMsg(
       `Tiket #${ticketCode} berhasil diverifikasi! Perintah tugas diteruskan ke Regu SAR Lapangan.`
     );
@@ -878,7 +937,14 @@ export default function PetugasDashboard() {
 
             {/* Compact List (Maksimal 3 Baris) */}
             <div className="space-y-2.5">
-              {reports.slice(0, 3).map((rep) => (
+              {reports.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-[#F8FAF9] border border-dashed border-slate-200 text-center space-y-1.5">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                  <p className="text-xs font-bold text-slate-700">Antrean Siaga Bersih</p>
+                  <p className="text-[11px] text-slate-500">Tidak ada aduan warga yang menunggu penanganan saat ini.</p>
+                </div>
+              ) : (
+                reports.slice(0, 3).map((rep) => (
                 <div
                   key={rep.id}
                   className="p-3.5 rounded-xl sm:rounded-2xl bg-[#F8FAF9] hover:bg-white border border-slate-200 hover:border-[#38746D]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
@@ -937,7 +1003,7 @@ export default function PetugasDashboard() {
                     </Link>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
 

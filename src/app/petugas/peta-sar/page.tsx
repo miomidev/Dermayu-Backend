@@ -121,54 +121,16 @@ export default function PetugasPetaSarPage() {
   const [reportSubmittedSuccess, setReportSubmittedSuccess] = useState(false);
 
   // Complaints / Reports
-  const STORAGE_KEY = "dermayu_user_reports";
+  const STORAGE_KEY = "dermayu_user_reports_v2";
 
-  const [complaints, setComplaints] = useState<ComplaintTicket[]>([
-    {
-      id: "1",
-      ticketCode: "DMY-20261030-0089",
-      category: "FLOOD",
-      categoryLabel: "Banjir / Rob",
-      title: "Luapan Rob Pantai Rendam Jalan Pemukiman RT 04",
-      location: "Blok Karanganyar, Eretan Wetan",
-      severity: "CRITICAL",
-      waterLevel: "KNEE",
-      waterLevelText: "Setinggi Lutut (60 cm)",
-      status: "ASSIGNED",
-      createdAt: "15 Menit yang lalu",
-      note: "Regu SAR Pos Eretan bersama perahu LCR sedang evakuasi warga kelompok rentan.",
-      photos: ["/login-art.png"],
-      urgentNeeds: ["Perahu Evakuasi", "Bantuan Medis Lansia"],
-      aiScore: {
-        label: "flood",
-        confidence: 0.94,
-      },
-      lat: -6.3475,
-      lng: 108.1189,
-    },
-    {
-      id: "2",
-      ticketCode: "DMY-20261030-0042",
-      category: "LEVEE",
-      categoryLabel: "Tanggul Kritis",
-      title: "Rembesan Tanggul Saluran Sekunder Kali Cimanuk",
-      location: "Jl. Muara Lama No. 12, Kandanghaur",
-      severity: "MEDIUM",
-      waterLevel: "ANKLE",
-      waterLevelText: "Semata Kaki (35 cm)",
-      status: "VERIFIED",
-      createdAt: "3 Jam yang lalu",
-      note: "Laporan terverifikasi. Masuk antrean penanganan karung pasir pengaman.",
-      photos: [],
-      urgentNeeds: ["Karung Pasir"],
-      lat: -6.355,
-      lng: 108.135,
-    },
-  ]);
+  const [complaints, setComplaints] = useState<ComplaintTicket[]>([]);
 
   // Sinkronisasi data laporan dari LocalStorage secara real-time
   const syncReportsFromStorage = () => {
     try {
+      if (localStorage.getItem("dermayu_user_reports")) {
+        localStorage.removeItem("dermayu_user_reports");
+      }
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -221,6 +183,34 @@ export default function PetugasPetaSarPage() {
           });
         }
       }
+
+      // Fetch dari server sebagai single source of truth untuk peta SAR
+      fetch("/api/laporan?type=citizen", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((json) => {
+          const list = json.data?.data || json.data || [];
+          if (Array.isArray(list)) {
+            const apiTickets: ComplaintTicket[] = list.map((item: any) => ({
+              id: item.id || item.ticketCode,
+              ticketCode: item.ticketCode || item.id,
+              category: "FLOOD" as ReportCategoryCode,
+              categoryLabel: item.disasterCategory || "Banjir / Rob Pesisir",
+              title: item.description || "Laporan Banjir Warga",
+              location: item.location || "Indramayu",
+              severity: (item.severity === "TINGGI" ? "HIGH" : "MEDIUM") as SeverityLevel,
+              waterLevelText: item.waterLevel || "Genangan Air",
+              status: (item.status === "ARMADA_DIKERAHKAN" ? "ASSIGNED" : item.status === "VERIFIED" ? "VERIFIED" : "SUBMITTED") as ReportStatusCode,
+              createdAt: item.timeReceived || "Hari ini",
+              note: item.description || "Laporan terverifikasi valid",
+              photos: item.photos || (item.photoUrl ? [item.photoUrl] : []),
+              urgentNeeds: ["Bantuan Evakuasi"],
+              lat: item.lat || -6.4093,
+              lng: item.lng || 108.2817,
+            }));
+            setComplaints(apiTickets);
+          }
+        })
+        .catch(() => {});
     } catch (e) {
       console.warn("Gagal membaca data laporan lokal:", e);
     }

@@ -25,12 +25,39 @@ export interface StoredReportPoint {
   note?: string;
 }
 
+export interface CitizenReportRecord {
+  id: string;
+  ticketCode: string;
+  timeReceived: string;
+  reporterName: string;
+  reporterPhone: string;
+  location: string;
+  district: string;
+  waterLevel: string;
+  disasterCategory: string;
+  severity: "TINGGI" | "SEDANG" | "RENDAH";
+  status: "SUBMITTED" | "VERIFIED" | "ARMADA_DIKERAHKAN" | "SELESAI" | "DITOLAK";
+  vulnerableCount: { elderly: number; children: number; sick: number };
+  aiConfidence: number;
+  aiClassification: string;
+  description: string;
+  photoUrl: string;
+  photos?: string[];
+  rejectionReason?: string;
+  assignedUnit?: string;
+  lat?: number;
+  lng?: number;
+  createdAt?: string;
+}
+
 const DB_DIR = path.join(process.cwd(), "data", "db");
 const POSKO_FILE = path.join(DB_DIR, "posko.json");
 const REPORTS_FILE = path.join(DB_DIR, "reports.json");
+const CITIZEN_REPORTS_FILE = path.join(DB_DIR, "citizen_reports.json");
 
 let cachedPosko: PoskoRecord[] | null = null;
 let cachedReports: StoredReportPoint[] | null = null;
+let cachedCitizenReports: CitizenReportRecord[] | null = null;
 let isWritingPosko = false;
 let pendingPosko: PoskoRecord[] | null = null;
 let isWritingReports = false;
@@ -664,4 +691,78 @@ export function deleteDbReport(reportId: string): boolean {
   saveDbReportsList(nextList);
   return true;
 }
+
+// ============================================================================
+// CITIZEN COMPLAINTS / TRIAGE SSOT
+// ============================================================================
+
+export function getCitizenReports(): CitizenReportRecord[] {
+  ensureDbDir();
+  try {
+    if (!fs.existsSync(CITIZEN_REPORTS_FILE)) {
+      cachedCitizenReports = [];
+      fs.writeFileSync(CITIZEN_REPORTS_FILE, JSON.stringify([], null, 2), "utf-8");
+      return [];
+    }
+    const raw = fs.readFileSync(CITIZEN_REPORTS_FILE, "utf-8");
+    cachedCitizenReports = JSON.parse(raw);
+    return cachedCitizenReports || [];
+  } catch (err) {
+    console.error("Error reading citizen_reports.json:", err);
+    return [];
+  }
+}
+
+export function saveCitizenReports(items: CitizenReportRecord[]): void {
+  cachedCitizenReports = items;
+  ensureDbDir();
+  try {
+    fs.writeFileSync(CITIZEN_REPORTS_FILE, JSON.stringify(items, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing citizen_reports.json:", err);
+  }
+}
+
+export function addCitizenReport(item: CitizenReportRecord): CitizenReportRecord {
+  const all = getCitizenReports();
+  const existingIdx = all.findIndex((r) => r.id === item.id || r.ticketCode === item.ticketCode);
+  if (existingIdx >= 0) {
+    all[existingIdx] = { ...all[existingIdx], ...item };
+  } else {
+    all.unshift(item);
+  }
+  saveCitizenReports(all);
+  return item;
+}
+
+export function updateCitizenReportStatus(
+  reportId: string,
+  newStatus: string,
+  extra?: { rejectionReason?: string; assignedUnit?: string }
+): CitizenReportRecord | null {
+  const all = getCitizenReports();
+  const targetIndex = all.findIndex((r) => r.id === reportId || r.ticketCode === reportId);
+  if (targetIndex === -1) return null;
+
+  const current = all[targetIndex];
+  const updated: CitizenReportRecord = {
+    ...current,
+    status: newStatus as any,
+    rejectionReason: extra?.rejectionReason !== undefined ? extra.rejectionReason : current.rejectionReason,
+    assignedUnit: extra?.assignedUnit !== undefined ? extra.assignedUnit : current.assignedUnit,
+  };
+
+  all[targetIndex] = updated;
+  saveCitizenReports(all);
+  return updated;
+}
+
+export function deleteCitizenReport(reportId: string): boolean {
+  const all = getCitizenReports();
+  const nextList = all.filter((r) => r.id !== reportId && r.ticketCode !== reportId);
+  if (nextList.length === all.length) return false;
+  saveCitizenReports(nextList);
+  return true;
+}
+
 

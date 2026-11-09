@@ -365,11 +365,11 @@ const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 
       icon: (sz: string) => <Home className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     genangan: {
-      bg: "bg-amber-500",
-      icon: (sz: string) => <Waves className={`${sz} text-white`} strokeWidth={2.5} />,
+      bg: "bg-red-600",
+      icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     kritis: {
-      bg: "bg-rose-600",
+      bg: "bg-red-700",
       icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     sensor: {
@@ -1925,11 +1925,11 @@ function PetugasSpatialMap({
         // Lingkaran Radius Hambatan Genangan (Transparan, tipis, di belakang marker)
         const floodCircle = L.circle([rep.lat, rep.lng], {
           radius: 120,
-          color: isCritical ? "#DC2626" : "#EA580C",
-          fillColor: isCritical ? "#EF4444" : "#F97316",
-          fillOpacity: 0.12,
-          weight: 1,
-          dashArray: "3, 5",
+          color: "#DC2626",
+          fillColor: "#EF4444",
+          fillOpacity: 0.14,
+          weight: 1.5,
+          dashArray: "4, 6",
           interactive: false,
         });
         reportsLayerRef.current?.addLayer(floodCircle);

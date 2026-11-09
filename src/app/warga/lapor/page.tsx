@@ -69,6 +69,12 @@ export interface ReportTicket {
   isOfflineQueue?: boolean;
   offlineToken?: string;
   syncedAt?: string;
+  isFloodDetected?: boolean;
+  aiScore?: {
+    label: string;
+    confidence: number;
+    is_flood?: boolean;
+  };
 }
 
 export interface OtherCitizenReport {
@@ -117,7 +123,7 @@ const STATUS_CONFIG: Record<
     dotClass: "bg-emerald-500 animate-pulse",
     badgeClass: "bg-emerald-50 border-emerald-200 text-emerald-900",
     textClass: "text-emerald-800",
-    label: "Terverifikasi Siaga Posko",
+    label: "Terverifikasi Sistem",
   },
   PENANGANAN: {
     dotClass: "bg-sky-500 animate-pulse",
@@ -144,44 +150,7 @@ const QUICK_LOCATIONS = [
   "Limbangan (Juntinyuat)",
 ];
 
-const initialReports: ReportTicket[] = [
-  {
-    id: "DMY-20261102-8912",
-    category: "Banjir / Rob Pesisir",
-    categoryCode: "FLOOD",
-    title: "Air pasang rob masuk pekarangan rumah setinggi 45 cm",
-    location: "Blok Karanganyar RT 01 / RW 03, Desa Eretan Wetan",
-    time: "Hari ini, 13:05 WIB",
-    status: "PENANGANAN",
-    statusNote:
-      "Regu SAR LCR 02 BPBD Indramayu telah meluncur membawa 2 perahu evakuasi menuju lokasi.",
-    severity: "HIGH",
-    waterLevel: "Setinggi Lutut (45 cm)",
-    photos: [
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=600&q=80",
-    ],
-    aiConfidence: 0.94,
-    gps: { lat: -6.3475, lng: 108.1189, accuracy: 6 },
-  },
-  {
-    id: "DMY-20261101-7421",
-    category: "Tanggul Kritis / Jebol",
-    categoryCode: "LEVEE",
-    title: "Genangan rembesan saluran drainase sekunder dekat jalan desa",
-    location: "Blok Balai RT 03 / RW 02, Desa Cantigi Kulon",
-    time: "Kemarin, 17:20 WIB",
-    status: "SELESAI",
-    statusNote:
-      "Penambalan darurat 150 karung pasir telah tuntas dipasang oleh tim relawan dan aparat desa.",
-    severity: "MEDIUM",
-    waterLevel: "Semata Kaki (25 cm)",
-    photos: [
-      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80",
-    ],
-    aiConfidence: 0.91,
-    gps: { lat: -6.2842, lng: 108.2635, accuracy: 12 },
-  },
-];
+const initialReports: ReportTicket[] = [];
 
 const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
   {
@@ -274,7 +243,7 @@ const INITIAL_OTHER_CITIZEN_REPORTS: OtherCitizenReport[] = [
   },
 ];
 
-const STORAGE_KEY = "dermayu_user_reports";
+const STORAGE_KEY = "dermayu_user_reports_v2";
 
 export default function WargaLaporPage() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -327,19 +296,101 @@ export default function WargaLaporPage() {
     setIsOnline(typeof window !== "undefined" ? window.navigator.onLine : true);
 
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setReports(parsed);
-          return;
-        }
+      if (localStorage.getItem("dermayu_user_reports")) {
+        localStorage.removeItem("dermayu_user_reports");
       }
-      setReports(initialReports);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialReports));
+
+      // 1. Ambil data aduan resmi dari Server API (single source of truth)
+      fetch("/api/laporan?type=citizen", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((json) => {
+          const list = json.data?.data || json.data || [];
+          const serverTickets: ReportTicket[] = Array.isArray(list)
+            ? list.map((item: any) => ({
+                id: item.ticketCode || item.id,
+                category: item.disasterCategory || "Banjir / Rob Pesisir",
+                categoryCode: "FLOOD" as ReportCategoryCode,
+                title: item.description || item.title || "Laporan Titik Banjir",
+                location: item.location,
+                time: item.timeReceived || "Hari ini",
+                status:
+                  item.status === "VERIFIED"
+                    ? "DIVERIFIKASI"
+                    : item.status === "ARMADA_DIKERAHKAN"
+                    ? "PENANGANAN"
+                    : item.status === "SELESAI"
+                    ? "SELESAI"
+                    : item.status === "DITOLAK"
+                    ? "DITOLAK"
+                    : "DITERIMA",
+                statusNote: item.description || "Laporan terverifikasi sistem",
+                photos: item.photos || (item.photoUrl ? [item.photoUrl] : []),
+                aiConfidence: item.aiConfidence,
+                isFloodDetected: item.status === "VERIFIED" || (item.aiConfidence && item.aiConfidence > 60),
+                gps: item.lat ? { lat: item.lat, lng: item.lng } : undefined,
+              }))
+            : [];
+
+          // 2. Cek apakah ada antrean aduan offline dari perangkat ini yang belum tersinkron
+          let offlineQueue: ReportTicket[] = [];
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                offlineQueue = parsed.filter((r: any) => r.isOfflineQueue === true);
+              }
+            }
+          } catch {}
+
+          // Kirim antrean offline ke server bila ada
+          offlineQueue.forEach((rpt) => {
+            fetch("/api/laporan", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(rpt),
+            }).catch(() => {});
+          });
+
+          const finalReports = [...offlineQueue, ...serverTickets];
+          setReports(finalReports);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalReports));
+        })
+        .catch(() => {
+          // Jika server offline, fallback ke localStorage perangkat
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                setReports(parsed);
+              }
+            }
+          } catch {}
+        });
     } catch {
       setReports(initialReports);
     }
+  }, []);
+
+  // Listen to cross-tab & petugas updates
+  useEffect(() => {
+    const handleStorageUpdate = () => {
+      try {
+        const fresh = localStorage.getItem(STORAGE_KEY);
+        if (fresh) {
+          const parsed = JSON.parse(fresh);
+          if (Array.isArray(parsed)) setReports(parsed);
+        }
+      } catch {}
+    };
+
+    window.addEventListener("storage", handleStorageUpdate);
+    window.addEventListener("dermayu_reports_updated", handleStorageUpdate);
+    return () => {
+      window.removeEventListener("storage", handleStorageUpdate);
+      window.removeEventListener("dermayu_reports_updated", handleStorageUpdate);
+    };
   }, []);
 
   // 2. Automated Background Sync saat Sinyal Internet Pulih (Reconciliation)
@@ -612,24 +663,27 @@ export default function WargaLaporPage() {
       now.getMinutes()
     ).padStart(2, "0")} WIB`;
 
-    const isVerified = aiScanResult?.is_flood === true;
+    const probFlood = aiScanResult?.prob_flood ?? 0;
+    // Aturan Ambang Batas Verifikasi:
+    // 0 - 60% (<= 0.60) -> Tetap verifikasi petugas posko
+    // > 60% (60.1%+) -> Otomatis diverifikasi oleh AI & langsung aktif di peta
+    const isAutoVerified = !isActuallyOffline && probFlood > 0.60;
+    const needsOfficerReview = !isActuallyOffline && !isAutoVerified;
 
     const pctStr = aiScanResult
-      ? ` (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+      ? ` (${(probFlood * 100).toFixed(1)}%)`
       : "";
     const ticketStatus = isActuallyOffline
       ? "ANTREAN_OFFLINE"
-      : isVerified
+      : isAutoVerified
       ? "DIVERIFIKASI"
       : "DITERIMA";
 
     const statusNote = isActuallyOffline
       ? "📡 Tiket Token Darurat diterbitkan. Laporan & koordinat tersimpan aman di memori perangkat. Sistem akan otomatis meneruskannya ke Posko BPBD saat sinyal internet pulih."
-      : isVerified
-      ? `Bukti foto terkonfirmasi valid${pctStr}. Koordinat dipetakan dan diteruskan ke posko siaga terdekat.`
-      : aiScanResult?.label === "review"
-      ? `Hasil verifikasi foto berada di ambang batas${pctStr}. Menunggu peninjauan visual petugas.`
-      : "Laporan telah masuk ke sistem. Menunggu peninjauan visual oleh petugas siaga BPBD Indramayu.";
+      : isAutoVerified
+      ? `Bukti foto terkonfirmasi valid${pctStr}. Laporan aktif di Peta Rute Evakuasi dan diteruskan ke Regu SAR Posko.`
+      : `Laporan tersimpan di sistem kendali dan dalam antrean verifikasi petugas posko siaga sebelum dipetakan.`;
 
     const effectiveTitle = notes.trim()
       ? notes.length > 55
@@ -648,7 +702,15 @@ export default function WargaLaporPage() {
       statusNote: statusNote,
       photos: photos.length > 0 ? photos : undefined,
       notes: notes.trim() || undefined,
-      aiConfidence: aiScanResult?.prob_flood,
+      aiConfidence: probFlood > 0 ? probFlood : undefined,
+      isFloodDetected: isAutoVerified,
+      aiScore: aiScanResult
+        ? {
+            label: isAutoVerified ? "flood" : "review",
+            confidence: probFlood,
+            is_flood: isAutoVerified,
+          }
+        : undefined,
       gps: gpsCoords || {
         lat: -6.3475 + (Math.random() - 0.5) * 0.02,
         lng: 108.1189 + (Math.random() - 0.5) * 0.02,
@@ -660,6 +722,15 @@ export default function WargaLaporPage() {
 
     const updated = [newTicket, ...reports];
     saveReportsToStorage(updated);
+
+    // Kirim juga ke server database agar sinkron secara real-time ke semua sesi petugas (termasuk jendela incognito)
+    if (!isActuallyOffline) {
+      fetch("/api/laporan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTicket),
+      }).catch((err) => console.warn("Background API sync report error:", err));
+    }
 
     setNewlyCreatedTicket(ticketCode);
     setIsSubmitting(false);
@@ -810,9 +881,15 @@ export default function WargaLaporPage() {
                 <p className="text-xs sm:text-sm font-bold text-emerald-950">
                   Laporan Berhasil Diterbitkan: Tiket #{newlyCreatedTicket}
                 </p>
-                <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                  Data telah masuk ke sistem kendali Pusdalops BPBD Indramayu dan diteruskan ke posko siaga terdekat.
-                </p>
+                {reports.find((r) => r.id === newlyCreatedTicket)?.isFloodDetected ? (
+                  <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                    🟢 <strong>Laporan Terverifikasi:</strong> Titik genangan Anda telah divalidasi dan aktif pada Peta Spasial Siaga &amp; Rute Evakuasi Warga.
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                    ⏳ <strong>Menunggu Verifikasi:</strong> Laporan tersimpan di sistem kendali dan menunggu peninjauan visual oleh petugas posko siaga sebelum dipetakan.
+                  </p>
+                )}
               </div>
             </div>
             <button
@@ -1076,28 +1153,22 @@ export default function WargaLaporPage() {
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold shadow-sm ${
                           aiScanResult
-                            ? aiScanResult.is_flood
+                            ? (aiScanResult.prob_flood * 100) > 60
                               ? "bg-emerald-500 text-white"
-                              : aiScanResult.label === "review"
-                              ? "bg-amber-500 text-white"
-                              : "bg-sky-500 text-white"
+                              : "bg-amber-500 text-white"
                             : "bg-slate-700 text-white"
                         }`}
                       >
-                        {aiScanResult?.is_flood ? (
+                        {aiScanResult && (aiScanResult.prob_flood * 100) > 60 ? (
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                        ) : aiScanResult?.label === "review" ? (
-                          <AlertTriangle className="w-3.5 h-3.5" />
                         ) : (
-                          <AlertCircle className="w-3.5 h-3.5" />
+                          <AlertTriangle className="w-3.5 h-3.5" />
                         )}
                         <span>
                           {aiScanResult
-                            ? aiScanResult.is_flood
-                              ? `Genangan Terkonfirmasi (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
-                              : aiScanResult.label === "review"
-                              ? `Perlu Peninjauan Petugas (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
-                              : `Indikasi Bukan Genangan (${(aiScanResult.prob_non_flood * 100).toFixed(1)}%)`
+                            ? (aiScanResult.prob_flood * 100) > 60
+                              ? `Bukti Terverifikasi Valid (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                              : `Menunggu Verifikasi Posko (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
                             : isAiAnalyzing
                             ? "Memeriksa Foto Genangan..."
                             : "Bukti Foto Terlampir"}
@@ -1107,11 +1178,9 @@ export default function WargaLaporPage() {
 
                     <p className="text-[11.5px] text-gray-200 leading-snug">
                       {aiScanResult
-                        ? aiScanResult.is_flood
-                          ? `Bukti visual genangan air terkonfirmasi valid (${(aiScanResult.prob_flood * 100).toFixed(1)}%). Laporan siap dikirim ke posko siaga.`
-                          : aiScanResult.label === "review"
-                          ? `Kondisi air memerlukan peninjauan lanjutan (${(aiScanResult.prob_flood * 100).toFixed(1)}%). Petugas akan memverifikasi visual.`
-                          : `Tingkat keyakinan bukan genangan (${(aiScanResult.prob_non_flood * 100).toFixed(1)}%). Tetap dapat dikirim bila lokasi darurat.`
+                        ? (aiScanResult.prob_flood * 100) > 60
+                          ? `Bukti visual genangan air valid. Laporan langsung dipetakan ke Rute Evakuasi & diteruskan ke regu posko.`
+                          : `Laporan disimpan dan dalam antrean peninjauan petugas posko sebelum masuk ke peta rute.`
                         : "Memeriksa karakteristik visual foto genangan..."}
                     </p>
                   </div>
@@ -1315,7 +1384,16 @@ export default function WargaLaporPage() {
                           )}
                           {typeof item.aiConfidence === "number" && (
                             <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              {(item.aiConfidence * 100).toFixed(0)}% Valid
+                              {(item.aiConfidence <= 1 ? item.aiConfidence * 100 : item.aiConfidence).toFixed(0)}% Valid
+                            </span>
+                          )}
+                          {item.isFloodDetected ? (
+                            <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                              📍 Aktif di Peta Evakuasi
+                            </span>
+                          ) : (
+                            <span className="text-[9.5px] font-medium text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1" title="Menunggu verifikasi petugas posko sebelum masuk ke peta">
+                              ⏳ Menunggu Verifikasi Posko
                             </span>
                           )}
                         </div>
@@ -1327,14 +1405,21 @@ export default function WargaLaporPage() {
 
                       {/* Judul & Lokasi */}
                       <div>
-                        <Link
-                          href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
-                          className="group/title block hover:underline"
-                        >
-                          <h4 className="text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                        {item.isFloodDetected ? (
+                          <Link
+                            href={`/warga/evakuasi?reportId=${item.id}&lat=${item.gps?.lat || -6.3475}&lng=${item.gps?.lng || 108.1189}`}
+                            className="group/title block hover:underline"
+                            title="Lihat titik banjir di Peta Spasial"
+                          >
+                            <h4 className="text-sm font-bold text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                              {item.title}
+                            </h4>
+                          </Link>
+                        ) : (
+                          <h4 className="text-sm font-bold text-[#132422] leading-snug">
                             {item.title}
                           </h4>
-                        </Link>
+                        )}
                         <p className="text-xs text-[#4B635F] flex items-center gap-1 mt-1">
                           <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
                           <span className="truncate">{item.location}</span>
@@ -1381,9 +1466,11 @@ export default function WargaLaporPage() {
                             <span className="text-xs font-bold text-[#132422]">
                               {item.statusNote?.toLowerCase().includes("sar") || item.status === "PENANGANAN"
                                 ? "Regu SAR Menuju Lokasi"
-                                : statusStyle.label}
+                                : item.status === "DIVERIFIKASI"
+                                ? "Status Penanganan"
+                                : "Status Aduan"}
                             </span>
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 uppercase tracking-wider">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border tracking-wide ${statusStyle.badgeClass}`}>
                               {statusStyle.label}
                             </span>
                           </div>

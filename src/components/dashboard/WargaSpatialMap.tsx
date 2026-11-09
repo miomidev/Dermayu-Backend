@@ -103,7 +103,16 @@ export interface MapReportPoint {
   aiScore?: {
     label: string;
     confidence: number;
+    prob_flood?: number;
+    prob_non_flood?: number;
+    is_flood?: boolean;
+    is_auto_verified?: boolean;
+    needs_officer_review?: boolean;
   };
+  aiConfidence?: number;
+  isFloodDetected?: boolean;
+  isAutoVerified?: boolean;
+  needsOfficerReview?: boolean;
   urgentNeeds?: string[];
 }
 
@@ -410,11 +419,11 @@ const createPinIcon = (type: PinType, isActive: boolean = false, zoom: number = 
       icon: (sz: string) => <Home className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     genangan: {
-      bg: "bg-amber-500",
-      icon: (sz: string) => <Waves className={`${sz} text-white`} strokeWidth={2.5} />,
+      bg: "bg-red-600",
+      icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     kritis: {
-      bg: "bg-rose-600",
+      bg: "bg-red-700",
       icon: (sz: string) => <AlertTriangle className={`${sz} text-white`} strokeWidth={2.5} />,
     },
     sensor: {
@@ -2152,9 +2161,36 @@ function WargaSpatialMap({
     telemetryLayerRef.current.clearLayers();
     routesLayerRef.current.clearLayers();
 
-    // 1. PLOT FLOOD REPORTS
+    // 1. PLOT FLOOD REPORTS (Hanya yang terdeteksi / terkonfirmasi banjir)
     if (activeLayer === "ALL" || activeLayer === "REPORTS") {
-      const activeReportsList = internalReports && internalReports.length > 0 ? internalReports : reports;
+      const rawReportsList = internalReports && internalReports.length > 0 ? internalReports : reports;
+      const activeReportsList = rawReportsList.filter((rep) => {
+        // Hambatan genangan riil BPBD
+        if (rep.ticketCode?.startsWith("GEN-")) return true;
+        // Laporan yang otomatis terverifikasi AI (> 60%) atau terverifikasi petugas
+        if (rep.isFloodDetected === true) return true;
+        const status = (rep.status || "").toUpperCase();
+        if (
+          status.includes("DIVERIFIKASI") ||
+          status.includes("VERIFIKASI") ||
+          status.includes("VERIFIED") ||
+          status.includes("PENANGANAN") ||
+          status.includes("ASSIGNED") ||
+          status.includes("TERKONFIRMASI")
+        ) {
+          return true;
+        }
+        // Jika AI confidence > 60% (60.1%+)
+        if (typeof rep.aiConfidence === "number" && rep.aiConfidence > 0.60) {
+          return true;
+        }
+        if ((rep.aiScore?.confidence ?? 0) > 0.60 && rep.aiScore?.label === "flood") {
+          return true;
+        }
+        // Selain itu (0-60% yang belum diverifikasi petugas / bukan genangan) TIDAK masuk peta
+        return false;
+      });
+
       activeReportsList.forEach((rep) => {
         const isCritical = rep.severity === "CRITICAL";
         const isHigh = rep.severity === "HIGH";
@@ -2200,18 +2236,18 @@ function WargaSpatialMap({
 
         const marker = L.marker([rep.lat, rep.lng], { icon }).bindPopup(popupContent);
 
-        // Lingkaran Radius Hambatan Genangan (Transparan, tipis, di belakang marker)
+        // Lingkaran Radius Hambatan Genangan Banjir (Merah bahaya, transparan, rapi)
         if (rep.waterLevelText || rep.ticketCode.startsWith("GEN-")) {
           const floodCircle = L.circle([rep.lat, rep.lng], {
             radius: 120,
-            color: isCritical ? "#DC2626" : "#F59E0B",
-            fillColor: isCritical ? "#EF4444" : "#FBBF24",
-            fillOpacity: 0.12,
-            weight: 1,
-            dashArray: "3, 5",
+            color: "#DC2626",
+            fillColor: "#EF4444",
+            fillOpacity: 0.14,
+            weight: 1.5,
+            dashArray: "4, 6",
             interactive: false,
           }).bindTooltip(
-            `<div style="font-size: 10px; font-weight: bold; color: ${color};">Radius Genangan: ${rep.title} (${rep.waterLevelText || "Air Pasang"})</div>`,
+            `<div style="font-size: 10px; font-weight: bold; color: #DC2626;">Titik Bahaya Banjir: ${rep.title} (${rep.waterLevelText || "Genangan Air"})</div>`,
             { direction: "top", offset: [0, -10] }
           );
           reportsLayerRef.current?.addLayer(floodCircle);
@@ -2249,7 +2285,15 @@ function WargaSpatialMap({
 
         const icon = createPinIcon("posko", isSelected, mapZoom);
 
-        const shelterPhotos = (sh.photos && sh.photos.length > 0 ? sh.photos : (sh.foto ? [sh.foto] : [])).filter((u) => !u.includes("default.jpg"));
+        const isKemdikbudSh = Boolean(
+          (sh.foto && sh.foto.includes("kemendikdasmen.go.id")) ||
+          (sh.photos?.[0] && sh.photos[0].includes("kemendikdasmen.go.id"))
+        );
+        const shelterPhotos = (
+          isKemdikbudSh
+            ? [sh.foto || sh.photos![0]]
+            : (sh.photos && sh.photos.length > 0 ? sh.photos : (sh.foto ? [sh.foto] : []))
+        ).filter((u) => !u.includes("default.jpg"));
         let photoPreviewHtml = "";
         if (shelterPhotos.length === 1) {
           photoPreviewHtml = `
@@ -4348,11 +4392,18 @@ function WargaSpatialMap({
             {/* Foto Posko (Bento Grid jika > 1 foto) */}
             <div className="w-full">
               <ShelterBentoGallery
-                photos={
-                  activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                photos={(() => {
+                  const isKemdikbud = Boolean(
+                    (activeShelterDetail.foto && activeShelterDetail.foto.includes("kemendikdasmen.go.id")) ||
+                    (activeShelterDetail.photos?.[0] && activeShelterDetail.photos[0].includes("kemendikdasmen.go.id"))
+                  );
+                  if (isKemdikbud) {
+                    return [activeShelterDetail.foto || activeShelterDetail.photos![0]];
+                  }
+                  return activeShelterDetail.photos && activeShelterDetail.photos.length > 0
                     ? activeShelterDetail.photos
-                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
-                }
+                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : []);
+                })()}
                 name={activeShelterDetail.name}
                 compact
               />
@@ -5118,11 +5169,18 @@ function WargaSpatialMap({
           {/* 1. Atas: Foto Posko Riil (Bento Grid jika > 1 foto) */}
           <div className="w-full">
             <ShelterBentoGallery
-              photos={
-                activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+              photos={(() => {
+                const isKemdikbud = Boolean(
+                  (activeShelterDetail.foto && activeShelterDetail.foto.includes("kemendikdasmen.go.id")) ||
+                  (activeShelterDetail.photos?.[0] && activeShelterDetail.photos[0].includes("kemendikdasmen.go.id"))
+                );
+                if (isKemdikbud) {
+                  return [activeShelterDetail.foto || activeShelterDetail.photos![0]];
+                }
+                return activeShelterDetail.photos && activeShelterDetail.photos.length > 0
                   ? activeShelterDetail.photos
-                  : (activeShelterDetail.foto ? [activeShelterDetail.foto] : [])
-              }
+                  : (activeShelterDetail.foto ? [activeShelterDetail.foto] : []);
+              })()}
               name={activeShelterDetail.name}
               compact
             />
@@ -5475,10 +5533,10 @@ function WargaSpatialMap({
                 className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold border ${
                   activeReportDetail.severity === "CRITICAL"
                     ? "bg-rose-100 text-rose-800 border-rose-300"
-                    : "bg-amber-100 text-amber-800 border-amber-300"
+                    : "bg-red-50 text-red-700 border-red-200"
                 }`}
               >
-                {activeReportDetail.severity === "CRITICAL" ? "🔴 BANJIR ROB KRITIS" : "🟠 GENANGAN SEDANG"}
+                {activeReportDetail.severity === "CRITICAL" ? "🔴 BANJIR ROB KRITIS" : "🔴 TITIK GENANGAN BANJIR"}
               </span>
               <span className="text-[11px] text-[#718783] font-medium flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -6278,15 +6336,25 @@ function WargaSpatialMap({
                   ) : (
                     <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                          <Building2 className="w-4 h-4 text-[#38746D]" />
+                        <div
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                            activeReportDetail
+                              ? "bg-red-50 text-red-600 border-red-200"
+                              : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                          }`}
+                        >
+                          {activeReportDetail ? (
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                          ) : (
+                            <Building2 className="w-4 h-4 text-[#38746D]" />
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
                             {activeShelterDetail?.name || activeReportDetail?.title || "Detail Lokasi"}
                           </h4>
                           <p className="text-[10px] text-[#4B635F] truncate">
-                            {activeShelterDetail?.location || "Kawasan Pantau Evakuasi"}
+                            {activeShelterDetail?.location || activeReportDetail?.location || "Kawasan Pantau Evakuasi"}
                           </p>
                         </div>
                       </div>

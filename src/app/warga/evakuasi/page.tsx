@@ -165,6 +165,7 @@ interface EmergencyContactItem {
 function WargaEvakuasiContent() {
   const searchParams = useSearchParams();
   const reportIdParam = searchParams.get("reportId") || undefined;
+  const shelterIdParam = searchParams.get("shelterId") || searchParams.get("poskoId") || undefined;
   const latParam = searchParams.get("lat");
   const lngParam = searchParams.get("lng");
   const focusCoords =
@@ -1023,6 +1024,7 @@ function WargaEvakuasiContent() {
           onOpenReport={handleOpenReportModal}
           onOpenContacts={handleOpenContactsModal}
           focusReportId={reportIdParam}
+          focusShelterId={shelterIdParam}
           focusCoords={focusCoords}
         />
       </div>

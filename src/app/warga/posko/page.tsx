@@ -409,9 +409,15 @@ export default function WargaPoskoPage() {
                           1.2 km
                         </span>
                       </div>
-                      <h3 className="font-extrabold text-base sm:text-lg text-[#132422] leading-snug">
-                        {sh.nama}
-                      </h3>
+                      <Link
+                        href={`/warga/evakuasi?shelterId=${sh.id}&lat=${sh.lat}&lng=${sh.lng}`}
+                        className="group/title block"
+                        title="Klik untuk melihat detail lengkap posko di Peta Evakuasi"
+                      >
+                        <h3 className="font-extrabold text-base sm:text-lg text-[#132422] group-hover/title:text-[#38746D] transition-colors leading-snug">
+                          {sh.nama}
+                        </h3>
+                      </Link>
                       <p className="text-xs text-[#718783] flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
                         <span className="truncate">{sh.alamat}</span>
@@ -426,6 +432,13 @@ export default function WargaPoskoPage() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#F8FAF9] text-[#4B635F] border border-[#D5E4E0]">
                           +2.5m dpl
                         </span>
+                        <Link
+                          href={`/warga/evakuasi?shelterId=${sh.id}&lat=${sh.lat}&lng=${sh.lng}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#E8F1EE] text-[#38746D] hover:bg-[#38746D] hover:text-white transition-colors"
+                          title="Buka panel detail posko di Peta Evakuasi"
+                        >
+                          Lihat Detail di Peta &rarr;
+                        </Link>
                       </div>
                     </div>
 
@@ -593,36 +606,34 @@ export default function WargaPoskoPage() {
                   {/* Tombol Sekunder 1: Telepon */}
                   <a
                     href={`tel:${sh.kontak.telp.replace(/[^0-9]/g, "")}`}
-                    className="h-9.5 px-3.5 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#F8FAF9] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+                    className="h-9.5 px-3 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#F8FAF9] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
                     title={`Hubungi Pengelola Posko: ${sh.kontak.pj} (${sh.kontak.telp})`}
                   >
                     <PhoneCall className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
                     <span>Telepon</span>
                   </a>
 
-                  {/* Tombol Sekunder 2: Peta Dasbor */}
-                  <Link
-                    href="/warga/dashboard"
-                    className="h-9.5 px-3.5 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#EEF5F3] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
-                    title="Lihat Titik Ini di Peta Dasbor"
-                  >
-                    <Compass className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-                    <span className="hidden sm:inline">Peta Dasbor</span>
-                    <span className="sm:hidden">Peta</span>
-                  </Link>
-
-                  {/* Tombol Utama (Primary): Rute GPS (Flex-1, Proporsi Terbesar, Hijau Global Dasbor) */}
+                  {/* Tombol Sekunder 2: Google Maps (Alternatif Audio Turn-by-Turn) */}
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    className="h-9.5 px-3 rounded-xl border border-[#D5E4E0] bg-white hover:bg-[#EEF5F3] text-[#1D443F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+                    title="Buka Navigasi Suara Belokan di Google Maps"
+                  >
+                    <span>GMaps</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                  </a>
+
+                  {/* Tombol Utama (Primary): Rute Evakuasi Bebas Banjir DERMAYU (Flex-1, Proporsi Terbesar, Hijau Global) */}
+                  <Link
+                    href={`/warga/evakuasi?shelterId=${sh.id}&lat=${sh.lat}&lng=${sh.lng}`}
                     className="h-9.5 flex-1 px-4 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                    title="Buka Navigasi Rute di Google Maps"
+                    title="Buka Navigasi Rute Bebas Banjir di Peta Evakuasi DERMAYU"
                   >
                     <Navigation className="w-3.5 h-3.5 text-[#A4C6C1] shrink-0" />
-                    <span>Rute GPS</span>
-                    <ExternalLink className="w-3 h-3 text-white/70 shrink-0" />
-                  </a>
+                    <span>Rute Evakuasi</span>
+                  </Link>
                 </div>
               </div>
             );

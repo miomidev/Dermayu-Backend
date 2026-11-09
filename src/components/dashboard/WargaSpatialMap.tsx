@@ -64,6 +64,7 @@ import {
   ArrowDownRight,
   BatteryCharging,
   Wifi,
+  ExternalLink,
 } from "lucide-react";
 import {
   SIAGA_CONFIGS,
@@ -268,6 +269,7 @@ interface WargaSpatialMapProps {
   onOpenContacts?: () => void;
   className?: string;
   focusReportId?: string;
+  focusShelterId?: string;
   focusCoords?: { lat: number; lng: number };
   topRightWidget?: React.ReactNode;
   autoExpandPosko?: boolean;
@@ -880,6 +882,7 @@ function WargaSpatialMap({
   onOpenContacts,
   className = "",
   focusReportId,
+  focusShelterId,
   focusCoords,
   topRightWidget,
   autoExpandPosko,
@@ -1636,8 +1639,8 @@ function WargaSpatialMap({
   const hasFocusedAduanRef = useRef(false);
   useEffect(() => {
     if (!mapInstanceRef.current || hasFocusedAduanRef.current) return;
-    if (focusReportId || focusCoords) {
-      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan dengan fit GPS default
+    if (focusReportId || focusCoords || focusShelterId) {
+      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan/posko dengan fit GPS default
     }
     if (focusReportId && reports && reports.length > 0) {
       const target = reports.find(
@@ -3554,6 +3557,36 @@ function WargaSpatialMap({
     }
   };
 
+  // Efek Fokus Otomatis & Tampilkan Detail Posko jika pengguna diarahkan dari halaman Pantauan Posko (/warga/posko)
+  const hasFocusedShelterRef = useRef(false);
+  useEffect(() => {
+    if (!mapInstanceRef.current || hasFocusedShelterRef.current || !focusShelterId) return;
+
+    if (processedShelters && processedShelters.length > 0) {
+      const target = processedShelters.find(
+        (s) =>
+          s.id === focusShelterId ||
+          (s as any).nama?.toLowerCase() === focusShelterId.toLowerCase() ||
+          s.name?.toLowerCase() === focusShelterId.toLowerCase() ||
+          (focusCoords && Math.abs(s.lat - focusCoords.lat) < 0.001 && Math.abs(s.lng - focusCoords.lng) < 0.001)
+      );
+
+      if (target) {
+        hasFocusedShelterRef.current = true;
+        initialGpsFittedRef.current = true;
+        setActiveShelterDetail(target);
+        setActiveReportDetail(null);
+        setActiveTelemetryDetail(null);
+        setSelectedMarker({ type: "shelter", data: target });
+        setPoskoExpanded(true);
+        setSheetSnap("mid");
+        showRadarGlow(target.lat, target.lng);
+        mapInstanceRef.current.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        if (onSelectShelter) onSelectShelter(target);
+      }
+    }
+  }, [focusShelterId, processedShelters, focusCoords, onSelectShelter]);
+
   // Recenter to Indramayu (Fit to entire administrative boundary)
   const handleRecenter = () => {
     if (mapInstanceRef.current && boundaryLayerRef.current) {
@@ -4190,14 +4223,17 @@ function WargaSpatialMap({
 
             {/* Tombol Aksi Navigasi */}
             <div className="pt-2 pb-1 space-y-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleStartTurnByTurnNavigation}
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${activeNavRoute.shelter.lat},${activeNavRoute.shelter.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md cursor-pointer border border-[#24544E]"
+                title="Buka rute navigasi belokan di aplikasi Google Maps"
               >
                 <Navigation className="w-4 h-4 text-emerald-300" />
-                <span>Mulai Panduan Langkah Demi Langkah</span>
-              </button>
+                <span>Buka Navigasi di Google Maps</span>
+                <ExternalLink className="w-3.5 h-3.5 text-white/80" />
+              </a>
 
               <button
                 type="button"
@@ -5101,14 +5137,17 @@ function WargaSpatialMap({
 
           {/* Action Row Navigasi */}
           <div className="pt-1 space-y-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={handleStartTurnByTurnNavigation}
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${activeNavRoute.shelter.lat},${activeNavRoute.shelter.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full py-2.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-xs cursor-pointer border border-[#24544E]"
+              title="Buka rute navigasi belokan di aplikasi Google Maps"
             >
               <Navigation className="w-4 h-4 fill-white text-white" />
-              <span>Mulai Panduan Langkah Demi Langkah</span>
-            </button>
+              <span>Buka Navigasi di Google Maps</span>
+              <ExternalLink className="w-3.5 h-3.5 text-white/80" />
+            </a>
 
             <button
               type="button"

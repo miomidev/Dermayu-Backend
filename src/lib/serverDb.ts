@@ -50,14 +50,34 @@ export interface CitizenReportRecord {
   createdAt?: string;
 }
 
+export interface AuditLogRecord {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string | null;
+  ip?: string | null;
+  user_agent?: string | null;
+  metadata?: string | null;
+  created_at: string;
+  actor?: {
+    id: string;
+    public_id: string;
+    full_name: string;
+    email: string;
+    role: string;
+  } | null;
+}
+
 const DB_DIR = path.join(process.cwd(), "data", "db");
 const POSKO_FILE = path.join(DB_DIR, "posko.json");
 const REPORTS_FILE = path.join(DB_DIR, "reports.json");
 const CITIZEN_REPORTS_FILE = path.join(DB_DIR, "citizen_reports.json");
+const AUDIT_LOGS_FILE = path.join(DB_DIR, "audit_logs.json");
 
 let cachedPosko: PoskoRecord[] | null = null;
 let cachedReports: StoredReportPoint[] | null = null;
 let cachedCitizenReports: CitizenReportRecord[] | null = null;
+let cachedAuditLogs: AuditLogRecord[] | null = null;
 let isWritingPosko = false;
 let pendingPosko: PoskoRecord[] | null = null;
 let isWritingReports = false;
@@ -764,5 +784,72 @@ export function deleteCitizenReport(reportId: string): boolean {
   saveCitizenReports(nextList);
   return true;
 }
+
+const INITIAL_AUDIT_LOGS: AuditLogRecord[] = [];
+
+export function getAuditLogs(): AuditLogRecord[] {
+  if (cachedAuditLogs !== null) {
+    return cachedAuditLogs;
+  }
+  ensureDbDir();
+  try {
+    if (!fs.existsSync(AUDIT_LOGS_FILE)) {
+      cachedAuditLogs = [];
+      fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify([], null, 2), "utf-8");
+      return cachedAuditLogs;
+    }
+    const raw = fs.readFileSync(AUDIT_LOGS_FILE, "utf-8");
+    cachedAuditLogs = JSON.parse(raw);
+    if (!Array.isArray(cachedAuditLogs)) {
+      cachedAuditLogs = [];
+      fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify([], null, 2), "utf-8");
+    }
+    return cachedAuditLogs;
+  } catch (err) {
+    console.error("Error reading audit_logs.json:", err);
+    return [];
+  }
+}
+
+export function saveAuditLogs(items: AuditLogRecord[]): void {
+  cachedAuditLogs = items;
+  ensureDbDir();
+  try {
+    fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify(items, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing audit_logs.json:", err);
+  }
+}
+
+export function clearAuditLogs(): void {
+  cachedAuditLogs = [];
+  saveAuditLogs([]);
+}
+
+export function addAuditLogRecord(entry: Partial<AuditLogRecord> & { action: string; entity_type: string }): AuditLogRecord {
+  const all = getAuditLogs();
+  const record: AuditLogRecord = {
+    id: entry.id || `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: entry.action,
+    entity_type: entry.entity_type,
+    entity_id: entry.entity_id || null,
+    ip: entry.ip || "10.15.2.1",
+    user_agent: entry.user_agent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DermayuAdmin/2.4",
+    metadata: entry.metadata || null,
+    created_at: entry.created_at || new Date().toISOString(),
+    actor: entry.actor || {
+      id: "u-1",
+      public_id: "ADM-001",
+      full_name: "Super Admin DERMAYU",
+      email: "superadmin@dermayu.id",
+      role: "SUPERADMIN",
+    },
+  };
+
+  all.unshift(record);
+  saveAuditLogs(all);
+  return record;
+}
+
 
 

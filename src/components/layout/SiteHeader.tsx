@@ -65,7 +65,11 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
   const dashboardHref = session ? getDashboardUrl(session.role) : "/login";
 
   useEffect(() => {
-    // Jika berada di halaman /panduan, set active ke panduan
+    // Jika berada di halaman /peta atau /panduan, set active sesuai halamannya
+    if (pathname === "/peta") {
+      setActiveSection("peta");
+      return;
+    }
     if (pathname === "/panduan") {
       setActiveSection("panduan");
       return;
@@ -144,7 +148,9 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
         >
           {ROUTES.map((r) => {
             const isActive =
-              pathname === "/panduan"
+              pathname === "/peta"
+                ? r.sectionId === "peta"
+                : pathname === "/panduan"
                 ? r.sectionId === "panduan"
                 : activeSection === r.sectionId;
 
@@ -264,7 +270,9 @@ export function SiteHeader({ path = "/" }: SiteHeaderProps) {
               <ul className="flex flex-col gap-3">
                 {ROUTES.map((r) => {
                   const isActive =
-                    pathname === "/panduan"
+                    pathname === "/peta"
+                      ? r.sectionId === "peta"
+                      : pathname === "/panduan"
                       ? r.sectionId === "panduan"
                       : activeSection === r.sectionId;
 

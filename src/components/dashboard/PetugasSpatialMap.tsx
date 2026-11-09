@@ -6396,7 +6396,7 @@ function PetugasSpatialMap({
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className={`pointer-events-auto ${
               !editingPoskoId && viewMode === "IDLE"
-                ? "absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5 max-h-[calc(100vh-80px)]"
+                ? `absolute top-3.5 inset-x-3.5 md:top-4 ${poskoExpanded ? "md:bottom-6" : "md:bottom-auto"} md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5 max-h-[calc(100vh-80px)] md:max-h-none`
                 : "hidden md:flex absolute inset-x-3.5 top-16 bottom-20 md:inset-x-auto md:top-4 md:bottom-6 md:left-6 md:w-[400px] z-[300] flex-col"
             }`}
             style={{ zIndex: 1000 }}
@@ -6546,7 +6546,7 @@ function PetugasSpatialMap({
               editingPoskoId
                 ? "h-full flex-1 min-h-0"
                 : viewMode === "IDLE"
-                ? "shrink-0 h-auto"
+                ? "min-h-0 flex-1 flex flex-col"
                 : "h-full flex-1 min-h-0"
             }`}
           >
@@ -6747,9 +6747,9 @@ function PetugasSpatialMap({
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: poskoExpanded ? "auto" : 0, opacity: poskoExpanded ? 1 : 0 }}
                     transition={{ duration: 0.4, ease: "easeInOut" }}
-                    className="overflow-hidden"
+                    className="overflow-hidden min-h-0 flex-1 flex flex-col"
                   >
-                    <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
+                    <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-none flex-1 min-h-0 overflow-y-auto scrollbar-none md:scrollbar-thin">
                       {poskoFilter === "TELEMETRY" ? (
                         internalTelemetry.map((tel, index) =>
                           renderTelemetryCardItem(tel, index)

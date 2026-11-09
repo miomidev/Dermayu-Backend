@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
+import { getActiveSession } from "@/utils/authSession";
 import {
   BookOpen,
   LifeBuoy,
@@ -98,6 +101,14 @@ const QUICK_GUIDES = [
 ];
 
 export default function PanduanPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const s = getActiveSession();
+    if (s?.role) {
+      router.replace(`/${s.role}/panduan`);
+    }
+  }, [router]);
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAF9] text-[#132422]">
       {/* 1. Header Navbar dengan Scroll-Spy */}

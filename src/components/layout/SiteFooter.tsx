@@ -23,7 +23,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { label: "Fitur-fitur", href: "/#fitur" },
       { label: "Keunggulan", href: "/#cara-kerja" },
       { label: "FAQ", href: "/#faq" },
-      { label: "Panduan", href: "/panduan" },
+      { label: "Peta Banjir", href: "/peta" },
     ],
   },
   {

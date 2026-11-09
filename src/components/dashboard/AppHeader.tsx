@@ -38,12 +38,16 @@ const titleMap: Record<string, string> = {
   "/warga/kontak": "Kontak Darurat 24 Jam",
   "/warga/komunitas": "Komunitas Warga Siaga",
   "/warga/profile": "Profil Pengguna",
+  "/warga/panduan": "Buku Panduan Siaga",
   "/petugas/dashboard": "Pusat Kendali BPBD",
   "/petugas/triage": "Triage & Verifikasi Aduan",
   "/petugas/posko": "Manajemen Posko Lapangan",
   "/petugas/telemetri": "Telemetri TMA & Rob",
   "/petugas/settings": "Pengaturan Sistem",
   "/petugas/profile": "Profil Petugas BPBD",
+  "/petugas/peta-sar": "Peta Spasial & SAR",
+  "/petugas/panduan": "Buku Panduan Siaga",
+  "/dashboard/panduan": "Buku Panduan Siaga",
 };
 
 export interface AppHeaderProps {
@@ -386,7 +390,7 @@ export function AppHeader({
 
         {/* 3. Buku Panduan Siaga */}
         <Link
-          href="/panduan"
+          href={`/${role}/panduan`}
           onClick={() => setDropdownOpen(false)}
           className="flex items-center justify-between px-3 py-2 rounded-xl text-[#4B635F] hover:bg-[#EEF5F3] hover:text-[#132422] transition-colors font-medium"
         >

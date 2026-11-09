@@ -56,7 +56,9 @@ import {
   Search,
   Pencil,
   SlidersHorizontal,
-  Mic,
+  HeartPulse,
+  Utensils,
+  Building,
   Image as ImageIcon,
   TrendingUp,
   ArrowDownRight,
@@ -267,6 +269,8 @@ interface WargaSpatialMapProps {
   className?: string;
   focusReportId?: string;
   focusCoords?: { lat: number; lng: number };
+  topRightWidget?: React.ReactNode;
+  autoExpandPosko?: boolean;
 }
 
 // ============================================================================
@@ -877,6 +881,8 @@ function WargaSpatialMap({
   className = "",
   focusReportId,
   focusCoords,
+  topRightWidget,
+  autoExpandPosko,
 }: WargaSpatialMapProps) {
   const rootContainerRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -1128,11 +1134,17 @@ function WargaSpatialMap({
     };
   }, []);
 
-  // Auto-expand card list posko setelah animasi page entry selesai (jeda 800ms)
+  // Auto-expand card list posko setelah animasi page entry selesai
+  // Khusus desktop: selalu otomatis terbuka
+  // Khusus mobile di landing page non-auth (autoExpandPosko === false): manual (tidak auto-expand)
   useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    if (isMobile && autoExpandPosko === false) {
+      return; // Tetap tertutup awal di mobile landing page non-auth
+    }
     const timer = setTimeout(() => setPoskoExpanded(true), 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [autoExpandPosko]);
   const [activeShelterDetail, setActiveShelterDetail] = useState<MapShelterPoint | null>(null);
   const [activeReportDetail, setActiveReportDetail] = useState<MapReportPoint | null>(null);
   const [activeTelemetryDetail, setActiveTelemetryDetail] = useState<MapTelemetryPoint | null>(null);
@@ -1181,6 +1193,24 @@ function WargaSpatialMap({
   const [sortByClosest, setSortByClosest] = useState(true);
   const [filterAvailableOnly, setFilterAvailableOnly] = useState(false);
   const [filter24Hours, setFilter24Hours] = useState(false);
+
+  // State Dropdown Filter Lengkap (Pintasan & Kecamatan)
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    };
+    if (showFilterDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilterDropdown]);
 
   // State Layer Sensor Telemetri Real-Time
   const [showTelemetryLayer, setShowTelemetryLayer] = useState(true);
@@ -1301,6 +1331,9 @@ function WargaSpatialMap({
     "Lohbener",
     "Indramayu Kota",
     "Sindang",
+    "Sukra",
+    "Jatibarang",
+    "Kertasemaya",
   ];
 
   const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number; zoom: number }> = {
@@ -1313,6 +1346,9 @@ function WargaSpatialMap({
     Lohbener: { lat: -6.388, lng: 108.275, zoom: 14 },
     "Indramayu Kota": { lat: -6.326, lng: 108.324, zoom: 14 },
     Sindang: { lat: -6.338, lng: 108.310, zoom: 14 },
+    Sukra: { lat: -6.305, lng: 107.982, zoom: 14 },
+    Jatibarang: { lat: -6.474, lng: 108.307, zoom: 14 },
+    Kertasemaya: { lat: -6.536, lng: 108.344, zoom: 14 },
   };
 
   const handleSelectDistrict = (dist: string) => {
@@ -1731,7 +1767,7 @@ function WargaSpatialMap({
     }
 
     // 2. Chip Filter Kategori & Wilayah
-    if (activeFilterChip === "telemetri") {
+    if (activeFilterChip === "telemetri" || activeFilterChip === "genangan") {
       return [];
     }
     if (activeFilterChip === "medis") {
@@ -1774,7 +1810,7 @@ function WargaSpatialMap({
           SHELTER_METADATA[sh.id]?.rating === "Kapasitas Besar"
         );
       });
-    } else if (activeFilterChip !== "terdekat" && activeFilterChip !== "semua") {
+    } else if (activeFilterChip !== "terdekat" && activeFilterChip !== "semua" && activeFilterChip !== "genangan" && activeFilterChip !== "telemetri") {
       // Wilayah / Kecamatan Filter
       const d = activeFilterChip.toLowerCase();
       list = list.filter((sh) => {
@@ -1869,6 +1905,9 @@ function WargaSpatialMap({
   const getCardHeaderTitle = () => {
     if (searchQuery.trim()) {
       return `Hasil Pencarian: "${searchQuery}"`;
+    }
+    if (activeFilterChip === "genangan") {
+      return `Titik Genangan Banjir (${internalReports.length} Titik)`;
     }
     if (activeFilterChip === "telemetri") {
       return showAllTelemetry
@@ -6058,33 +6097,52 @@ function WargaSpatialMap({
   return (
     <div
       ref={rootContainerRef}
+      data-lenis-prevent="true"
       className={`relative w-full rounded-none overflow-hidden border-0 bg-white shadow-none flex flex-col isolate z-0 [&_.leaflet-bottom.leaflet-right]:bottom-20 md:[&_.leaflet-bottom.leaflet-right]:bottom-3 ${isFullscreen
         ? "fixed inset-0 !z-[9999] w-screen h-screen"
         : className || "h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)]"
         }`}
     >
       {/* Map Canvas & Floating Controls Wrapper (100% Edge-to-Edge) */}
-      <div className="relative flex-1 w-full h-full overflow-hidden">
+      <div className="relative flex-1 w-full h-full overflow-hidden" data-lenis-prevent="true">
         {/* Leaflet Map Body Container */}
-        <div ref={mapContainerRef} className="w-full h-full relative z-0" />
+        <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full relative z-0" />
+
+        {/* ============================================================== */}
+        {/* FLOATING CONTROLS (Tombol Laporan Banjir & Card Cuaca)          */}
+        {/* Mobile: Pojok Kiri Bawah (Di bawah tombol beralih ke satelit)   */}
+        {/* Desktop: Pojok Kanan Atas                                       */}
+        {/* ============================================================== */}
+        {topRightWidget && (
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+            className="absolute bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 z-[1000] pointer-events-auto"
+          >
+            {topRightWidget}
+          </motion.div>
+        )}
 
         {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}
         {/* ============================================================== */}
         {!isNavigating && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          <div
             className={`pointer-events-auto ${viewMode === "IDLE"
-              ? "absolute top-3.5 inset-x-3.5 md:top-4 md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5"
+              ? `absolute top-3.5 inset-x-3.5 md:top-4 ${poskoExpanded ? "md:bottom-6" : "md:bottom-auto"} md:left-6 md:right-auto md:w-[390px] z-[300] flex flex-col gap-2 md:gap-2.5`
               : "hidden md:flex absolute inset-x-3.5 top-16 bottom-20 md:inset-x-auto md:top-4 md:bottom-6 md:left-6 md:w-[400px] z-[300] flex-col"
               }`}
             style={{ zIndex: 1000 }}
           >
           {/* Tampilkan Search Bar dan Filter Chips HANYA saat viewMode === 'IDLE' */}
           {viewMode === "IDLE" && (
-            <>
+            <motion.div
+              initial={{ opacity: 0, y: -30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+              className="flex flex-col gap-2 md:gap-2.5 shrink-0"
+            >
               {/* Banner Darurat Offline (PWA Offline-First) */}
               {!isOnline && (
                 <motion.div
@@ -6108,12 +6166,12 @@ function WargaSpatialMap({
                 </motion.div>
               )}
 
-              {/* Baris 1: Card Search Bar */}
+              {/* Baris 1: Card Search Bar & Tombol Filter Lengkap */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: "easeOut", delay: 0.05 }}
-                className="bg-white rounded-2xl px-3.5 py-2.5 shadow-md border border-slate-100 flex items-center gap-2.5 shrink-0"
+                className="relative bg-white rounded-2xl px-3.5 py-2.5 shadow-md border border-slate-100 flex items-center gap-2.5 shrink-0"
               >
                 <Search className="w-4 h-4 text-slate-400 shrink-0" />
                 <input
@@ -6138,114 +6196,362 @@ function WargaSpatialMap({
                   </button>
                 )}
                 <div className="flex items-center gap-1.5 text-slate-400 shrink-0 pl-1 border-l border-slate-200">
+                  {/* Tombol Filter dengan Toggle Dropdown Lengkap */}
                   <button
                     type="button"
                     onClick={() => {
-                      setToastMessage("Fitur pencarian suara (Microphone) aktif");
-                      setTimeout(() => setToastMessage(null), 2500);
+                      setShowFilterDropdown((prev) => !prev);
                     }}
-                    className="p-1 rounded-lg hover:bg-slate-100 hover:text-[#38746D] transition cursor-pointer"
-                    title="Pencarian Suara"
-                    aria-label="Pencarian Suara"
+                    className={`p-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      showFilterDropdown || (activeFilterChip !== "terdekat" && activeFilterChip !== "semua")
+                        ? "bg-[#EEF5F3] text-[#38746D] font-bold"
+                        : "hover:bg-slate-100 text-slate-500 hover:text-[#38746D]"
+                    }`}
+                    title="Filter Lengkap & Wilayah"
+                    aria-label="Filter Lengkap & Wilayah"
                   >
-                    <Mic className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAllShelters((prev) => !prev);
-                      if (!poskoExpanded) setPoskoExpanded(true);
-                    }}
-                    className={`p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer ${showAllShelters || activeFilterChip !== "terdekat" ? "text-[#38746D]" : "text-slate-400 hover:text-[#38746D]"
-                      }`}
-                    title="Filter Posko"
-                    aria-label="Filter Posko"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <SlidersHorizontal className="w-4 h-4" />
+                    {activeFilterChip !== "terdekat" && activeFilterChip !== "semua" && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#38746D]" />
+                    )}
                   </button>
                 </div>
+
+                {/* DROPDOWN FILTER LENGKAP */}
+                <AnimatePresence>
+                  {showFilterDropdown && (
+                    <motion.div
+                      ref={filterDropdownRef}
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white/98 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 p-4 z-[1200] max-h-[75vh] overflow-y-auto scrollbar-thin select-none"
+                    >
+                      {/* Header Dropdown */}
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                        <div className="flex items-center gap-2">
+                          <SlidersHorizontal className="w-4 h-4 text-[#38746D]" />
+                          <h4 className="text-xs font-bold text-slate-800">Filter Peta &amp; Wilayah</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveFilterChip("terdekat");
+                              setShowAllShelters(false);
+                              setSelectedDistrict("SEMUA");
+                              setSearchQuery("");
+                              setShowFilterDropdown(false);
+                            }}
+                            className="text-[11px] font-semibold text-[#38746D] hover:underline cursor-pointer"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowFilterDropdown(false)}
+                            className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 1. SHORTCUT FILTER UTAMA */}
+                      <div className="mb-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                          Pintasan Utama
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {/* Semua Posko */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveFilterChip("semua");
+                              setShowAllShelters(true);
+                              setSelectedDistrict("SEMUA");
+                              if (!poskoExpanded) setPoskoExpanded(true);
+                              setShowFilterDropdown(false);
+                            }}
+                            className={`p-2 rounded-xl text-left text-xs font-semibold flex items-center gap-2 border transition ${
+                              activeFilterChip === "semua"
+                                ? "bg-[#38746D] text-white border-[#38746D] shadow-xs"
+                                : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                            }`}
+                          >
+                            <Building2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Semua Posko</span>
+                          </button>
+
+                          {/* Terdekat (GPS) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveFilterChip("terdekat");
+                              setShowAllShelters(false);
+                              setSearchQuery("");
+                              if (mapInstanceRef.current && userMarkerRef.current) {
+                                const uPos = userMarkerRef.current.getLatLng();
+                                mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
+                              }
+                              if (!poskoExpanded) setPoskoExpanded(true);
+                              setShowFilterDropdown(false);
+                            }}
+                            className={`p-2 rounded-xl text-left text-xs font-semibold flex items-center gap-2 border transition ${
+                              activeFilterChip === "terdekat" && !showAllShelters
+                                ? "bg-[#38746D] text-white border-[#38746D] shadow-xs"
+                                : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                            }`}
+                          >
+                            <Navigation className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Terdekat (GPS)</span>
+                          </button>
+
+                          {/* Titik Genangan */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveFilterChip("genangan");
+                              if (mapInstanceRef.current && internalReports.length > 0) {
+                                const first = internalReports[0];
+                                mapInstanceRef.current.flyTo([first.lat, first.lng], 14, { duration: 1 });
+                              }
+                              if (!poskoExpanded) setPoskoExpanded(true);
+                              setShowFilterDropdown(false);
+                            }}
+                            className={`p-2 rounded-xl text-left text-xs font-semibold flex items-center gap-2 border transition ${
+                              activeFilterChip === "genangan"
+                                ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                                : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                            }`}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Titik Genangan ({internalReports.length})</span>
+                          </button>
+
+                          {/* Sensor Telemetri */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveFilterChip("telemetri");
+                              setShowTelemetryLayer(true);
+                              setShowAllTelemetry(false);
+                              if (mapInstanceRef.current && sortedTelemetry.length > 0) {
+                                const closest = sortedTelemetry[0];
+                                mapInstanceRef.current.flyTo([closest.lat, closest.lng], 14, { duration: 1 });
+                              }
+                              if (!poskoExpanded) setPoskoExpanded(true);
+                              setShowFilterDropdown(false);
+                            }}
+                            className={`p-2 rounded-xl text-left text-xs font-semibold flex items-center gap-2 border transition ${
+                              activeFilterChip === "telemetri"
+                                ? "bg-[#38746D] text-white border-[#38746D] shadow-xs"
+                                : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                            }`}
+                          >
+                            <Radio className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Sensor Telemetri ({internalTelemetry.length})</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2. FASILITAS SPESIFIK POSKO */}
+                      <div className="mb-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                          Fasilitas Spesifik Posko
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: "medis", label: "Posko Medis", icon: HeartPulse },
+                            { id: "dapur", label: "Dapur Umum", icon: Utensils },
+                            { id: "gor", label: "GOR / Gedung", icon: Building },
+                          ].map((f) => {
+                            const isAct = activeFilterChip === f.id;
+                            const IconComponent = f.icon;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => {
+                                  setActiveFilterChip(f.id);
+                                  setShowAllShelters(true);
+                                  if (!poskoExpanded) setPoskoExpanded(true);
+                                  setShowFilterDropdown(false);
+                                }}
+                                className={`p-2 rounded-xl text-left text-xs font-semibold flex flex-col items-center justify-center gap-1 border transition text-center ${
+                                  isAct
+                                    ? "bg-[#38746D] text-white border-[#38746D] shadow-xs"
+                                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                                }`}
+                              >
+                                <IconComponent className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate text-[11px]">{f.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 3. FILTER PER KECAMATAN / DAERAH */}
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                          Wilayah / Kecamatan di Indramayu
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {DISTRICT_LIST.map((dist) => {
+                            const isAct = selectedDistrict === dist || activeFilterChip.toLowerCase() === dist.toLowerCase();
+                            return (
+                              <button
+                                key={dist}
+                                type="button"
+                                onClick={() => {
+                                  if (dist === "SEMUA") {
+                                    setSelectedDistrict("SEMUA");
+                                    setActiveFilterChip("semua");
+                                    setShowAllShelters(true);
+                                  } else {
+                                    setActiveFilterChip(dist);
+                                    setShowAllShelters(true);
+                                    handleSelectDistrict(dist);
+                                  }
+                                  if (!poskoExpanded) setPoskoExpanded(true);
+                                  setShowFilterDropdown(false);
+                                }}
+                                className={`px-2 py-1.5 rounded-xl text-[11px] font-medium border transition text-center truncate ${
+                                  isAct
+                                    ? "bg-[#38746D] text-white border-[#38746D] font-bold shadow-xs"
+                                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                                }`}
+                              >
+                                {dist === "SEMUA" ? "Semua Wilayah" : dist}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
 
-              {/* Baris 2: Card Chip Kategori & Filter Wilayah */}
+              {/* Baris 2: 4 Chip Filter Utama (Semua Posko, Terdekat, Genangan, Sensor Telemetri) */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
                 className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 shrink-0"
               >
-                {/* Tombol Filter: Sensor Telemetri */}
+                {/* 1. Semua Posko */}
                 <button
                   type="button"
-                  onClick={() => setShowTelemetryLayer((prev) => !prev)}
+                  onClick={() => {
+                    setActiveFilterChip("semua");
+                    setShowAllShelters(true);
+                    setSelectedDistrict("SEMUA");
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+                    activeFilterChip === "semua"
+                      ? "bg-[#38746D] text-white font-bold shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Semua Posko</span>
+                </button>
+
+                {/* 2. Terdekat (GPS) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFilterChip("terdekat");
+                    setShowAllShelters(false);
+                    setSearchQuery("");
+                    if (mapInstanceRef.current && userMarkerRef.current) {
+                      const uPos = userMarkerRef.current.getLatLng();
+                      mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
+                    }
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+                    activeFilterChip === "terdekat" && !showAllShelters
+                      ? "bg-[#38746D] text-white font-bold shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                  }`}
+                >
+                  <Navigation
+                    className={`w-3.5 h-3.5 ${
+                      activeFilterChip === "terdekat" && !showAllShelters ? "text-white" : "text-[#38746D]"
+                    }`}
+                  />
+                  <span>Terdekat (GPS)</span>
+                </button>
+
+                {/* 3. Titik Genangan */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFilterChip("genangan");
+                    if (mapInstanceRef.current && internalReports.length > 0) {
+                      const first = internalReports[0];
+                      mapInstanceRef.current.flyTo([first.lat, first.lng], 14, { duration: 1 });
+                    }
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+                    activeFilterChip === "genangan"
+                      ? "bg-amber-500 text-white font-bold shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                  }`}
+                  title="Titik Genangan Banjir & Hambatan Jalan"
+                >
+                  <AlertTriangle
+                    className={`w-3.5 h-3.5 ${activeFilterChip === "genangan" ? "text-white" : "text-amber-500"}`}
+                  />
+                  <span>Titik Genangan ({internalReports.length || 0})</span>
+                </button>
+
+                {/* 4. Sensor Telemetri (Debit Air) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFilterChip("telemetri");
+                    setShowTelemetryLayer(true);
+                    setShowAllTelemetry(false);
+                    if (mapInstanceRef.current && sortedTelemetry.length > 0) {
+                      const closest = sortedTelemetry[0];
+                      mapInstanceRef.current.flyTo([closest.lat, closest.lng], 14, { duration: 1 });
+                    }
+                    if (!poskoExpanded) setPoskoExpanded(true);
+                  }}
                   className={`shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer font-medium ${
-                    showTelemetryLayer
+                    activeFilterChip === "telemetri"
                       ? "bg-[#38746D] text-white shadow-xs font-bold"
                       : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                   }`}
-                  title={
-                    showTelemetryLayer
-                      ? "Sembunyikan titik sensor telemetri"
-                      : "Tampilkan titik sensor telemetri di peta"
-                  }
+                  title="Sensor Telemetri Pemantau Debit Air Cimanuk"
                 >
                   <Radio
                     className={`w-3.5 h-3.5 ${
-                      showTelemetryLayer ? "text-white" : "text-[#38746D]"
+                      activeFilterChip === "telemetri" ? "text-white" : "text-[#38746D]"
                     }`}
                   />
                   <span>Sensor Telemetri ({internalTelemetry.length || 4})</span>
                 </button>
-                {FILTER_CHIPS.map((chip) => {
-                  const isActive = activeFilterChip === chip.id && (chip.id !== "terdekat" || !showAllShelters);
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => {
-                        if (chip.id === "terdekat") {
-                          setActiveFilterChip("terdekat");
-                          setShowAllShelters(false);
-                          setSearchQuery("");
-                          if (mapInstanceRef.current && userMarkerRef.current) {
-                            const uPos = userMarkerRef.current.getLatLng();
-                            mapInstanceRef.current.flyTo([uPos.lat, uPos.lng], 15, { duration: 1 });
-                          }
-                        } else if (chip.id === "telemetri") {
-                          setActiveFilterChip("telemetri");
-                          setShowAllTelemetry(false);
-                          if (mapInstanceRef.current && sortedTelemetry.length > 0) {
-                            const closest = sortedTelemetry[0];
-                            mapInstanceRef.current.flyTo([closest.lat, closest.lng], 14, { duration: 1 });
-                          }
-                        } else {
-                          setActiveFilterChip(chip.id);
-                          setShowAllShelters(true);
-                          if (chip.type === "district") {
-                            handleSelectDistrict(chip.id);
-                          }
-                        }
-                        if (!poskoExpanded) setPoskoExpanded(true);
-                      }}
-                      className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer ${isActive
-                        ? "bg-[#38746D] text-white font-medium shadow-sm"
-                        : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-                        }`}
-                    >
-                      {chip.id === "terdekat" && (
-                        <Navigation className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#38746D]"}`} />
-                      )}
-                      <span>{chip.label}</span>
-                    </button>
-                  );
-                })}
               </motion.div>
-            </>
+            </motion.div>
           )}
 
           {/* Card Utama: Full Height Saat DETAIL / ROUTE, atau Compact Saat IDLE */}
-          <div
-            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden flex flex-col ${viewMode === "IDLE"
-              ? "shrink-0 h-auto"
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.4 }}
+            className={`bg-white/95 backdrop-blur-md rounded-2xl border border-[#D5E4E0] shadow-xl overflow-hidden flex flex-col transition-all duration-300 ${viewMode === "IDLE"
+              ? poskoExpanded
+                ? "min-h-0 flex-1 flex flex-col"
+                : "shrink-0 h-auto"
               : "h-full flex-1 min-h-0"
               }`}
           >
@@ -6380,16 +6686,34 @@ function WargaSpatialMap({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                  className={`flex flex-col overflow-hidden ${
+                    poskoExpanded ? "flex-1 min-h-0" : "h-auto shrink-0"
+                  }`}
                 >
                   {/* Header Panel Idle */}
-                  <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
+                  <div
+                    className={`p-3 sm:p-3.5 flex items-center justify-between gap-2 shrink-0 bg-white/80 backdrop-blur-sm transition-colors ${
+                      poskoExpanded ? "border-b border-gray-100" : ""
+                    }`}
+                  >
                     <div
                       className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer select-none"
                       onClick={() => setPoskoExpanded((prev) => !prev)}
                     >
-                      <div className="w-7 h-7 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200/80 flex items-center justify-center shrink-0">
-                        <Building2 className="w-4 h-4 text-[#38746D]" />
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                        activeFilterChip === "genangan"
+                          ? "bg-amber-50 text-amber-800 border-amber-200/80"
+                          : activeFilterChip === "telemetri"
+                          ? "bg-sky-50 text-sky-800 border-sky-200/80"
+                          : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                      }`}>
+                        {activeFilterChip === "genangan" ? (
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        ) : activeFilterChip === "telemetri" ? (
+                          <Radio className="w-4 h-4 text-[#38746D]" />
+                        ) : (
+                          <Building2 className="w-4 h-4 text-[#38746D]" />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-black text-[#132422] truncate leading-tight">
@@ -6416,14 +6740,18 @@ function WargaSpatialMap({
                     </div>
                   </div>
 
-                  {/* Isi Konten Card Idle dengan Accordion Height Animation */}
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: poskoExpanded ? "auto" : 0, opacity: poskoExpanded ? 1 : 0 }}
-                    transition={{ duration: 0.4, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-none md:scrollbar-thin">
+                  {/* Isi Konten Card Idle dengan AnimatePresence (Tidak ada phantom height saat tertutup) */}
+                  <AnimatePresence initial={false}>
+                    {poskoExpanded && (
+                      <motion.div
+                        key="posko-accordion-content"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.35, ease: "easeInOut" }}
+                        className="overflow-hidden min-h-0 flex-1 flex flex-col"
+                      >
+                        <div className="p-2 space-y-1.5 max-h-[48vh] md:max-h-none flex-1 min-h-0 overflow-y-auto scrollbar-none md:scrollbar-thin">
                       {activeFilterChip === "telemetri" ? (
                         <div className="space-y-2">
                           <div className="px-2.5 py-2 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-between">
@@ -6500,6 +6828,55 @@ function WargaSpatialMap({
                             </button>
                           )}
                         </div>
+                      ) : activeFilterChip === "genangan" ? (
+                        <div className="space-y-2">
+                          <div className="px-2.5 py-2 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-amber-900 text-[10px] font-bold">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>Titik Genangan &amp; Hambatan Banjir</span>
+                            </div>
+                            <span className="text-[9px] text-amber-800 font-bold bg-white px-2 py-0.5 rounded-full border border-amber-200">
+                              {internalReports.length} Titik Terdata
+                            </span>
+                          </div>
+
+                          {internalReports.map((rep) => (
+                            <div
+                              key={rep.id}
+                              onClick={() => {
+                                setActiveReportDetail(rep);
+                                setSelectedMarker({ type: "report", data: rep });
+                                if (mapInstanceRef.current) {
+                                  mapInstanceRef.current.flyTo([rep.lat, rep.lng], 16, { duration: 1.2 });
+                                }
+                              }}
+                              className="p-2.5 rounded-xl border border-slate-200 hover:border-amber-400 bg-white hover:bg-amber-50/40 transition-all cursor-pointer shadow-xs group"
+                            >
+                              <div className="flex items-center justify-between gap-1.5 mb-1">
+                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                                  ⚠️ {rep.category || "Genangan Jalan"}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  {rep.waterLevelText && (
+                                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                      🌊 {rep.waterLevelText}
+                                    </span>
+                                  )}
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md border bg-rose-50 text-rose-700 border-rose-200">
+                                    {rep.severity === "CRITICAL" ? "Kritis" : rep.severity === "HIGH" ? "Tinggi" : "Sedang"}
+                                  </span>
+                                </div>
+                              </div>
+                              <h4 className="text-xs font-bold text-slate-800 group-hover:text-amber-800 leading-tight">
+                                {rep.title}
+                              </h4>
+                              <div className="text-[9px] text-slate-400 mt-1 flex items-center justify-between">
+                                <span className="truncate">{rep.location}</span>
+                                <span className="shrink-0 text-[#38746D] font-bold text-[9px] group-hover:underline">Buka Titik &rarr;</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       ) : displayedShelters.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
                           <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
@@ -6560,11 +6937,13 @@ function WargaSpatialMap({
                       )}
                     </div>
                   </motion.div>
-              </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     )}
 
         {/* ============================================================== */}
@@ -6699,7 +7078,10 @@ function WargaSpatialMap({
         {/* Atas: Perbesar Layar Penuh | Bawah: Beralih Citra Satelit     */}
         {/* Posisi: absolute left-3.5 sm:left-4 bottom-20 (Khusus Mobile) */}
         {/* ============================================================== */}
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
           className={`md:hidden absolute left-3.5 sm:left-4 z-30 flex flex-col gap-2.5 pointer-events-auto transition-all duration-300 ease-out ${
             isNavigating
               ? "bottom-[150px] flex"
@@ -6709,6 +7091,8 @@ function WargaSpatialMap({
                 : sheetSnap === "mid"
                 ? "bottom-[calc(42vh+76px)] flex"
                 : "bottom-[calc(64px+86px)] flex"
+              : topRightWidget
+              ? "bottom-[158px] flex"
               : "bottom-20 flex"
           }`}
           aria-label="Kontrol Peta Sisi Kiri Bawah"
@@ -6741,14 +7125,17 @@ function WargaSpatialMap({
           >
             <Layers className="w-5 h-5" />
           </button>
-        </div>
+        </motion.div>
 
         {/* ============================================================== */}
         {/* 5. FLOATING MAP CONTROLS (FAB) DI SISI KANAN AREA PETA         */}
         {/* Posisi: absolute right-3.5 sm:right-4 bottom-20 md:bottom-12   */}
         {/* Berada di atas layer peta Leaflet, di atas mobile bottom nav    */}
         {/* ============================================================== */}
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
           className={`absolute right-3 sm:right-4 z-30 flex flex-col gap-2.5 pointer-events-auto transition-all duration-300 ease-out ${
             isNavigating
               ? "bottom-24 md:bottom-24 flex"
@@ -6865,7 +7252,7 @@ function WargaSpatialMap({
               <Minus className="w-4 h-4 text-slate-700" />
             </button>
           </div>
-        </div>
+        </motion.div>
 
 
 
@@ -6919,5 +7306,7 @@ export default React.memo(WargaSpatialMap, (prevProps, nextProps) => {
   if (prevProps.telemetry !== nextProps.telemetry && prevProps.telemetry?.length !== nextProps.telemetry?.length) {
     return false;
   }
+  if (prevProps.topRightWidget !== nextProps.topRightWidget) return false;
+  if (prevProps.autoExpandPosko !== nextProps.autoExpandPosko) return false;
   return true;
 });

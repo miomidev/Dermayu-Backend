@@ -10,7 +10,7 @@ export const ROUTES: NavRoute[] = [
   { href: "/#fitur", label: "Fitur-fitur", sectionId: "fitur" },
   { href: "/#cara-kerja", label: "Keunggulan", sectionId: "cara-kerja" },
   { href: "/#faq", label: "FAQ", sectionId: "faq" },
-  { href: "/panduan", label: "Panduan", sectionId: "panduan" },
+  { href: "/peta", label: "Peta Banjir", sectionId: "peta" },
 ];
 
 export interface TmaStation {

@@ -520,12 +520,12 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#1D443F]">
+    <div data-lenis-prevent="true" className="relative min-h-screen w-full overflow-hidden bg-[#1D443F]">
       <div className="w-full h-full min-h-screen select-none">
         {/* ============================================================ */}
         {/* A. TAMPILAN KHUSUS MOBILE (< md) - FLOATING CARD SHEET      */}
         {/* ============================================================ */}
-        <div className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col">
+        <div data-lenis-prevent="true" className="relative min-h-screen bg-[#F0F5F3] md:hidden overflow-x-hidden flex flex-col">
         {/* 1. Header Hijau di Belakang dengan Animasi Morphing ke Sudut Melengkung */}
         <motion.div
           initial={{ opacity: 0, y: -25 }}
@@ -582,6 +582,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
 
         {/* 2. Scrollable Container untuk Form Melayang (Floating Card Tanpa Strip & Header Ganda) */}
         <div
+          data-lenis-prevent="true"
           style={{
             paddingTop: "calc(205px + env(safe-area-inset-top, 0px))",
           }}
@@ -971,6 +972,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
       {/* B. TAMPILAN DESKTOP (>= md) - DUAL-PANEL SLIDING 100% UTUH   */}
       {/* ============================================================ */}
       <motion.div
+        data-lenis-prevent="true"
         animate={isLoggingIn ? { x: "100%", opacity: 0 } : { x: 0, opacity: 1 }}
         transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] as const }}
         className="hidden md:flex relative w-screen h-screen min-h-screen overflow-hidden select-none bg-white"
@@ -999,6 +1001,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         {/* SISI KIRI: Formulir Registrasi (63% Layar Penuh pada Desktop) */}
         {/* ============================================================ */}
         <motion.div
+          data-lenis-prevent="true"
           initial={{ opacity: 0 }}
           animate={
             isRegisterMode
@@ -1225,6 +1228,7 @@ export function AuthCard({ initialMode = "login" }: AuthCardProps) {
         {/* SISI KANAN: Formulir Login (63% Layar Penuh pada Desktop)    */}
         {/* ============================================================ */}
         <motion.div
+          data-lenis-prevent="true"
           initial={{ opacity: 0 }}
           animate={
             !isRegisterMode

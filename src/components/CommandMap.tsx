@@ -549,7 +549,7 @@ export default function CommandMap({
       </div>
 
       {/* Leaflet Container Element */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full z-0" />
     </div>
   );
 }

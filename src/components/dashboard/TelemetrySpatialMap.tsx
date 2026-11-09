@@ -1347,7 +1347,7 @@ function TelemetrySpatialMap() {
       {/* 1. BAGIAN ATAS (TINGGI 60-70VH): PETA SPASIAL KIRI & PANEL GRAFIK/STATUS KANAN */}
       <div className="w-full h-[62vh] min-h-[460px] max-h-[660px] p-3 md:p-5 pb-0 flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 shrink-0">
         {/* AREA PETA DOMINAN (COL-SPAN-7/8 DI DESKTOP - LEBAR ~65-70%) */}
-        <div className="relative w-full h-full md:col-span-7 lg:col-span-8 flex flex-col min-h-0 bg-slate-100 isolate z-0 rounded-2xl md:rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs">
+        <div data-lenis-prevent="true" className="relative w-full h-full md:col-span-7 lg:col-span-8 flex flex-col min-h-0 bg-slate-100 isolate z-0 rounded-2xl md:rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs">
           {/* Floating Top Control Bar di Atas Peta */}
         <div className="absolute top-3 inset-x-3 md:top-4 md:left-4 md:inset-x-auto z-[900] flex items-center justify-between md:justify-start gap-2 pointer-events-auto">
           <button
@@ -1386,7 +1386,7 @@ function TelemetrySpatialMap() {
         </div>
 
         {/* Leaflet Map Canvas */}
-        <div ref={mapContainerRef} className="w-full h-full flex-1 z-0" />
+        <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full flex-1 z-0" />
       </div>
 
         {/* 2. SOLID SIDE PANEL (DESKTOP: COL-SPAN-5/4 DENGAN LATAR SOLID BUKAN FLOATING) */}

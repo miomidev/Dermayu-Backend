@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -182,7 +183,12 @@ export const DEFAULT_DETAILED_WEATHER: DetailedWeatherData = {
 };
 
 export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanelProps) {
+  const [mounted, setMounted] = useState(false);
   const weather = data || DEFAULT_DETAILED_WEATHER;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Tutup dengan tombol Escape
   useEffect(() => {
@@ -469,18 +475,20 @@ export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanel
     </div>
   );
 
-  return (
+  if (!mounted || typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop Gelap dengan Blur */}
+          {/* Backdrop Gelap dengan Blur (Menutupi seluruh viewport termasuk AppHeader) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
             onClick={onClose}
-            className="fixed inset-0 z-[1100] bg-slate-900/40 backdrop-blur-xs pointer-events-auto cursor-pointer"
+            className="fixed inset-0 z-[9998] bg-slate-900/40 backdrop-blur-xs pointer-events-auto cursor-pointer"
             aria-label="Tutup Panel Cuaca"
           />
 
@@ -490,7 +498,7 @@ export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanel
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 280 }}
-            className="hidden md:flex flex-col fixed top-0 right-0 bottom-0 z-[1101] w-[420px] max-w-[90vw] bg-slate-50/95 backdrop-blur-xl border-l border-slate-200/90 shadow-2xl pointer-events-auto"
+            className="hidden md:flex flex-col fixed top-0 right-0 bottom-0 z-[9999] w-[420px] max-w-[90vw] bg-slate-50/98 backdrop-blur-xl border-l border-slate-200/90 shadow-2xl pointer-events-auto"
             role="dialog"
             aria-modal="true"
             aria-label="Detail Prakiraan Cuaca Indramayu"
@@ -513,7 +521,7 @@ export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanel
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 280 }}
-            className="md:hidden flex flex-col fixed inset-x-0 bottom-0 z-[1101] max-h-[88vh] bg-slate-50/98 backdrop-blur-xl border-t border-slate-200/90 shadow-2xl rounded-t-[32px] pointer-events-auto"
+            className="md:hidden flex flex-col fixed inset-x-0 bottom-0 z-[9999] max-h-[88vh] bg-slate-50/98 backdrop-blur-xl border-t border-slate-200/90 shadow-2xl rounded-t-[32px] pointer-events-auto"
             role="dialog"
             aria-modal="true"
             aria-label="Detail Prakiraan Cuaca Indramayu"
@@ -524,7 +532,8 @@ export function WeatherDetailPanel({ isOpen, onClose, data }: WeatherDetailPanel
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 

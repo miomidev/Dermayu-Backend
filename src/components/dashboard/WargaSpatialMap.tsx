@@ -8,6 +8,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
+import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
+import { WeatherDetailPanel } from "@/components/weather/WeatherDetailPanel";
+import { useWeatherData } from "@/components/weather/useWeatherData";
 import {
   Layers,
   MapPin,
@@ -902,6 +905,8 @@ function WargaSpatialMap({
   const [basemap, setBasemap] = useState<"streets" | "satellite">("streets");
   const [compassHeading, setCompassHeading] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isWeatherPanelOpen, setIsWeatherPanelOpen] = useState(false);
+  const { weatherData } = useWeatherData();
   const activeRouteLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Status Koneksi Internet & Mode Darurat Offline (PWA Offline-First)
@@ -1135,12 +1140,12 @@ function WargaSpatialMap({
   }, []);
 
   // Auto-expand card list posko setelah animasi page entry selesai
-  // Khusus desktop: selalu otomatis terbuka
-  // Khusus mobile di landing page non-auth (autoExpandPosko === false): manual (tidak auto-expand)
+  // Khusus desktop (>= 768px): otomatis terbuka
+  // Khusus mobile (< 768px): jangan otomatis terbuka (tetap ramping/tertutup agar peta terlihat penuh)
   useEffect(() => {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    if (isMobile && autoExpandPosko === false) {
-      return; // Tetap tertutup awal di mobile landing page non-auth
+    if (isMobile && !autoExpandPosko) {
+      return; // Tetap ramping & tertutup di mobile saat pertama kali buka halaman
     }
     const timer = setTimeout(() => setPoskoExpanded(true), 800);
     return () => clearTimeout(timer);
@@ -6109,20 +6114,33 @@ function WargaSpatialMap({
         <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full relative z-0" />
 
         {/* ============================================================== */}
-        {/* FLOATING CONTROLS (Tombol Laporan Banjir & Card Cuaca)          */}
+        {/* FLOATING CONTROLS (Card Cuaca Interaktif & Tombol Aksi)        */}
         {/* Mobile: Pojok Kiri Bawah (Di bawah tombol beralih ke satelit)   */}
         {/* Desktop: Pojok Kanan Atas                                       */}
         {/* ============================================================== */}
-        {topRightWidget && (
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
-            className="absolute bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 z-[1000] pointer-events-auto"
-          >
-            {topRightWidget}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+          className={`absolute z-[1000] pointer-events-auto transition-all duration-300 ease-out flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 ${
+            isDetailActive
+              ? sheetSnap === "full"
+                ? "hidden md:flex md:top-4 md:right-4"
+                : sheetSnap === "mid"
+                ? "bottom-[calc(42vh+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+                : "bottom-[calc(85px+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+              : "bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+          }`}
+        >
+          {topRightWidget ? (
+            topRightWidget
+          ) : (
+            <WeatherWidgetTrigger
+              weatherData={weatherData}
+              onClick={() => setIsWeatherPanelOpen(true)}
+            />
+          )}
+        </motion.div>
 
         {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}
@@ -7089,11 +7107,9 @@ function WargaSpatialMap({
               ? sheetSnap === "full"
                 ? "hidden"
                 : sheetSnap === "mid"
-                ? "bottom-[calc(42vh+76px)] flex"
-                : "bottom-[calc(64px+86px)] flex"
-              : topRightWidget
-              ? "bottom-[158px] flex"
-              : "bottom-20 flex"
+                ? "bottom-[calc(42vh+86px)] flex"
+                : "bottom-[calc(85px+86px)] flex"
+              : "bottom-[168px] flex"
           }`}
           aria-label="Kontrol Peta Sisi Kiri Bawah"
         >
@@ -7282,6 +7298,15 @@ function WargaSpatialMap({
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-slate-900/90 text-white text-xs font-semibold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-white/10 animate-in fade-in slide-in-from-top duration-200 max-w-sm text-center">
             <span>{toastMessage}</span>
           </div>
+        )}
+
+        {/* 6. PANEL CUACA DETAIL & INTERAKTIF (BOTTOM SHEET DI MOBILE / SIDE DRAWER DI DESKTOP) */}
+        {!topRightWidget && (
+          <WeatherDetailPanel
+            isOpen={isWeatherPanelOpen}
+            onClose={() => setIsWeatherPanelOpen(false)}
+            data={weatherData}
+          />
         )}
       </div>
     </div>

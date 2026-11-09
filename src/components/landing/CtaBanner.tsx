@@ -98,11 +98,10 @@ export function CtaBanner() {
               )
             ) : (
               <>
-                <a
-                  href="#download-apk"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("File instalasi DERMAYU .APK sedang disiapkan untuk rilis publik Kabupaten Indramayu.");
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open-apk-modal"));
                   }}
                   className="bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-medium px-6 py-3 rounded-full shadow-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer w-full sm:w-auto"
                 >
@@ -110,7 +109,7 @@ export function CtaBanner() {
                     <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9993.4486.9993 1.0003s-.4482 1.0003-.9993 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.411 13.8533 8.125 12 8.125c-1.8533 0-3.5902.286-5.1378.8247L4.84 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
                   </svg>
                   <span>Unduh .APK</span>
-                </a>
+                </button>
 
                 <button
                   type="button"

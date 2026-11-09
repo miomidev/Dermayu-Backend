@@ -8,6 +8,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
+import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
+import { WeatherDetailPanel } from "@/components/weather/WeatherDetailPanel";
+import { useWeatherData } from "@/components/weather/useWeatherData";
 import {
   Layers,
   MapPin,
@@ -211,6 +214,7 @@ export interface PetugasSpatialMapProps {
   onOpenReport?: () => void;
   onOpenContacts?: () => void;
   className?: string;
+  topRightWidget?: React.ReactNode;
 }
 
 export type WargaSpatialMapProps = PetugasSpatialMapProps;
@@ -822,6 +826,7 @@ function PetugasSpatialMap({
   onOpenReport,
   onOpenContacts,
   className = "",
+  topRightWidget,
 }: PetugasSpatialMapProps) {
   const rootContainerRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -859,13 +864,21 @@ function PetugasSpatialMap({
   const [basemap, setBasemap] = useState<"streets" | "satellite">("streets");
   const [compassHeading, setCompassHeading] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isWeatherPanelOpen, setIsWeatherPanelOpen] = useState(false);
+  const { weatherData } = useWeatherData();
   const activeRouteLayerRef = useRef<L.LayerGroup | null>(null);
 
   const [siagaExpanded, setSiagaExpanded] = useState(false);
   const [poskoExpanded, setPoskoExpanded] = useState(false);
 
-  // Auto-expand card list posko setelah animasi page entry selesai (jeda 800ms)
+  // Auto-expand card list posko setelah animasi page entry selesai
+  // Khusus desktop (>= 768px): otomatis terbuka
+  // Khusus mobile (< 768px): jangan otomatis terbuka (tetap ramping/tertutup agar peta terlihat penuh)
   useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    if (isMobile) {
+      return; // Tetap ramping & tertutup di mobile saat pertama kali buka halaman
+    }
     const timer = setTimeout(() => setPoskoExpanded(true), 800);
     return () => clearTimeout(timer);
   }, []);
@@ -6388,6 +6401,34 @@ function PetugasSpatialMap({
         <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full relative z-0" />
 
         {/* ============================================================== */}
+        {/* FLOATING CONTROLS (Card Cuaca Interaktif & Detail Panel)       */}
+        {/* Mobile: Pojok Kiri Bawah | Desktop: Pojok Kanan Atas           */}
+        {/* ============================================================== */}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+          className={`absolute z-[1000] pointer-events-auto transition-all duration-300 ease-out flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 ${
+            isDetailActive
+              ? sheetSnap === "full"
+                ? "hidden md:flex md:top-4 md:right-4"
+                : sheetSnap === "mid"
+                ? "bottom-[calc(42vh+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+                : "bottom-[calc(85px+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+              : "bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+          }`}
+        >
+          {topRightWidget ? (
+            topRightWidget
+          ) : (
+            <WeatherWidgetTrigger
+              weatherData={weatherData}
+              onClick={() => setIsWeatherPanelOpen(true)}
+            />
+          )}
+        </motion.div>
+
+        {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}
         {/* ============================================================== */}
         {!isNavigating && (
@@ -6975,9 +7016,9 @@ function PetugasSpatialMap({
               ? sheetSnap === "full"
                 ? "hidden"
                 : sheetSnap === "mid"
-                ? "bottom-[calc(42vh+76px)] flex"
-                : "bottom-[calc(64px+86px)] flex"
-              : "bottom-20 flex"
+                ? "bottom-[calc(42vh+86px)] flex"
+                : "bottom-[calc(85px+86px)] flex"
+              : "bottom-[168px] flex"
           }`}
           aria-label="Kontrol Peta Sisi Kiri Bawah"
         >
@@ -7200,6 +7241,15 @@ function PetugasSpatialMap({
             <span>{toastMessage}</span>
           </div>
         )}
+
+        {/* 6. PANEL CUACA DETAIL & INTERAKTIF (BOTTOM SHEET DI MOBILE / SIDE DRAWER DI DESKTOP) */}
+        {!topRightWidget && (
+          <WeatherDetailPanel
+            isOpen={isWeatherPanelOpen}
+            onClose={() => setIsWeatherPanelOpen(false)}
+            data={weatherData}
+          />
+        )}
       </div>
     </div>
   );
@@ -7217,5 +7267,6 @@ export default React.memo(PetugasSpatialMap, (prevProps, nextProps) => {
   if (prevProps.telemetry !== nextProps.telemetry && prevProps.telemetry?.length !== nextProps.telemetry?.length) {
     return false;
   }
+  if (prevProps.topRightWidget !== nextProps.topRightWidget) return false;
   return true;
 });

@@ -30,6 +30,7 @@ import {
   type DetailedWeatherData,
   DEFAULT_DETAILED_WEATHER,
 } from "@/components/weather/WeatherDetailPanel";
+import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
 
 // Fallback saat Leaflet Map sedang dimuat
 function MapLoadingFallback() {
@@ -333,27 +334,11 @@ export default function PetaSpasialPage() {
   const floatingTopRight = (
     <>
       {/* 1. CARD CUACA PROFESIONAL (TRIGGER DETAIL FORECAST) */}
-      {/* Mobile: Tampil di KIRI (order-1) | Desktop: Tampil di KANAN paling pojok (md:order-2) */}
-      <button
-        type="button"
+      <WeatherWidgetTrigger
+        className="order-1 md:order-2"
+        weatherData={weatherData}
         onClick={() => setIsWeatherPanelOpen(true)}
-        title={`Cuaca di Indramayu: ${weatherData?.kondisiSekarang || "Cerah Berawan"} (${weatherData?.suhu ?? 28}°C) — Klik untuk melihat prakiraan detail 24 jam & 7 hari`}
-        aria-label="Buka Detail Prakiraan Cuaca Indramayu"
-        className="order-1 md:order-2 bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-2xl shadow-lg p-2 sm:p-2.5 md:p-4 flex flex-col items-center justify-center min-w-[76px] sm:min-w-[88px] md:min-w-[100px] cursor-pointer hover:bg-slate-50 hover:border-slate-300 hover:shadow-xl hover:scale-[1.03] active:scale-95 transition-all shrink-0 select-none group"
-      >
-        {/* Ikon Lucide Profesional */}
-        {weatherIconNode}
-
-        {/* Suhu (Besar & Bold) */}
-        <span className="text-sm sm:text-base md:text-xl font-bold text-slate-800 leading-none tracking-tight group-hover:text-slate-900">
-          {weatherData?.suhu ?? 28}°C
-        </span>
-
-        {/* Label Kondisi Cuaca (Kecil / Medium) */}
-        <span className="text-[9.5px] sm:text-[11px] md:text-xs font-medium text-slate-600 mt-0.5 sm:mt-1 text-center whitespace-nowrap group-hover:text-slate-800">
-          {weatherData?.kondisiSekarang || "Cerah Berawan"}
-        </span>
-      </button>
+      />
 
       {/* 2. TOMBOL LAPORAN BANJIR */}
       {/* Mobile: Tampil di KANAN (order-2) | Desktop: Tampil di KIRI (md:order-1) */}

@@ -8,6 +8,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
+import { INITIAL_CITIZEN_REPORTS } from "@/data/citizenReports";
+import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
+import { WeatherDetailPanel } from "@/components/weather/WeatherDetailPanel";
+import { useWeatherData } from "@/components/weather/useWeatherData";
 import {
   Layers,
   MapPin,
@@ -905,6 +909,8 @@ function WargaSpatialMap({
   const [basemap, setBasemap] = useState<"streets" | "satellite">("streets");
   const [compassHeading, setCompassHeading] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isWeatherPanelOpen, setIsWeatherPanelOpen] = useState(false);
+  const { weatherData } = useWeatherData();
   const activeRouteLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Status Koneksi Internet & Mode Darurat Offline (PWA Offline-First)
@@ -1138,12 +1144,12 @@ function WargaSpatialMap({
   }, []);
 
   // Auto-expand card list posko setelah animasi page entry selesai
-  // Khusus desktop: selalu otomatis terbuka
-  // Khusus mobile di landing page non-auth (autoExpandPosko === false): manual (tidak auto-expand)
+  // Khusus desktop (>= 768px): otomatis terbuka
+  // Khusus mobile (< 768px): jangan otomatis terbuka (tetap ramping/tertutup agar peta terlihat penuh)
   useEffect(() => {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    if (isMobile && autoExpandPosko === false) {
-      return; // Tetap tertutup awal di mobile landing page non-auth
+    if (isMobile && !autoExpandPosko) {
+      return; // Tetap ramping & tertutup di mobile saat pertama kali buka halaman
     }
     const timer = setTimeout(() => setPoskoExpanded(true), 800);
     return () => clearTimeout(timer);
@@ -1635,35 +1641,118 @@ function WargaSpatialMap({
     }
   }, []);
 
-  // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor
-  const hasFocusedAduanRef = useRef(false);
+  // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor atau Daftar Aduan
+  const lastFocusedKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!mapInstanceRef.current || hasFocusedAduanRef.current) return;
+    if (!focusReportId && !focusCoords) return;
+    const focusKey = `${focusReportId || ""}_${focusCoords?.lat || ""}_${focusCoords?.lng || ""}`;
+    if (lastFocusedKeyRef.current === focusKey) return;
+
     if (focusReportId || focusCoords || focusShelterId) {
       initialGpsFittedRef.current = true; // Jangan timpa fokus aduan/posko dengan fit GPS default
     }
-    if (focusReportId && reports && reports.length > 0) {
-      const target = reports.find(
+
+    const tryFocus = () => {
+      const map = mapInstanceRef.current;
+      if (!map) return false;
+
+      // 1. Cari target dari props reports
+      let target = (reports || []).find(
         (r) => r.id === focusReportId || r.ticketCode === focusReportId
       );
+
+      // 2. Jika tidak ditemukan di props, cari di INITIAL_CITIZEN_REPORTS
+      if (!target && focusReportId) {
+        const foundCitizen = INITIAL_CITIZEN_REPORTS.find(
+          (c) => c.id === focusReportId
+        );
+        if (foundCitizen) {
+          target = {
+            id: foundCitizen.id,
+            ticketCode: foundCitizen.id,
+            title: foundCitizen.title,
+            category: "Genangan Banjir",
+            severity:
+              foundCitizen.status === "PENANGANAN"
+                ? "HIGH"
+                : foundCitizen.status === "DIVERIFIKASI"
+                ? "MEDIUM"
+                : "LOW",
+            waterLevelText: foundCitizen.waterLevelText,
+            status:
+              foundCitizen.status === "PENANGANAN"
+                ? "Regu SAR Menuju Lokasi"
+                : "Terverifikasi Siaga Posko",
+            location: foundCitizen.location,
+            lat: foundCitizen.lat,
+            lng: foundCitizen.lng,
+            timeAgo: foundCitizen.timeAgo,
+            photos: foundCitizen.photoUrl ? [foundCitizen.photoUrl] : [],
+            photoUrl: foundCitizen.photoUrl,
+            note: foundCitizen.statusNote,
+            urgentNeeds: ["Bantuan Logistik"],
+          };
+        }
+      }
+
+      // 3. Jika masih belum ditemukan tapi ada koordinat, buat fallback titik aduan
+      if (!target && focusCoords) {
+        target = {
+          id: focusReportId || `LOC-${focusCoords.lat}-${focusCoords.lng}`,
+          ticketCode: focusReportId || "ADUAN",
+          title: "Titik Lokasi Aduan Terpilih",
+          location: "Kawasan Terpantau Indramayu",
+          category: "Genangan Banjir",
+          severity: "HIGH",
+          waterLevelText: "Dalam Pemantauan",
+          status: "Terverifikasi Aktif",
+          lat: focusCoords.lat,
+          lng: focusCoords.lng,
+          timeAgo: "Terkini",
+          photos: [],
+        };
+      }
+
       if (target) {
-        hasFocusedAduanRef.current = true;
+        lastFocusedKeyRef.current = focusKey;
         setActiveReportDetail(target);
         setActiveShelterDetail(null);
         setActiveTelemetryDetail(null);
         setSelectedMarker({ type: "report", data: target });
         setPoskoExpanded(true);
         setSheetSnap("mid");
-        mapInstanceRef.current.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
         if (onSelectReport) onSelectReport(target);
-        return;
+        return true;
       }
-    }
-    if (focusCoords && focusCoords.lat && focusCoords.lng) {
-      hasFocusedAduanRef.current = true;
-      mapInstanceRef.current.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
-    }
-  }, [focusReportId, focusCoords, reports, onSelectReport]);
+
+      if (focusCoords) {
+        lastFocusedKeyRef.current = focusKey;
+        map.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
+        return true;
+      }
+
+      return false;
+    };
+
+    if (tryFocus()) return;
+
+    // Retry dengan interval sampai map Leaflet siap di-mount (maksimal 3.5 detik)
+    const interval = setInterval(() => {
+      if (tryFocus()) {
+        clearInterval(interval);
+      }
+    }, 150);
+
+    const timer = setTimeout(() => {
+      clearInterval(interval);
+    }, 3500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, [focusReportId, focusCoords?.lat, focusCoords?.lng, reports, onSelectReport]);
 
   // Kalkulasi jarak real-time & Skema 5-Level Tiering Posko (LoD by Zoom Level)
   const processedShelters = useMemo(() => {
@@ -6148,20 +6237,33 @@ function WargaSpatialMap({
         <div ref={mapContainerRef} data-lenis-prevent="true" className="w-full h-full relative z-0" />
 
         {/* ============================================================== */}
-        {/* FLOATING CONTROLS (Tombol Laporan Banjir & Card Cuaca)          */}
+        {/* FLOATING CONTROLS (Card Cuaca Interaktif & Tombol Aksi)        */}
         {/* Mobile: Pojok Kiri Bawah (Di bawah tombol beralih ke satelit)   */}
         {/* Desktop: Pojok Kanan Atas                                       */}
         {/* ============================================================== */}
-        {topRightWidget && (
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
-            className="absolute bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 z-[1000] pointer-events-auto"
-          >
-            {topRightWidget}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+          className={`absolute z-[1000] pointer-events-auto transition-all duration-300 ease-out flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 ${
+            isDetailActive
+              ? sheetSnap === "full"
+                ? "hidden md:flex md:top-4 md:right-4"
+                : sheetSnap === "mid"
+                ? "bottom-[calc(42vh+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+                : "bottom-[calc(85px+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+              : "bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+          }`}
+        >
+          {topRightWidget ? (
+            topRightWidget
+          ) : (
+            <WeatherWidgetTrigger
+              weatherData={weatherData}
+              onClick={() => setIsWeatherPanelOpen(true)}
+            />
+          )}
+        </motion.div>
 
         {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}
@@ -7128,11 +7230,9 @@ function WargaSpatialMap({
               ? sheetSnap === "full"
                 ? "hidden"
                 : sheetSnap === "mid"
-                ? "bottom-[calc(42vh+76px)] flex"
-                : "bottom-[calc(64px+86px)] flex"
-              : topRightWidget
-              ? "bottom-[158px] flex"
-              : "bottom-20 flex"
+                ? "bottom-[calc(42vh+86px)] flex"
+                : "bottom-[calc(85px+86px)] flex"
+              : "bottom-[168px] flex"
           }`}
           aria-label="Kontrol Peta Sisi Kiri Bawah"
         >
@@ -7321,6 +7421,15 @@ function WargaSpatialMap({
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-slate-900/90 text-white text-xs font-semibold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-white/10 animate-in fade-in slide-in-from-top duration-200 max-w-sm text-center">
             <span>{toastMessage}</span>
           </div>
+        )}
+
+        {/* 6. PANEL CUACA DETAIL & INTERAKTIF (BOTTOM SHEET DI MOBILE / SIDE DRAWER DI DESKTOP) */}
+        {!topRightWidget && (
+          <WeatherDetailPanel
+            isOpen={isWeatherPanelOpen}
+            onClose={() => setIsWeatherPanelOpen(false)}
+            data={weatherData}
+          />
         )}
       </div>
     </div>

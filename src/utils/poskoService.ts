@@ -9,7 +9,7 @@ export interface PoskoRecord extends PoskoItem {
   photos?: string[];
 }
 
-const STORAGE_KEY = "dermayu_posko_simulated_v1";
+const STORAGE_KEY = "dermayu_posko_simulated_v3";
 
 const INDO_FIRST_NAMES_L = [
   "Ahmad", "Budi", "Dedi", "Eko", "Hendra", "Kusnan", "Lukman", "Rahmat", "Slamet", "Ujang",
@@ -180,6 +180,18 @@ export function getAllPosko(): PoskoRecord[] {
   }
 
   try {
+    // Bersihkan cache versi lama jika ada
+    try {
+      if (localStorage.getItem("dermayu_posko_simulated_v1")) {
+        localStorage.removeItem("dermayu_posko_simulated_v1");
+      }
+      if (localStorage.getItem("dermayu_posko_simulated_v2")) {
+        localStorage.removeItem("dermayu_posko_simulated_v2");
+      }
+    } catch {
+      // ignore
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial = getInitialPoskoDataset();
@@ -188,6 +200,7 @@ export function getAllPosko(): PoskoRecord[] {
     }
     const parsed: PoskoRecord[] = JSON.parse(raw);
     let hasContaminatedData = false;
+    const curatedMap = new Map(CURATED_POSKO_LIST.map((item) => [item.id, item]));
 
     // Pastikan setiap posko mempertahankan jumlah foto persis sesuai input user dan memiliki atribut valid
     const enriched = (Array.isArray(parsed) ? parsed : [])
@@ -207,6 +220,22 @@ export function getAllPosko(): PoskoRecord[] {
         // Bersihkan foto default.jpg jika ada
         if (photos && photos.length > 0) {
           photos = photos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
+        }
+
+        // Sinkronisasi foto resmi Kemendikdasmen dan koordinat GPS presisi dari dataset kurasi
+        const curated = curatedMap.get(p.id);
+        if (curated) {
+          if (curated.foto && curated.foto.startsWith("https://file.data.kemendikdasmen.go.id")) {
+            if (p.foto !== curated.foto || !photos || photos.length !== 1 || photos[0] !== curated.foto) {
+              photos = [curated.foto];
+              hasContaminatedData = true;
+            }
+          }
+          if (p.lat !== curated.lat || p.lng !== curated.lng) {
+            p.lat = curated.lat;
+            p.lng = curated.lng;
+            hasContaminatedData = true;
+          }
         }
 
         // Jika photos kosong atau tidak ada, gunakan p.foto asli

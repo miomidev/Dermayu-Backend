@@ -67,8 +67,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Pantura Kandanghaur No. 12",
     "kecamatan": "Kandanghaur",
-    "lat": -6.356,
-    "lng": 108.138,
+    "lat": -6.3463,
+    "lng": 108.0991,
     "kapasitas": 500,
     "terisi": 210,
     "status": "TERSEDIA",
@@ -82,7 +82,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Sukardi",
       "telp": "0812-2201-9011"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216003-43.jpg",
     "tier": 1
   },
   {
@@ -91,8 +91,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Babakan Ilir No. 04, Kandanghaur",
     "kecamatan": "Kandanghaur",
-    "lat": -6.3585,
-    "lng": 108.142,
+    "lat": -6.3613,
+    "lng": 108.1135,
     "kapasitas": 320,
     "terisi": 150,
     "status": "TERSEDIA",
@@ -105,7 +105,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Siti Maryam",
       "telp": "0813-8890-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216078-19.jpg",
     "tier": 2
   },
   {
@@ -114,8 +114,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Wirapanjunan No. 15",
     "kecamatan": "Kandanghaur",
-    "lat": -6.362,
-    "lng": 108.146,
+    "lat": -6.3978,
+    "lng": 108.1027,
     "kapasitas": 260,
     "terisi": 95,
     "status": "TERSEDIA",
@@ -128,7 +128,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Bambang Sutopo",
       "telp": "0852-7711-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2024/20241299-5.jpg",
     "tier": 3
   },
   {
@@ -137,8 +137,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Dataran Aman Ilir No. 20",
     "kecamatan": "Kandanghaur",
-    "lat": -6.352,
-    "lng": 108.141,
+    "lat": -6.3458,
+    "lng": 108.0996,
     "kapasitas": 180,
     "terisi": 160,
     "status": "HAMPIR_PENUH",
@@ -151,7 +151,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Nurhasanah, S.Pd",
       "telp": "0813-9876-5432"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216915-7.jpg",
     "tier": 3
   },
   {
@@ -324,8 +324,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Pertanian Eretan Kulon",
     "kecamatan": "Kandanghaur",
-    "lat": -6.346,
-    "lng": 108.112,
+    "lat": -6.334,
+    "lng": 108.089,
     "kapasitas": 350,
     "terisi": 180,
     "status": "TERSEDIA",
@@ -338,7 +338,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. Tarmidi",
       "telp": "0853-1122-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215952-4.jpg",
     "tier": 2
   },
   {
@@ -347,8 +347,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Selatan Eretan Wetan",
     "kecamatan": "Kandanghaur",
-    "lat": -6.348,
-    "lng": 108.126,
+    "lat": -6.3282,
+    "lng": 108.085,
     "kapasitas": 200,
     "terisi": 110,
     "status": "TERSEDIA",
@@ -361,7 +361,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Sumarni, S.Pd",
       "telp": "0878-9900-2211"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216791-6.jpg",
     "tier": 3
   },
   {
@@ -370,8 +370,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Pemukiman Mandiri Eretan Kulon",
     "kecamatan": "Kandanghaur",
-    "lat": -6.342,
-    "lng": 108.11,
+    "lat": -6.32099,
+    "lng": 108.072877,
     "kapasitas": 180,
     "terisi": 95,
     "status": "TERSEDIA",
@@ -384,7 +384,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Caswita",
       "telp": "0812-7788-9900"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216796-9.jpg",
     "tier": 4
   },
   {
@@ -407,7 +407,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ust. Syarifudin",
       "telp": "0822-1133-5577"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/70/7001/70015475-2.jpg",
     "tier": 4
   },
   {
@@ -462,8 +462,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Cantigi Daratan No. 10",
     "kecamatan": "Cantigi",
-    "lat": -6.29,
-    "lng": 108.269,
+    "lat": -6.3298,
+    "lng": 108.2284,
     "kapasitas": 400,
     "terisi": 180,
     "status": "TERSEDIA",
@@ -477,7 +477,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. Harsono",
       "telp": "0812-3300-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6986/69867943-1.jpg",
     "tier": 2
   },
   {
@@ -486,8 +486,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Ki Hajar Dewantara No. 04, Cantigi",
     "kecamatan": "Cantigi",
-    "lat": -6.288,
-    "lng": 108.265,
+    "lat": -6.344,
+    "lng": 108.2382,
     "kapasitas": 250,
     "terisi": 210,
     "status": "HAMPIR_PENUH",
@@ -500,7 +500,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Hendra (Satlak)",
       "telp": "0852-7711-9022"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216084-11.jpg",
     "tier": 2
   },
   {
@@ -509,8 +509,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Cangkring Cantigi",
     "kecamatan": "Cantigi",
-    "lat": -6.294,
-    "lng": 108.262,
+    "lat": -6.3467,
+    "lng": 108.2468,
     "kapasitas": 180,
     "terisi": 80,
     "status": "TERSEDIA",
@@ -523,7 +523,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Rodiah",
       "telp": "0877-1122-4466"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216336-13.jpg",
     "tier": 4
   },
   {
@@ -532,8 +532,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Tanggul Luar Cemara Cantigi",
     "kecamatan": "Cantigi",
-    "lat": -6.282,
-    "lng": 108.275,
+    "lat": -6.3353,
+    "lng": 108.1853,
     "kapasitas": 160,
     "terisi": 70,
     "status": "TERSEDIA",
@@ -546,7 +546,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Suhendar",
       "telp": "0813-8899-0011"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6981/69819511-2.jpg",
     "tier": 4
   },
   {
@@ -624,8 +624,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Pasekan No. 22",
     "kecamatan": "Pasekan",
-    "lat": -6.318,
-    "lng": 108.305,
+    "lat": -6.3036,
+    "lng": 108.3263,
     "kapasitas": 320,
     "terisi": 130,
     "status": "TERSEDIA",
@@ -638,7 +638,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. H. Maman",
       "telp": "0813-3344-5566"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216036-3.jpg",
     "tier": 2
   },
   {
@@ -647,8 +647,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Desa Pasekan Poros Tengah",
     "kecamatan": "Pasekan",
-    "lat": -6.321,
-    "lng": 108.302,
+    "lat": -6.3033,
+    "lng": 108.3286,
     "kapasitas": 200,
     "terisi": 90,
     "status": "TERSEDIA",
@@ -661,7 +661,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Eni Rohaeni",
       "telp": "0852-6677-8811"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215920-5.jpg",
     "tier": 3
   },
   {
@@ -670,8 +670,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Dataran Aman Pabean Pasekan",
     "kecamatan": "Pasekan",
-    "lat": -6.309,
-    "lng": 108.315,
+    "lat": -6.2874,
+    "lng": 108.3161,
     "kapasitas": 170,
     "terisi": 110,
     "status": "TERSEDIA",
@@ -684,7 +684,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Sudirman",
       "telp": "0878-1122-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215802-4.jpg",
     "tier": 4
   },
   {
@@ -762,8 +762,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Sukaurip No. 10, Balongan",
     "kecamatan": "Balongan",
-    "lat": -6.382,
-    "lng": 108.375,
+    "lat": -6.3647,
+    "lng": 108.335,
     "kapasitas": 500,
     "terisi": 190,
     "status": "TERSEDIA",
@@ -777,7 +777,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Kasmuri",
       "telp": "0812-4455-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6995/69957365-2.jpg",
     "tier": 1
   },
   {
@@ -786,8 +786,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Balongan KM 08",
     "kecamatan": "Balongan",
-    "lat": -6.378,
-    "lng": 108.37,
+    "lat": -6.3604,
+    "lng": 108.3735,
     "kapasitas": 300,
     "terisi": 120,
     "status": "TERSEDIA",
@@ -800,7 +800,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Tati",
       "telp": "0853-2211-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216087-14.jpg",
     "tier": 2
   },
   {
@@ -809,8 +809,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Rawadalem No. 04",
     "kecamatan": "Balongan",
-    "lat": -6.385,
-    "lng": 108.368,
+    "lat": -6.4229,
+    "lng": 108.3667,
     "kapasitas": 190,
     "terisi": 80,
     "status": "TERSEDIA",
@@ -823,7 +823,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Warsidi",
       "telp": "0878-5544-3322"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6997/69979465-2.jpg",
     "tier": 4
   },
   {
@@ -878,8 +878,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Celancang No. 05, Lohbener",
     "kecamatan": "Lohbener",
-    "lat": -6.398,
-    "lng": 108.281,
+    "lat": -6.3981,
+    "lng": 108.2836,
     "kapasitas": 550,
     "terisi": 210,
     "status": "TERSEDIA",
@@ -893,7 +893,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Ridwan",
       "telp": "0812-7711-2233"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2023/20233752-12.jpg",
     "tier": 1
   },
   {
@@ -902,8 +902,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Lohbener Timur No. 12",
     "kecamatan": "Lohbener",
-    "lat": -6.402,
-    "lng": 108.286,
+    "lat": -6.3923,
+    "lng": 108.288,
     "kapasitas": 320,
     "terisi": 140,
     "status": "TERSEDIA",
@@ -916,7 +916,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Wartini, M.Pd",
       "telp": "0813-6655-4433"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216031-3.jpg",
     "tier": 2
   },
   {
@@ -925,8 +925,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Kiajaran No. 08",
     "kecamatan": "Lohbener",
-    "lat": -6.408,
-    "lng": 108.275,
+    "lat": -6.3902,
+    "lng": 108.2255,
     "kapasitas": 200,
     "terisi": 85,
     "status": "TERSEDIA",
@@ -939,7 +939,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Sunaryo",
       "telp": "0852-1144-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216713-6.jpg",
     "tier": 4
   },
   {
@@ -1018,8 +1018,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. MT Haryono No. 15, Sindang",
     "kecamatan": "Sindang",
-    "lat": -6.332,
-    "lng": 108.318,
+    "lat": -6.3457,
+    "lng": 108.3017,
     "kapasitas": 420,
     "terisi": 180,
     "status": "TERSEDIA",
@@ -1032,7 +1032,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Suwarto",
       "telp": "0812-4433-2211"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216029-16.jpg",
     "tier": 2
   },
   {
@@ -1041,8 +1041,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Mayor Dasuki No. 09, Sindang",
     "kecamatan": "Sindang",
-    "lat": -6.339,
-    "lng": 108.309,
+    "lat": -6.3138,
+    "lng": 108.3179,
     "kapasitas": 220,
     "terisi": 95,
     "status": "TERSEDIA",
@@ -1055,7 +1055,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Sri Rahayu",
       "telp": "0877-5566-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216287-20.jpg",
     "tier": 3
   },
   {
@@ -1157,8 +1157,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Mayor Dasuki No. 45, Indramayu Kota",
     "kecamatan": "Indramayu",
-    "lat": -6.326,
-    "lng": 108.33,
+    "lat": -6.3536,
+    "lng": 108.3235,
     "kapasitas": 600,
     "terisi": 240,
     "status": "TERSEDIA",
@@ -1172,7 +1172,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Mulyadi",
       "telp": "0812-1122-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215980-10.jpg",
     "tier": 1
   },
   {
@@ -1181,8 +1181,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. S. Parman No. 18, Indramayu Kota",
     "kecamatan": "Indramayu",
-    "lat": -6.329,
-    "lng": 108.334,
+    "lat": -6.3212,
+    "lng": 108.3285,
     "kapasitas": 350,
     "terisi": 130,
     "status": "TERSEDIA",
@@ -1195,7 +1195,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Aminah",
       "telp": "0813-4455-6677"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216018-3.jpg",
     "tier": 2
   },
   {
@@ -1297,8 +1297,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Kertasmaya No. 10",
     "kecamatan": "Kertasmaya",
-    "lat": -6.528,
-    "lng": 108.338,
+    "lat": -6.5391,
+    "lng": 108.3523,
     "kapasitas": 500,
     "terisi": 190,
     "status": "TERSEDIA",
@@ -1312,7 +1312,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Bahrudin",
       "telp": "0812-5566-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215985-3.jpg",
     "tier": 1
   },
   {
@@ -1321,8 +1321,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Lapangan Bola Kertasmaya",
     "kecamatan": "Kertasmaya",
-    "lat": -6.531,
-    "lng": 108.341,
+    "lat": -6.5508,
+    "lng": 108.3518,
     "kapasitas": 320,
     "terisi": 150,
     "status": "TERSEDIA",
@@ -1335,7 +1335,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Nining",
       "telp": "0853-4455-6677"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216055-12.jpg",
     "tier": 2
   },
   {
@@ -1344,8 +1344,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Desa Kertasmaya",
     "kecamatan": "Kertasmaya",
-    "lat": -6.533,
-    "lng": 108.344,
+    "lat": -6.5313,
+    "lng": 108.3537,
     "kapasitas": 190,
     "terisi": 85,
     "status": "TERSEDIA",
@@ -1358,7 +1358,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Suwarna",
       "telp": "0878-1133-5577"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216722-4.jpg",
     "tier": 4
   },
   {
@@ -1413,8 +1413,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Mayor Dasuki No. 80, Jatibarang",
     "kecamatan": "Jatibarang",
-    "lat": -6.468,
-    "lng": 108.318,
+    "lat": -6.4273,
+    "lng": 108.2974,
     "kapasitas": 600,
     "terisi": 220,
     "status": "TERSEDIA",
@@ -1428,7 +1428,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Taryono",
       "telp": "0812-8899-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2023/20233761-11.jpg",
     "tier": 1
   },
   {
@@ -1437,8 +1437,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Siliwangi No. 25, Jatibarang",
     "kecamatan": "Jatibarang",
-    "lat": -6.474,
-    "lng": 108.314,
+    "lat": -6.4781,
+    "lng": 108.3048,
     "kapasitas": 380,
     "terisi": 160,
     "status": "TERSEDIA",
@@ -1451,7 +1451,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Rohanah",
       "telp": "0813-7788-2211"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216080-16.jpg",
     "tier": 2
   },
   {
@@ -1529,8 +1529,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Tukdana No. 12",
     "kecamatan": "Tukdana",
-    "lat": -6.502,
-    "lng": 108.272,
+    "lat": -6.5519,
+    "lng": 108.2824,
     "kapasitas": 300,
     "terisi": 110,
     "status": "TERSEDIA",
@@ -1543,7 +1543,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Sukamto",
       "telp": "0852-4455-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216086-3.jpg",
     "tier": 2
   },
   {
@@ -1552,8 +1552,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Kerticala No. 06",
     "kecamatan": "Tukdana",
-    "lat": -6.508,
-    "lng": 108.276,
+    "lat": -6.5661,
+    "lng": 108.3063,
     "kapasitas": 180,
     "terisi": 75,
     "status": "TERSEDIA",
@@ -1566,7 +1566,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Warsih",
       "telp": "0877-6655-4433"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216363-1.jpg",
     "tier": 4
   },
   {
@@ -1621,8 +1621,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Bangodua No. 20",
     "kecamatan": "Bangodua",
-    "lat": -6.518,
-    "lng": 108.298,
+    "lat": -6.5091,
+    "lng": 108.2909,
     "kapasitas": 320,
     "terisi": 125,
     "status": "TERSEDIA",
@@ -1635,7 +1635,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Darwanto",
       "telp": "0812-6655-4422"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216024-3.jpg",
     "tier": 2
   },
   {
@@ -1690,8 +1690,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Bantarwaru No. 09, Haurgeulis",
     "kecamatan": "Haurgeulis",
-    "lat": -6.458,
-    "lng": 107.972,
+    "lat": -6.4655,
+    "lng": 107.9306,
     "kapasitas": 520,
     "terisi": 180,
     "status": "TERSEDIA",
@@ -1705,7 +1705,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Komarudin",
       "telp": "0812-7788-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215981-32.jpg",
     "tier": 1
   },
   {
@@ -1761,8 +1761,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Gantar No. 08, Gantar",
     "kecamatan": "Gantar",
-    "lat": -6.521,
-    "lng": 107.985,
+    "lat": -6.5059,
+    "lng": 107.9661,
     "kapasitas": 450,
     "terisi": 160,
     "status": "TERSEDIA",
@@ -1775,7 +1775,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Warsito",
       "telp": "0812-8877-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2023/20233760-6.jpg",
     "tier": 2
   },
   {
@@ -1784,8 +1784,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Mekarwaru No. 04, Gantar",
     "kecamatan": "Gantar",
-    "lat": -6.528,
-    "lng": 107.992,
+    "lat": -6.5185,
+    "lng": 107.975,
     "kapasitas": 260,
     "terisi": 95,
     "status": "TERSEDIA",
@@ -1798,7 +1798,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Dra. Warsini",
       "telp": "0852-6677-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216069-2.jpg",
     "tier": 3
   },
   {
@@ -1830,8 +1830,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Lempuyang No. 05, Anjatan",
     "kecamatan": "Anjatan",
-    "lat": -6.425,
-    "lng": 108.028,
+    "lat": -6.3738,
+    "lng": 107.9574,
     "kapasitas": 500,
     "terisi": 210,
     "status": "TERSEDIA",
@@ -1845,7 +1845,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Casmita",
       "telp": "0812-3344-9988"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215984-3.jpg",
     "tier": 1
   },
   {
@@ -1854,8 +1854,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Anjatan Utara No. 14",
     "kecamatan": "Anjatan",
-    "lat": -6.428,
-    "lng": 108.032,
+    "lat": -6.3784,
+    "lng": 107.9596,
     "kapasitas": 320,
     "terisi": 120,
     "status": "TERSEDIA",
@@ -1868,7 +1868,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Endang",
       "telp": "0813-9988-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216089-3.jpg",
     "tier": 2
   },
   {
@@ -1900,8 +1900,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Pantura Sukra No. 10",
     "kecamatan": "Sukra",
-    "lat": -6.312,
-    "lng": 108.015,
+    "lat": -6.3093,
+    "lng": 107.975,
     "kapasitas": 480,
     "terisi": 190,
     "status": "TERSEDIA",
@@ -1914,7 +1914,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Mulyono",
       "telp": "0812-4455-6611"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2025/20255284-11.jpg",
     "tier": 1
   },
   {
@@ -1923,8 +1923,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Pertanian Sukra No. 07",
     "kecamatan": "Sukra",
-    "lat": -6.316,
-    "lng": 108.019,
+    "lat": -6.2849,
+    "lng": 107.9332,
     "kapasitas": 280,
     "terisi": 100,
     "status": "TERSEDIA",
@@ -1937,7 +1937,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Karsono",
       "telp": "0853-2233-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2026/20264416-3.jpg",
     "tier": 3
   },
   {
@@ -1969,8 +1969,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Gabuswetan No. 12",
     "kecamatan": "Gabuswetan",
-    "lat": -6.442,
-    "lng": 108.165,
+    "lat": -6.4389,
+    "lng": 108.0756,
     "kapasitas": 500,
     "terisi": 185,
     "status": "TERSEDIA",
@@ -1984,7 +1984,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Sudrajat",
       "telp": "0812-6677-1199"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6995/69954820-5.jpg",
     "tier": 1
   },
   {
@@ -2039,8 +2039,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Kroya No. 08, Kroya",
     "kecamatan": "Kroya",
-    "lat": -6.502,
-    "lng": 108.125,
+    "lat": -6.4655,
+    "lng": 108.053,
     "kapasitas": 460,
     "terisi": 170,
     "status": "TERSEDIA",
@@ -2053,7 +2053,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Tarsono",
       "telp": "0812-3311-5577"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6998/69983816-1.jpg",
     "tier": 2
   },
   {
@@ -2062,8 +2062,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Lapangan Olahraga Kroya",
     "kecamatan": "Kroya",
-    "lat": -6.506,
-    "lng": 108.128,
+    "lat": -6.4996,
+    "lng": 108.047,
     "kapasitas": 280,
     "terisi": 95,
     "status": "TERSEDIA",
@@ -2076,7 +2076,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Hj. Aminah",
       "telp": "0852-7766-1133"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216053-14.jpg",
     "tier": 3
   },
   {
@@ -2108,8 +2108,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Lelea No. 04, Lelea",
     "kecamatan": "Lelea",
-    "lat": -6.445,
-    "lng": 108.245,
+    "lat": -6.4438,
+    "lng": 108.2524,
     "kapasitas": 480,
     "terisi": 160,
     "status": "TERSEDIA",
@@ -2122,7 +2122,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Wawan",
       "telp": "0812-8811-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/69/6982/69821149-2.jpg",
     "tier": 2
   },
   {
@@ -2131,8 +2131,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Poros Pendidikan Lelea No. 12",
     "kecamatan": "Lelea",
-    "lat": -6.4465,
-    "lng": 108.2465,
+    "lat": -6.4149,
+    "lng": 108.2538,
     "kapasitas": 300,
     "terisi": 110,
     "status": "TERSEDIA",
@@ -2145,7 +2145,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Rastika, S.Pd",
       "telp": "0853-1144-8822"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216032-4.jpg",
     "tier": 3
   },
   {
@@ -2177,8 +2177,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Sleman No. 09, Sliyeg",
     "kecamatan": "Sliyeg",
-    "lat": -6.462,
-    "lng": 108.362,
+    "lat": -6.477,
+    "lng": 108.3231,
     "kapasitas": 500,
     "terisi": 195,
     "status": "TERSEDIA",
@@ -2192,7 +2192,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Kasmad",
       "telp": "0812-9900-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20215992-7.jpg",
     "tier": 1
   },
   {
@@ -2201,8 +2201,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Sliyeg Timur No. 15",
     "kecamatan": "Sliyeg",
-    "lat": -6.466,
-    "lng": 108.368,
+    "lat": -6.454,
+    "lng": 108.3574,
     "kapasitas": 300,
     "terisi": 110,
     "status": "TERSEDIA",
@@ -2215,7 +2215,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Dra. Hj. Siti",
       "telp": "0852-3322-1177"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216028-33.jpg",
     "tier": 3
   },
   {
@@ -2247,8 +2247,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Segeran No. 05, Juntinyuat",
     "kecamatan": "Juntinyuat",
-    "lat": -6.425,
-    "lng": 108.425,
+    "lat": -6.4291,
+    "lng": 108.4372,
     "kapasitas": 520,
     "terisi": 180,
     "status": "TERSEDIA",
@@ -2261,7 +2261,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Masruhin",
       "telp": "0812-5544-2211"
     },
-    "foto": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2026/20264424-9.jpg",
     "tier": 1
   },
   {
@@ -2270,8 +2270,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Raya Juntikebon No. 12",
     "kecamatan": "Juntinyuat",
-    "lat": -6.431,
-    "lng": 108.431,
+    "lat": -6.4445,
+    "lng": 108.4478,
     "kapasitas": 310,
     "terisi": 115,
     "status": "TERSEDIA",
@@ -2284,7 +2284,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak H. Supriadi",
       "telp": "0813-7766-3322"
     },
-    "foto": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216079-8.jpg",
     "tier": 3
   },
   {
@@ -2316,8 +2316,8 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "kategori": "sekolah",
     "alamat": "Jl. Dampuawangi No. 01, Karangampel",
     "kecamatan": "Karangampel",
-    "lat": -6.471,
-    "lng": 108.442,
+    "lat": -6.4641,
+    "lng": 108.4525,
     "kapasitas": 550,
     "terisi": 230,
     "status": "TERSEDIA",
@@ -2331,7 +2331,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. H. Suwito",
       "telp": "0812-3377-9911"
     },
-    "foto": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://file.data.kemendikdasmen.go.id/sekolahkita/20/2021/20216203-3.jpg",
     "tier": 1
   },
   {

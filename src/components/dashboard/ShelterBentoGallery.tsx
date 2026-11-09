@@ -67,6 +67,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
               alt={name}
               className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
               loading="lazy"
+              referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
               <span className="p-2 rounded-full bg-slate-900/75 text-white backdrop-blur-2xs shadow-md">
@@ -89,6 +90,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                 alt={`${name} 1`}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                 loading="lazy"
+                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <span className="p-2 rounded-full bg-slate-900/75 text-white backdrop-blur-2xs shadow-md">
@@ -106,6 +108,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                 alt={`${name} 2`}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                 loading="lazy"
+                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <span className="p-2 rounded-full bg-slate-900/75 text-white backdrop-blur-2xs shadow-md">
@@ -130,6 +133,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                 alt={name}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                 loading="lazy"
+                referrerPolicy="no-referrer"
               />
               <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-slate-900/70 backdrop-blur-xs text-[9px] font-bold text-white tracking-wide">
                 Utama
@@ -154,6 +158,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                   alt={`${name} 2`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <span className="p-1 rounded-full bg-slate-900/75 text-white backdrop-blur-2xs shadow-md">
@@ -173,6 +178,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                   alt={`${name} 3`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
                 {displayPhotos.length > 3 ? (
                   <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-2xs flex flex-col items-center justify-center transition-colors group-hover:bg-slate-950/75 text-white">
@@ -234,6 +240,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
               src={displayPhotos[lightboxIndex]}
               alt={`${name} - Foto ${lightboxIndex + 1}`}
               className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+              referrerPolicy="no-referrer"
             />
 
             {displayPhotos.length > 1 && (
@@ -289,7 +296,7 @@ export const ShelterBentoGallery: React.FC<ShelterBentoGalleryProps> = ({
                       : "border-white/20 opacity-50 hover:opacity-100"
                   }`}
                 >
-                  <img src={imgUrl} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img src={imgUrl} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </button>
               ))}
             </div>

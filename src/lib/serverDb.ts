@@ -200,7 +200,9 @@ export function normalizePoskoRecord(raw: any): PoskoRecord {
   const kategori = raw.kategori || "balai_desa";
 
   let photos: string[] = [];
-  if (Array.isArray(raw.photos) && raw.photos.length > 0) {
+  if (raw.foto && typeof raw.foto === "string" && raw.foto.includes("kemendikdasmen.go.id")) {
+    photos = [raw.foto];
+  } else if (Array.isArray(raw.photos) && raw.photos.length > 0) {
     photos = raw.photos.filter((p: any) => typeof p === "string" && !p.includes("default.jpg"));
   } else if (Array.isArray(raw.fotos) && raw.fotos.length > 0) {
     photos = raw.fotos.filter((p: any) => typeof p === "string" && !p.includes("default.jpg"));
@@ -245,12 +247,25 @@ export function getDbPoskoList(): PoskoRecord[] {
     }
 
     // Filter keluar data dummy yang rusak saat error upload sebelumnya ("fdsf", "fgfgfds", "dfsa")
+    const curatedMap = new Map(CURATED_POSKO_LIST.map((item) => [item.id, item]));
     const cleaned = parsed
       .filter((p: any) => {
         const isDummy = p.nama === "fdsf" || p.nama === "fgfgfds" || p.nama === "dfsa";
         return !isDummy;
       })
-      .map(normalizePoskoRecord);
+      .map((p: any) => {
+        const curated = curatedMap.get(p.id);
+        if (curated) {
+          if (curated.foto && curated.foto.startsWith("https://file.data.kemendikdasmen.go.id")) {
+            p.foto = curated.foto;
+            p.photos = [curated.foto];
+            p.fotos = [curated.foto];
+          }
+          p.lat = curated.lat;
+          p.lng = curated.lng;
+        }
+        return normalizePoskoRecord(p);
+      });
 
     cachedPosko = cleaned;
     return cleaned;

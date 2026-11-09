@@ -2254,24 +2254,24 @@ export default function WargaSpatialMap({
         if (shelterPhotos.length === 1) {
           photoPreviewHtml = `
             <div style="width: 100%; height: 95px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; background: #E2E8F0;">
-              <img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" alt="${sh.name}" />
+              <img src="${shelterPhotos[0]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" alt="${sh.name}" />
             </div>
           `;
         } else if (shelterPhotos.length === 2) {
           photoPreviewHtml = `
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; height: 85px; margin-bottom: 6px;">
-              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
-              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" /></div>
             </div>
           `;
         } else if (shelterPhotos.length >= 3) {
           photoPreviewHtml = `
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 4px; height: 90px; margin-bottom: 6px;">
-              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+              <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[0]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" /></div>
               <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 4px; height: 90px;">
-                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>
+                <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0;"><img src="${shelterPhotos[1]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" /></div>
                 <div style="border-radius: 6px; overflow: hidden; background: #E2E8F0; position: relative;">
-                  <img src="${shelterPhotos[2]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                  <img src="${shelterPhotos[2]}" referrerpolicy="no-referrer" style="width: 100%; height: 100%; object-fit: cover;" />
                   ${shelterPhotos.length > 3 ? `<div style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">+${shelterPhotos.length - 3}</div>` : ""}
                 </div>
               </div>
@@ -3759,6 +3759,7 @@ export default function WargaSpatialMap({
             alt={sh.name}
             className="w-full h-full object-cover"
             loading="lazy"
+            referrerPolicy="no-referrer"
           />
         </div>
       </div>

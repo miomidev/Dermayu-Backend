@@ -938,14 +938,16 @@ function WargaEvakuasiContent() {
   ];
 
   const mapShelterPoints: MapShelterPoint[] = wargaPoskoData.map((p) => {
-    const rawPhotos =
-      p.photos && p.photos.length > 0
-        ? p.photos
-        : p.fotos && p.fotos.length > 0
-        ? p.fotos
-        : p.foto
-        ? [p.foto]
-        : [];
+    const isKemdikbudPhoto = p.foto && p.foto.includes("kemendikdasmen.go.id");
+    const rawPhotos = isKemdikbudPhoto
+      ? [p.foto]
+      : p.photos && p.photos.length > 0
+      ? p.photos
+      : p.fotos && p.fotos.length > 0
+      ? p.fotos
+      : p.foto
+      ? [p.foto]
+      : [];
     const photos = rawPhotos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
     return {
       id: p.id,

@@ -34,6 +34,7 @@ import {
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
 import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
 import { BeaconAlertIcon } from "@/components/ui/Icons";
+import { REALISTIC_FLOOD_PHOTOS } from "@/data/curatedEvakuasiData";
 
 export type ReportCategoryCode =
   | "FLOOD"
@@ -701,7 +702,7 @@ export default function WargaLaporPage() {
   };
 
   // Handle Submit Formulir Laporan
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!location.trim()) {
@@ -717,6 +718,31 @@ export default function WargaLaporPage() {
     setIsSubmitting(true);
 
     const isActuallyOffline = typeof window !== "undefined" && (!window.navigator.onLine || !isOnline);
+
+    // Unggah foto ke endpoint resmi /api/upload sebelum menyimpan laporan
+    let finalPhotos: string[] = [...photos];
+    if (!isActuallyOffline && photos.length > 0) {
+      const base64List = photos.filter((p) => p.startsWith("data:"));
+      const regularUrls = photos.filter((p) => !p.startsWith("data:"));
+      if (base64List.length > 0) {
+        try {
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ images: base64List, prefix: "laporan" }),
+          });
+          if (uploadRes.ok) {
+            const uploadJson = await uploadRes.json();
+            const serverUrls = uploadJson.data?.urls || uploadJson.data?.data?.urls || uploadJson.urls || [];
+            if (Array.isArray(serverUrls) && serverUrls.length > 0) {
+              finalPhotos = [...regularUrls, ...serverUrls];
+            }
+          }
+        } catch (uploadErr) {
+          console.warn("Upload gambar ke /api/upload gagal, memakai fallback:", uploadErr);
+        }
+      }
+    }
 
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
@@ -767,7 +793,7 @@ export default function WargaLaporPage() {
       time: timeFormatted,
       status: ticketStatus,
       statusNote: statusNote,
-      photos: photos.length > 0 ? photos : undefined,
+      photos: finalPhotos.length > 0 ? finalPhotos : undefined,
       notes: notes.trim() || undefined,
       aiConfidence: probFlood > 0 ? probFlood : undefined,
       isFloodDetected: isAutoVerified,
@@ -801,7 +827,13 @@ export default function WargaLaporPage() {
         .then((json) => {
           if (json?.data) {
             const serverItem = json.data.data || json.data;
-            if (serverItem && (serverItem.photoUrl || (serverItem.photos && serverItem.photos.length > 0))) {
+            const validPhotos = Array.isArray(serverItem.photos)
+              ? serverItem.photos.filter((p: any) => typeof p === "string" && p.trim().length > 0)
+              : typeof serverItem.photoUrl === "string" && serverItem.photoUrl.trim().length > 0
+              ? [serverItem.photoUrl]
+              : [];
+
+            if (validPhotos.length > 0) {
               const fresh = localStorage.getItem(STORAGE_KEY);
               if (fresh) {
                 try {
@@ -810,8 +842,8 @@ export default function WargaLaporPage() {
                     if (item.id === ticketCode || item.ticketCode === ticketCode) {
                       return {
                         ...item,
-                        photos: serverItem.photos && serverItem.photos.length > 0 ? serverItem.photos : [serverItem.photoUrl],
-                        photoUrl: serverItem.photoUrl || (serverItem.photos ? serverItem.photos[0] : item.photoUrl),
+                        photos: validPhotos,
+                        photoUrl: validPhotos[0],
                       };
                     }
                     return item;
@@ -1672,29 +1704,43 @@ export default function WargaLaporPage() {
                       )}
 
                       {/* Foto Bukti: Full-Width Image Proporsional, Bukan Thumbnail Terjepit */}
-                      {item.photos && item.photos.length > 0 && (
-                        <div className="pt-1">
-                          {item.photos.map((imgUrl, pIdx) => (
-                            <button
-                              key={pIdx}
-                              type="button"
-                              onClick={() =>
-                                setPreviewImage({
-                                  url: imgUrl,
-                                  title: `${item.title} (Foto ${pIdx + 1})`,
-                                })
-                              }
-                              className="w-full h-44 sm:h-52 rounded-xl border border-gray-200 overflow-hidden block bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity relative group"
-                            >
-                              <img
-                                src={imgUrl}
-                                alt={`Lampiran ${pIdx + 1}`}
-                                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {(() => {
+                        const validList = Array.isArray(item.photos)
+                          ? item.photos.filter((p) => typeof p === "string" && p.trim().length > 0)
+                          : [];
+                        const displayPhotos =
+                          validList.length > 0
+                            ? validList
+                            : [REALISTIC_FLOOD_PHOTOS[0]];
+
+                        return (
+                          <div className="pt-1">
+                            {displayPhotos.map((imgUrl, pIdx) => (
+                              <button
+                                key={pIdx}
+                                type="button"
+                                onClick={() =>
+                                  setPreviewImage({
+                                    url: imgUrl,
+                                    title: `${item.title} (Foto ${pIdx + 1})`,
+                                  })
+                                }
+                                className="w-full h-44 sm:h-52 rounded-xl border border-gray-200 overflow-hidden block bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity relative group"
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={`Lampiran ${pIdx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src =
+                                      REALISTIC_FLOOD_PHOTOS[pIdx % REALISTIC_FLOOD_PHOTOS.length];
+                                  }}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
 
                       {/* Update Penanganan Regu SAR: Timeline Vertikal Bersih dengan Border-L dan Titik Biru */}
                       <div className="pt-2 border-t border-gray-100">

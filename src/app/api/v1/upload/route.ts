@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
         return apiError("BAD_REQUEST", "Tidak ada file gambar yang diunggah", 400);
       }
 
+      const prefix = (formData.get("prefix") as string) || "upload";
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const bytes = await file.arrayBuffer();
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
           ext = ".jpg";
         }
 
-        const fileName = `posko-${Date.now()}-${Math.floor(Math.random() * 1000)}-${i}${ext}`;
+        const fileName = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}-${i}${ext}`;
         const filePath = path.join(UPLOAD_DIR, fileName);
 
         fs.writeFileSync(filePath, buffer);
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
         return apiError("BAD_REQUEST", "Tidak ada data gambar dalam payload", 400);
       }
 
+      const prefix = typeof body.prefix === "string" && body.prefix.trim() ? body.prefix.trim() : "posko";
       for (let i = 0; i < images.length; i++) {
         const dataUrl = images[i];
         if (dataUrl.startsWith("data:")) {
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest) {
             const extType = matches[1].split("/")[1] || "jpeg";
             const ext = extType === "png" ? ".png" : extType === "webp" ? ".webp" : ".jpg";
             const buffer = Buffer.from(matches[2], "base64");
-            const fileName = `posko-${Date.now()}-${Math.floor(Math.random() * 1000)}-${i}${ext}`;
+            const fileName = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}-${i}${ext}`;
             const filePath = path.join(UPLOAD_DIR, fileName);
 
             fs.writeFileSync(filePath, buffer);

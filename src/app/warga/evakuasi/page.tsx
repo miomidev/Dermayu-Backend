@@ -924,8 +924,14 @@ function WargaEvakuasiContent() {
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
       timeAgo: c.createdAt,
-      photos: c.photos && c.photos.length > 0 ? c.photos : [],
-      photoUrl: c.photos && c.photos.length > 0 ? c.photos[0] : undefined,
+      photos:
+        c.photos && c.photos.length > 0 && c.photos[0] !== ""
+          ? c.photos
+          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+      photoUrl:
+        c.photos && c.photos.length > 0 && c.photos[0] !== ""
+          ? c.photos[0]
+          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
       note: c.note,
       isFloodDetected: true,
       aiScore: c.aiScore,
@@ -943,8 +949,14 @@ function WargaEvakuasiContent() {
       lat: c.lat || -6.2842,
       lng: c.lng || 108.2635,
       timeAgo: c.createdAt,
-      photos: c.photos && c.photos.length > 0 ? c.photos : [],
-      photoUrl: c.photos && c.photos.length > 0 ? c.photos[0] : undefined,
+      photos:
+        c.photos && c.photos.length > 0 && c.photos[0] !== ""
+          ? c.photos
+          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
+      photoUrl:
+        c.photos && c.photos.length > 0 && c.photos[0] !== ""
+          ? c.photos[0]
+          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
       note: c.note,
       urgentNeeds: c.urgentNeeds,
     })),

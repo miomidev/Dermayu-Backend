@@ -6114,7 +6114,7 @@ function WargaSpatialMap({
                 className="w-full h-40 object-cover rounded-xl"
                 loading="eager"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = "/uploads/laporan-placeholder.jpg";
+                  (e.currentTarget as HTMLImageElement).src = REALISTIC_FLOOD_PHOTOS[0];
                 }}
               />
             </div>

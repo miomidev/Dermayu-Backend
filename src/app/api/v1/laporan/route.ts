@@ -39,7 +39,8 @@ function saveAndSanitizePhoto(p: string, idx = 0): string | null {
       }
     } catch (err) {
       console.error("Gagal menyimpan foto laporan base64 ke disk:", err);
-      return null;
+      // Fallback: Jika disk tidak bisa ditulis, pertahankan data URL agar foto tidak hilang
+      return p;
     }
   }
 

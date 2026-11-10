@@ -48,6 +48,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const effectiveRedirectUri =
+      redirectUri ||
+      req.cookies.get("google_oauth_redirect_uri")?.value ||
+      (process.env.NODE_ENV === "production"
+        ? "https://dermayu.miomidev.com/auth/google/callback"
+        : "http://localhost:8000/auth/google/callback");
+
     // 1. Tukar authorization code dengan access token Google
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -59,7 +66,7 @@ export async function POST(req: NextRequest) {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: effectiveRedirectUri,
         grant_type: "authorization_code",
       }),
     });

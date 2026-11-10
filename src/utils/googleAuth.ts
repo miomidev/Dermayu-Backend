@@ -47,28 +47,19 @@ export function getGoogleOAuthRedirectUri(): string {
 }
 
 /**
- * Memulai alur autentikasi Google OAuth 2.0 (Redirect ke Google Consent Screen)
+ * Memulai alur autentikasi Google OAuth 2.0.
+ * Menggunakan server-side endpoint /api/v1/auth/google/authorize
+ * agar membaca kredensial GOOGLE_CLIENT_ID langsung dari environment runtime container server
+ * secara aman tanpa ketergantungan build-time arg.
  */
 export function initiateGoogleLogin() {
   if (typeof window === "undefined") return;
 
-  if (!GOOGLE_CLIENT_ID) {
-    alert("Konfigurasi NEXT_PUBLIC_GOOGLE_CLIENT_ID belum diatur di environment.");
-    return;
-  }
-
   const redirectUri = getGoogleOAuthRedirectUri();
-  const scope = encodeURIComponent("openid email profile");
-  const state = encodeURIComponent(window.location.origin);
-
-  // Simpan redirect uri ke sessionStorage agar saat callback tepat mencocokkan
   try {
     sessionStorage.setItem("dermayu_google_redirect_uri", redirectUri);
   } catch {}
 
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&response_type=code&scope=${scope}&state=${state}&prompt=select_account&access_type=offline`;
-
-  window.location.href = authUrl;
+  // Arahkan ke endpoint server authorize yang otomatis redirect ke Google OAuth consent screen
+  window.location.href = `/api/v1/auth/google/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`;
 }

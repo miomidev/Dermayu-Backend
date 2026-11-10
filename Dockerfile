@@ -21,6 +21,9 @@ RUN npx prisma generate
 # Next.js telemetry is disabled
 ENV NEXT_TELEMETRY_DISABLED 1
 
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
 # Build the application
 RUN npm run build
 

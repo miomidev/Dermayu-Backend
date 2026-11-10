@@ -989,30 +989,6 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
     "tier": 2
   },
   {
-    "id": "sh-041",
-    "nama": "Gedung Serbaguna Polindra Lohbener",
-    "kategori": "gor",
-    "alamat": "Jl. Raya Lohbener Barat No. 08",
-    "kecamatan": "Lohbener",
-    "lat": -6.392,
-    "lng": 108.278,
-    "kapasitas": 750,
-    "terisi": 310,
-    "status": "TERSEDIA",
-    "fasilitas": [
-      "Aula Serbaguna Kampus Terpadu",
-      "Toilet Banyak",
-      "Logistik Makanan Cepat Saji",
-      "Kapasitas Raksasa"
-    ],
-    "kontak": {
-      "pj": "H. Sukirno (Koordinator)",
-      "telp": "0819-8877-6655"
-    },
-    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Gedung_Olahraga_Beber.jpg",
-    "tier": 1
-  },
-  {
     "id": "sh-042",
     "nama": "SMPN 1 Sindang",
     "kategori": "sekolah",

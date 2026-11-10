@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ExternalLink,
   ChevronDown,
@@ -15,18 +15,24 @@ import {
   ArrowRight,
   ArrowLeft,
   ClipboardList,
+  Bell,
+  X,
+  ChevronRight,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  CloudSun,
+  BellOff,
+  Trash2,
+  CheckCheck,
 } from "lucide-react";
 import { ForkedRouteIcon, BeaconAlertIcon } from "@/components/ui/Icons";
 import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { AuthBackgroundDecor } from "@/components/auth/AuthBackgroundDecor";
-import {
-  Bell,
-  X,
-  ChevronRight,
-} from "lucide-react";
 import { MobileSearchOverlay, searchableData, type SearchItem } from "@/components/dashboard/MobileSearchOverlay";
 import { Hero3DImage } from "@/components/dashboard/Hero3DImage";
 import { getActiveSession, clearUserSession, performLogout, type UserSession } from "@/utils/authSession";
+import { useWeatherNotification, type InAppNotification } from "@/hooks/useWeatherNotification";
 
 // Pemetaan judul dinamis berdasarkan pathname aktif
 const titleMap: Record<string, string> = {
@@ -84,38 +90,14 @@ export function AppHeader({
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const mobileCleanDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Data Notifikasi Siaga
-  const [notifications, setNotifications] = useState([
-    {
-      id: "notif-1",
-      title: "Peringatan Dini Rob Eretan Wetan",
-      message: "Ketinggian genangan air pasang mencapai 45 cm. Akses jalan pelelangan ikan dialihkan.",
-      time: "10m lalu",
-      type: "warning",
-      unread: true,
-      href: "/warga/evakuasi",
-    },
-    {
-      id: "notif-2",
-      title: "Posko Baru Dibuka",
-      message: "GOR Mini Kandanghaur kini siap menerima warga pengungsi dengan kapasitas 500 jiwa.",
-      time: "35m lalu",
-      type: "info",
-      unread: true,
-      href: "/warga/posko",
-    },
-    {
-      id: "notif-3",
-      title: "Laporan Banjir Diverifikasi",
-      message: "Tiket #DMY-0038 telah divalidasi oleh petugas BPBD Indramayu. Status: Ditindaklanjuti.",
-      time: "1j lalu",
-      type: "success",
-      unread: false,
-      href: "/warga/aduan",
-    },
-  ]);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  // Data & Rules Engine Notifikasi Cuaca Otomatis (In-App)
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useWeatherNotification();
 
   // Auto-close search on route change
   useEffect(() => {
@@ -293,61 +275,129 @@ export function AppHeader({
     }
   };
 
-  // Komponen Notifikasi Dropdown Reusable
+  // Helper render ikon Lucide untuk kartu notifikasi (tanpa emoji teks)
+  const renderNotifIcon = (notif: InAppNotification) => {
+    if (notif.type === "warning") {
+      return (
+        <div className="w-8 h-8 rounded-xl bg-amber-100/80 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs">
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === "info") {
+      if (notif.category === "weather") {
+        return (
+          <div className="w-8 h-8 rounded-xl bg-sky-100/80 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <CloudSun className="w-4 h-4" />
+          </div>
+        );
+      }
+      return (
+        <div className="w-8 h-8 rounded-xl bg-[#EEF5F3] border border-[#38746D]/20 text-[#38746D] flex items-center justify-center shrink-0 shadow-2xs">
+          <Info className="w-4 h-4" />
+        </div>
+      );
+    }
+    return (
+      <div className="w-8 h-8 rounded-xl bg-emerald-100/80 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+        <CheckCircle2 className="w-4 h-4" />
+      </div>
+    );
+  };
+
+  // Komponen Notifikasi Dropdown Popover Reusable dengan Framer Motion
   const renderNotificationDropdown = (positionClasses = "right-0 mt-2") => (
-    <div
-      className={`absolute ${positionClasses} w-80 sm:w-88 bg-white rounded-2xl border border-[#D5E4E0] shadow-2xl p-3 z-50 text-left text-slate-800`}
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className={`absolute ${positionClasses} w-80 sm:w-92 bg-white rounded-2xl border border-[#D5E4E0] shadow-2xl p-3 sm:p-3.5 z-50 text-left text-slate-800`}
     >
+      {/* Header Popover Notifikasi */}
       <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[#38746D]" />
-          <span className="text-xs font-bold text-slate-900">Notifikasi Siaga</span>
+          <div className="w-7 h-7 rounded-lg bg-[#EEF5F3] border border-[#D5E4E0] flex items-center justify-center text-[#38746D]">
+            <Bell className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900 leading-tight">Notifikasi Siaga</span>
+              {unreadCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9.5px] font-extrabold bg-rose-100 text-rose-600">
+                  {unreadCount} baru
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400">Peringatan cuaca &amp; operasional</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
           {unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600">
-              {unreadCount} baru
-            </span>
+            <button
+              type="button"
+              onClick={() => markAllAsRead()}
+              className="text-[10.5px] font-bold text-[#38746D] hover:text-[#24544E] hover:underline cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#EEF5F3] transition"
+              title="Tandai semua sudah dibaca"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span>Dibaca</span>
+            </button>
+          )}
+
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              onClick={() => clearAll()}
+              className="text-slate-400 hover:text-rose-600 cursor-pointer p-1.5 rounded-lg hover:bg-rose-50 transition"
+              title="Hapus semua notifikasi"
+              aria-label="Hapus semua notifikasi"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
-        {unreadCount > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-            }}
-            className="text-[10px] font-semibold text-[#38746D] hover:underline cursor-pointer"
-          >
-            Tandai dibaca
-          </button>
-        )}
       </div>
 
-      <div className="divide-y divide-gray-50 mt-1.5 max-h-72 overflow-y-auto space-y-1">
-        {notifications.map((notif) => (
-          <Link
-            key={notif.id}
-            href={notif.href || "#"}
-            onClick={() => {
-              setNotifOpen(false);
-              setMobileNotifOpen(false);
-            }}
-            className={`block p-2 rounded-xl transition-colors ${
-              notif.unread
-                ? "bg-emerald-50/60 hover:bg-emerald-50"
-                : "hover:bg-slate-50"
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              <span
-                className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                  notif.unread ? "bg-emerald-500 animate-pulse" : "bg-transparent"
-                }`}
-              />
+      {/* Daftar Notifikasi Siaga */}
+      <div className="divide-y divide-gray-50 mt-2 max-h-80 overflow-y-auto space-y-1 pr-0.5">
+        {notifications.length === 0 ? (
+          <div className="py-7 text-center">
+            <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-100 mx-auto flex items-center justify-center text-slate-400 mb-2">
+              <BellOff className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-slate-700">Belum Ada Notifikasi</p>
+            <p className="text-[11px] text-slate-400 max-w-[220px] mx-auto mt-0.5 leading-snug">
+              Semua peringatan dini cuaca dan aktivitas siaga sudah terpantau aman.
+            </p>
+          </div>
+        ) : (
+          notifications.map((notif) => (
+            <div
+              key={notif.id}
+              onClick={() => {
+                markAsRead(notif.id);
+                if (notif.href) {
+                  setNotifOpen(false);
+                  setMobileNotifOpen(false);
+                  router.push(notif.href);
+                }
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer group flex items-start gap-2.5 border ${
+                notif.unread
+                  ? "bg-[#EEF5F3]/70 hover:bg-[#EEF5F3] border-[#38746D]/20 shadow-2xs"
+                  : "bg-white hover:bg-slate-50/80 border-transparent"
+              }`}
+            >
+              {renderNotifIcon(notif)}
+
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">
+                <div className="flex items-center justify-between gap-1">
+                  <h5 className={`text-xs truncate ${notif.unread ? "font-extrabold text-slate-900" : "font-semibold text-slate-700"}`}>
                     {notif.title}
-                  </h4>
-                  <span className="text-[9px] text-slate-400 shrink-0 ml-1">
+                  </h5>
+                  <span className="text-[9.5px] text-slate-400 font-medium shrink-0">
                     {notif.time}
                   </span>
                 </div>
@@ -355,11 +405,18 @@ export function AppHeader({
                   {notif.message}
                 </p>
               </div>
+
+              {notif.unread && (
+                <span
+                  className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0 mt-1.5"
+                  title="Belum dibaca"
+                />
+              )}
             </div>
-          </Link>
-        ))}
+          ))
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 
   // Komponen Dropdown Menu 4 Item yang Reusable
@@ -522,7 +579,7 @@ export function AppHeader({
             )}
           </div>
 
-          {/* 2. Tombol Notifikasi Bell Responsif Web */}
+          {/* 2. Tombol Notifikasi Bell Responsif Web (SaaS Modern dengan Pulse/Ping Badge) */}
           <div className="relative" ref={desktopNotifRef}>
             <button
               type="button"
@@ -533,11 +590,16 @@ export function AppHeader({
             >
               <Bell className="w-4 h-4 text-[#1D443F]" />
               {unreadCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-xs">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative z-10">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                </span>
               )}
             </button>
 
-            {notifOpen && renderNotificationDropdown("right-0 mt-2")}
+            <AnimatePresence>
+              {notifOpen && renderNotificationDropdown("right-0 mt-2")}
+            </AnimatePresence>
           </div>
 
           <div className="h-5 w-[1px] bg-gray-200" />
@@ -803,7 +865,7 @@ export function AppHeader({
               <div className="w-9 h-9" />
             )}
 
-            {/* Tombol Notifikasi Bell */}
+            {/* Tombol Notifikasi Bell (SaaS Modern dengan Pulse/Ping Badge) */}
             <div className="relative" ref={mobileNotifRef}>
               <button
                 type="button"
@@ -817,11 +879,16 @@ export function AppHeader({
               >
                 <Bell className="w-4 h-4 text-[#1D443F] stroke-[2.2]" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white" />
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9.5px] font-black text-white ring-2 ring-white shadow-xs">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative z-10">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                  </span>
                 )}
               </button>
 
-              {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
+              <AnimatePresence>
+                {mobileNotifOpen && renderNotificationDropdown("right-0 mt-2")}
+              </AnimatePresence>
             </div>
 
             {/* Avatar Profil Inisial + Dropdown Menu */}

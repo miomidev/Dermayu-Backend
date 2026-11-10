@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "@/utils/leafletPatch";
 
 // Patch pengaman Leaflet: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
 // saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi flyTo
@@ -1950,6 +1951,9 @@ function PetugasSpatialMap({
         } catch {}
         userAccuracyCircleRef.current = null;
       }
+      try {
+        if (typeof map.stop === "function") map.stop();
+      } catch {}
       try {
         map.remove();
       } catch {}

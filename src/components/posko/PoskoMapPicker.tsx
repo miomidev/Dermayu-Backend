@@ -68,6 +68,7 @@ if (typeof window !== "undefined" && L) {
     }
   }
 }
+
 import {
   MapPin,
   Crosshair,
@@ -184,7 +185,7 @@ export default function PoskoMapPicker({
 
     return () => {
       try {
-        map.stop();
+        if (typeof map.stop === "function") map.stop();
       } catch {}
       try {
         map.remove();

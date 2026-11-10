@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { ForkedRouteIcon, BeaconAlertIcon } from "@/components/ui/Icons";
 import { getActiveSession } from "@/utils/authSession";
+import { getWeatherIcon } from "@/components/weather/WeatherWidgetTrigger";
 
 export type SiagaLevel = "NORMAL" | "SIAGA_3" | "SIAGA_2" | "SIAGA_1";
 
@@ -289,6 +290,7 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
     prediksiCurahHujan: number;
     pesanPrediksi: string;
     ikonCuaca: string;
+    weatherCode?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -320,7 +322,8 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
             suhu: typeof w.suhu === "number" ? Math.round(w.suhu) : 29,
             prediksiCurahHujan: typeof w.prediksiCurahHujan === "number" ? w.prediksiCurahHujan : 1.4,
             pesanPrediksi: w.pesanPrediksi || "Curah hujan 3 jam ke depan relatif aman.",
-            ikonCuaca: w.ikonCuaca || "🌤️",
+            ikonCuaca: w.ikonCuaca || "cloud-sun",
+            weatherCode: typeof w.weatherCode === "number" ? w.weatherCode : undefined,
           });
         }
       })
@@ -332,7 +335,8 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
             suhu: 29,
             prediksiCurahHujan: 1.4,
             pesanPrediksi: "Curah hujan 3 jam ke depan relatif stabil dan aman.",
-            ikonCuaca: "🌤️",
+            ikonCuaca: "cloud-sun",
+            weatherCode: 2,
           });
         }
       });
@@ -382,9 +386,12 @@ export function StatusSiagaCard({ initialLevel = "NORMAL", className = "" }: Sta
 
           {/* Prediksi Cuaca Real-Time (Proaktif Open-Meteo) */}
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 text-xs sm:text-sm text-slate-600">
-            <span className="text-sm shrink-0 leading-none" role="img" aria-label="cuaca">
-              {weatherData?.ikonCuaca || "🌤️"}
-            </span>
+            {getWeatherIcon(
+              weatherData?.kondisiSekarang,
+              weatherData?.weatherCode,
+              weatherData?.ikonCuaca,
+              "w-4 h-4 shrink-0"
+            )}
             <div className="truncate text-xs sm:text-sm">
               <span className="font-semibold text-slate-700">
                 {weatherData?.kondisiSekarang || "Cerah Berawan"} ({weatherData?.suhu ?? 29}°C):

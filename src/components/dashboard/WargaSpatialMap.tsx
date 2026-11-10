@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "@/utils/leafletPatch";
 
 // Patch pengaman Leaflet: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
 // saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi flyTo
@@ -1721,7 +1722,7 @@ function WargaSpatialMap({
 
     const tryFocus = () => {
       const map = mapInstanceRef.current;
-      if (!map) return false;
+      if (!map || !(map as any)._mapPane) return false;
 
       // 1. Cari target dari props reports
       let target = (reports || []).find(
@@ -1789,9 +1790,7 @@ function WargaSpatialMap({
         setPoskoExpanded(true);
         setSheetSnap("mid");
         try {
-          if (typeof (map as any).stop === "function") {
-            (map as any).stop();
-          }
+          if (typeof map.stop === "function") map.stop();
           map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
         } catch {}
         if (onSelectReport) onSelectReport(target);
@@ -1801,9 +1800,7 @@ function WargaSpatialMap({
       if (focusCoords && !focusShelterId) {
         lastFocusedKeyRef.current = focusKey;
         try {
-          if (typeof (map as any).stop === "function") {
-            (map as any).stop();
-          }
+          if (typeof map.stop === "function") map.stop();
           map.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
         } catch {}
         return true;
@@ -2362,6 +2359,9 @@ function WargaSpatialMap({
         } catch {}
         userAccuracyCircleRef.current = null;
       }
+      try {
+        if (typeof map.stop === "function") map.stop();
+      } catch {}
       try {
         map.remove();
       } catch {}

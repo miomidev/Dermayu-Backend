@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "@/utils/leafletPatch";
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
 import {
   Layers,
@@ -187,7 +188,12 @@ export default function CommandMap({
     mapInstanceRef.current = map;
 
     return () => {
-      map.remove();
+      try {
+        if (typeof map.stop === "function") map.stop();
+        map.remove();
+      } catch (err) {
+        console.warn("[Leaflet] command map removal suppressed:", err);
+      }
       mapInstanceRef.current = null;
     };
   }, []);

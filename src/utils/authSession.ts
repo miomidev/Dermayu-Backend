@@ -46,6 +46,17 @@ export function getActiveSession(): UserSession | null {
       }
     }
 
+    // Fallback jika localStorage kosong tapi cookie user_session masih aktif
+    if (!raw && typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|;\s*)user_session=([^;]+)/);
+      if (match) {
+        try {
+          raw = decodeURIComponent(match[1]);
+          localStorage.setItem(SESSION_KEY, raw);
+        } catch {}
+      }
+    }
+
     if (!raw) return null;
 
     const session: UserSession = JSON.parse(raw);

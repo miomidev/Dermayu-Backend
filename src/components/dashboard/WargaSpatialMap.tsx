@@ -1220,6 +1220,8 @@ function WargaSpatialMap({
     return () => clearTimeout(timer);
   }, [autoExpandPosko]);
   const [activeShelterDetail, setActiveShelterDetail] = useState<MapShelterPoint | null>(null);
+  const activeShelterDetailRef = useRef<MapShelterPoint | null>(null);
+  activeShelterDetailRef.current = activeShelterDetail;
   const [activeReportDetail, setActiveReportDetail] = useState<MapReportPoint | null>(null);
   const [activeTelemetryDetail, setActiveTelemetryDetail] = useState<MapTelemetryPoint | null>(null);
   const [activeNavRoute, setActiveNavRoute] = useState<ActiveNavRouteData | null>(null);
@@ -1242,8 +1244,17 @@ function WargaSpatialMap({
   const navWatchIdRef = useRef<number | null>(null);
   const navLastGpsPosRef = useRef<[number, number] | null>(null);
 
-  // State 3 Klasifikasi Saran Rute & Custom Waypoint
+  // State 3 Klasifikasi Saran Rute, Preview Rute Dinamis Riil OSRM & Custom Waypoint
   const [selectedRouteClassification, setSelectedRouteClassification] = useState<1 | 2 | 3 | "custom">(1);
+  const [shelterPreviewRoutes, setShelterPreviewRoutes] = useState<NavigationRouteOption[]>([]);
+  const shelterPreviewRoutesRef = useRef<NavigationRouteOption[]>([]);
+  shelterPreviewRoutesRef.current = shelterPreviewRoutes;
+  const [isPreviewRoutesLoading, setIsPreviewRoutesLoading] = useState(false);
+  const [selectedPreviewRouteIndex, setSelectedPreviewRouteIndex] = useState(0);
+  const selectedPreviewRouteIndexRef = useRef(0);
+  selectedPreviewRouteIndexRef.current = selectedPreviewRouteIndex;
+  const shelterRoutesCacheRef = useRef<Map<string, NavigationRouteOption[]>>(new Map());
+  const handleSelectPreviewRouteRef = useRef<(idx: number) => void>(() => {});
   const [customWaypoint, setCustomWaypoint] = useState<{
     lat: number;
     lng: number;
@@ -2695,6 +2706,8 @@ function WargaSpatialMap({
     setIsRoutingLoading(false);
     setSheetSnap("min");
     setSelectedRouteClassification(1);
+    setShelterPreviewRoutes([]);
+    setSelectedPreviewRouteIndex(0);
     setIsPickingWaypoint(false);
     setCustomWaypoint(null);
     updateUserMarkerOnMap(userCoords[0], userCoords[1]);
@@ -2719,6 +2732,7 @@ function WargaSpatialMap({
     setPoskoExpanded(true);
     setSheetSnap("mid");
     setSelectedRouteClassification(1);
+    setSelectedPreviewRouteIndex(0);
     setIsPickingWaypoint(false);
     showRadarGlow(sh.lat, sh.lng);
     if (mapInstanceRef.current) {
@@ -2887,7 +2901,11 @@ function WargaSpatialMap({
       // Klik polyline alternatif untuk langsung menjadikannya rute utama terpilih
       const handleClickAlt = (e: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(e);
-        handleSelectRouteIndex(idx);
+        if (activeShelterDetailRef.current) {
+          handleSelectPreviewRouteRef.current(idx);
+        } else {
+          handleSelectRouteIndex(idx);
+        }
       };
       altCasing.on("click", handleClickAlt);
       altLine.on("click", handleClickAlt);
@@ -2928,7 +2946,11 @@ function WargaSpatialMap({
 
       altMarker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
-        handleSelectRouteIndex(idx);
+        if (activeShelterDetailRef.current) {
+          handleSelectPreviewRouteRef.current(idx);
+        } else {
+          handleSelectRouteIndex(idx);
+        }
       });
 
       activeRouteLayerRef.current?.addLayer(altMarker);
@@ -3218,18 +3240,376 @@ function WargaSpatialMap({
     });
   };
 
-  // Preview Rute untuk 3 Klasifikasi & Waypoint di Card Detail Posko Evakuasi
-  const previewShelterRoute = (
-    shelter: MapShelterPoint,
-    classification: 1 | 2 | 3 | "custom",
-    customWpData?: any
-  ) => {
-    // Delegasikan langsung ke drawSafeRoute agar 100% menggunakan koordinat jaringan jalan riil OSRM
-    const targetIdx = classification === 2 ? 1 : classification === 3 ? 2 : 0;
-    drawSafeRoute(shelter, "motorcycle", targetIdx, customWpData);
+  // Helper: Ekstraksi ringkasan nama jalan riil dari langkah-langkah navigasi OSRM
+  const extractRouteRoadSummary = (steps: any[], defaultStreet: string = "Jalur Penghubung Evakuasi"): string => {
+    const uniqueRoads: string[] = [];
+    for (const st of steps || []) {
+      const name = (st.name || "").trim();
+      if (
+        name &&
+        !uniqueRoads.includes(name) &&
+        !name.toLowerCase().includes("unnamed") &&
+        name.toLowerCase() !== "jalan penghubung"
+      ) {
+        uniqueRoads.push(name);
+      }
+    }
+    if (uniqueRoads.length === 0) return `lewat ${defaultStreet}`;
+    if (uniqueRoads.length === 1) return `lewat ${uniqueRoads[0]}`;
+    return `lewat ${uniqueRoads.slice(0, 2).join(" & ")}`;
   };
 
-  // Handler klik peta saat mode titik singgah aktif
+  // Kalkulasi Rute Riil (OSRM API) dengan Prioritas Bebas Banjir Terdekat & Detour Jalan Alternatif
+  const fetchAndComputeShelterRoutes = async (
+    shelter: MapShelterPoint,
+    customWp?: any,
+    initialMode: "motorcycle" | "car" | "walking" = "motorcycle"
+  ): Promise<NavigationRouteOption[]> => {
+    const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+    const userLat = startCoord[0];
+    const userLng = startCoord[1];
+    const poskoLat = shelter.lat;
+    const poskoLng = shelter.lng;
+
+    const baseMeters = parseDistanceInMeters(shelter.distance);
+    const baseMinutes = Math.max(1, Math.round(baseMeters / 300));
+
+    // Kumpulkan seluruh titik hambatan: 20 data kurasi + laporan banjir warga aktif terverifikasi
+    const dynamicObstacles: FloodObstacle[] = (reports || [])
+      .filter((r) => {
+        const isFlood =
+          (r.category && (r.category.toLowerCase().includes("banjir") || r.category.toLowerCase().includes("genangan"))) ||
+          (r.title && (r.title.toLowerCase().includes("banjir") || r.title.toLowerCase().includes("genangan")));
+        const isLive = r.status !== "SELESAI" && r.status !== "DITOLAK";
+        return isFlood && isLive && r.lat && r.lng;
+      })
+      .map((r) => {
+        const numDepth = r.waterLevelText ? parseInt(r.waterLevelText.replace(/\D/g, "")) : 30;
+        const sev: "CRITICAL" | "HIGH" | "MEDIUM" = r.severity === "CRITICAL" ? "CRITICAL" : r.severity === "HIGH" ? "HIGH" : "MEDIUM";
+        return {
+          id: `dyn-rep-${r.id}`,
+          title: r.title || `Genangan ${r.location}`,
+          location: r.location || "Indramayu",
+          zone: "DAS_CIMANUK" as const,
+          lat: r.lat,
+          lng: r.lng,
+          depthCm: Number.isFinite(numDepth) && numDepth > 0 ? numDepth : 30,
+          severity: sev,
+          description: `Titik genangan dari aduan warga: ${r.title || r.location}`,
+          radius: 200,
+          status: "AKTIF" as const,
+        };
+      });
+    const allObstacles = [...FLOOD_OBSTACLES, ...dynamicObstacles];
+
+    let rawRoutes: any[] = [];
+
+    // 1. Panggil OSRM driving API resmi dengan alternatives=true & steps=true
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
+      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === "Ok" && Array.isArray(data.routes) && data.routes.length > 0) {
+          rawRoutes = data.routes;
+        }
+      }
+    } catch (err) {
+      console.warn("Gagal menghubungi OSRM router:", err);
+    }
+
+    // 2. Evaluasi apakah ada rute yang tergenang.
+    // Jika rute langsung terdeteksi banjir, cari jalan memutar (detour) yang bebas banjir ("kalau jauh tpi aman ya gapapa")
+    if (rawRoutes.length > 0) {
+      const firstRouteCoords: [number, number][] = (rawRoutes[0].geometry?.coordinates || []).map(
+        ([cLng, cLat]: [number, number]) => [cLat, cLng] as [number, number]
+      );
+      const hitObstacles = detectIntersectedFloodObstacles(firstRouteCoords, allObstacles);
+
+      if (hitObstacles.length > 0) {
+        // Terkena banjir! Query jalur detour bypass menjauhi titik genangan
+        const hit = hitObstacles[0];
+        const dx = poskoLng - userLng;
+        const dy = poskoLat - userLat;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+
+        // Coba titik waypoint memutar perpendicular (~1.2 km offset)
+        const detourCandidates = [
+          { lat: hit.lat + ny * 0.012, lng: hit.lng + nx * 0.012 },
+          { lat: hit.lat - ny * 0.012, lng: hit.lng - nx * 0.012 },
+        ];
+
+        for (const cand of detourCandidates) {
+          try {
+            const detourUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${cand.lng},${cand.lat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
+            const dRes = await fetch(detourUrl, { signal: AbortSignal.timeout(4000) });
+            if (dRes.ok) {
+              const dData = await dRes.json();
+              if (dData.code === "Ok" && dData.routes?.[0]) {
+                const dRoute = dData.routes[0];
+                const dCoords: [number, number][] = (dRoute.geometry?.coordinates || []).map(
+                  (c: [number, number]) => [c[1], c[0]] as [number, number]
+                );
+                const dHits = detectIntersectedFloodObstacles(dCoords, allObstacles);
+                if (dHits.length === 0) {
+                  // Berhasil menemukan rute memutar yang 100% bebas banjir!
+                  dRoute._isDetourSafe = true;
+                  rawRoutes.push(dRoute);
+                  break;
+                }
+              }
+            }
+          } catch {}
+        }
+      } else if (rawRoutes.length === 1 && rawRoutes[0].geometry?.coordinates?.length > 4) {
+        // Jika hanya 1 rute dan sudah aman, cari rute alternatif kedua via midpoint paralel
+        const coords = rawRoutes[0].geometry.coordinates;
+        const mid = coords[Math.floor(coords.length / 2)];
+        const detourLng = mid[0] + 0.0035;
+        const detourLat = mid[1] + 0.0035;
+        try {
+          const altUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${detourLng},${detourLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
+          const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(4000) });
+          if (altRes.ok) {
+            const altData = await altRes.json();
+            if (altData.code === "Ok" && altData.routes?.[0]) {
+              rawRoutes.push(altData.routes[0]);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    const computedRoutes: NavigationRouteOption[] = [];
+
+    if (rawRoutes.length > 0) {
+      rawRoutes.forEach((r, idx) => {
+        const rawCoords = r.geometry?.coordinates || [];
+        const leafletPositions: [number, number][] = rawCoords.map(
+          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+        );
+
+        const rDist = Math.round(r.distance || baseMeters);
+        const rDur = Math.round(r.duration || baseMinutes * 60);
+
+        const hitObstacles = detectIntersectedFloodObstacles(leafletPositions, allObstacles);
+        const isFlooded = hitObstacles.length > 0;
+        const maxWaterDepth = isFlooded ? Math.max(...hitObstacles.map((o) => o.depthCm)) : 0;
+
+        const rawSteps = r.legs?.[0]?.steps || [];
+        const summaryText = extractRouteRoadSummary(rawSteps, "Jalur Penghubung Evakuasi");
+
+        const steps: NavigationStep[] = rawSteps.map((st: any) => {
+          const street = st.name || "Jalan Penghubung";
+          let instr = `Lurus di ${street}`;
+          if (st.maneuver?.type === "depart") instr = `Mulai dari titik Anda menuju ${street}`;
+          else if (st.maneuver?.type === "arrive") instr = `Tiba di ${shelter.name}`;
+          else if (st.maneuver?.modifier === "right") instr = `Belok kanan ke ${street}`;
+          else if (st.maneuver?.modifier === "left") instr = `Belok kiri ke ${street}`;
+          else if (st.maneuver?.modifier === "slight right") instr = `Belok sedikit ke kanan ke ${street}`;
+          else if (st.maneuver?.modifier === "slight left") instr = `Belok sedikit ke kiri ke ${street}`;
+          return {
+            instruction: instr,
+            distance: formatNavDistance(st.distance || 0),
+            distanceMeters: st.distance || 0,
+            location: st.maneuver?.location ? [st.maneuver.location[1], st.maneuver.location[0]] : undefined,
+            type: st.maneuver?.type,
+            modifier: st.maneuver?.modifier,
+          };
+        });
+
+        const isDetourSafe = !!r._isDetourSafe;
+
+        if (isFlooded) {
+          computedRoutes.push({
+            id: `rt-${idx + 1}-warning-${rDist}`,
+            name: `Jalur Langsung (Genangan ${maxWaterDepth} cm)`,
+            summary: `${summaryText} • Rawan ${hitObstacles[0].title}`,
+            distanceText: formatNavDistance(rDist),
+            distanceMeters: rDist,
+            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
+            durationSeconds: rDur,
+            statusBadge: `Genangan ${maxWaterDepth} cm`,
+            statusBadgeType: "warning",
+            warningText: `PERINGATAN: Jalur ini melintasi ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm di ${hitObstacles[0].location}`,
+            coordinates: leafletPositions,
+            steps: [
+              ...steps,
+              {
+                instruction: `PERINGATAN: Terdeteksi genangan air ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm di ${hitObstacles[0].location}`,
+                distance: "200 m",
+              },
+            ],
+          });
+        } else {
+          computedRoutes.push({
+            id: `rt-${idx + 1}-safe-${rDist}`,
+            name: isDetourSafe ? "Jalur Alternatif Bebas Banjir (Memutar)" : "Terdekat & Bebas Genangan (Rekomendasi BPBD)",
+            summary: isDetourSafe ? `${summaryText} (Jalur Memutar Aman)` : summaryText,
+            distanceText: formatNavDistance(rDist),
+            distanceMeters: rDist,
+            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
+            durationSeconds: rDur,
+            statusBadge: isDetourSafe ? "Jalur Alternatif" : "Bebas Banjir",
+            statusBadgeType: "safe",
+            coordinates: leafletPositions,
+            steps,
+          });
+        }
+      });
+    } else {
+      // Fallback lokal jika router offline
+      const midPoint: [number, number] = [(userLat + poskoLat) / 2, (userLng + poskoLng) / 2];
+      const fallbackPositions: [number, number][] = [
+        [userLat, userLng],
+        midPoint,
+        [poskoLat, poskoLng],
+      ];
+      computedRoutes.push({
+        id: "rt-1-fallback",
+        name: "Navigasi Langsung ke Gerbang Posko",
+        summary: "lewat Jalur Utama Evakuasi",
+        distanceText: formatNavDistance(baseMeters),
+        distanceMeters: baseMeters,
+        durationText: formatNavDuration(baseMinutes * 60),
+        durationSeconds: baseMinutes * 60,
+        statusBadge: "Bebas Banjir",
+        statusBadgeType: "safe",
+        coordinates: fallbackPositions,
+        steps: [
+          { instruction: "Mulai dari lokasi Anda menuju gerbang posko", distance: formatNavDistance(baseMeters) },
+          { instruction: `Tiba di ${shelter.name}`, distance: "10 m" },
+        ],
+      });
+    }
+
+    // Jika ada custom waypoint aktif
+    if (customWp && customWp.lat && customWp.lng) {
+      const customCoords = customWp.coordinates || [
+        [userLat, userLng],
+        [customWp.lat, customWp.lng],
+        [poskoLat, poskoLng],
+      ];
+      computedRoutes.push({
+        id: "rt-custom-wp",
+        name: "Rute Kustom via Titik Singgah",
+        summary: "via Titik Singgah Pilihan Anda",
+        distanceText: customWp.distanceText || formatNavDistance(Math.round(baseMeters * 1.2)),
+        distanceMeters: Math.round(baseMeters * 1.2),
+        durationText: customWp.durationText || formatNavDuration(Math.round(baseMinutes * 60 * 1.2)),
+        durationSeconds: Math.round(baseMinutes * 60 * 1.2),
+        statusBadge: "Rute Kustom",
+        statusBadgeType: "custom",
+        coordinates: customCoords,
+        steps: [
+          { instruction: "Menuju titik singgah pilihan Anda", distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
+          { instruction: `Melanjutkan perjalanan menuju ${shelter.name}`, distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
+        ],
+      });
+    }
+
+    // Deduplikasi rute dengan jarak sangat mirip
+    const uniqueRoutes: NavigationRouteOption[] = [];
+    for (const rt of computedRoutes) {
+      const isDup = uniqueRoutes.some(
+        (u) => Math.abs(u.distanceMeters - rt.distanceMeters) < 30 && u.statusBadgeType === rt.statusBadgeType
+      );
+      if (!isDup) uniqueRoutes.push(rt);
+    }
+
+    // SORTING & PRIORITISASI:
+    // 1. Rute BEBAS BANJIR (safe) ditaruh PALING DEPAN, diurutkan dari jarak terdekat
+    // 2. Rute RAWAN GENANGAN (warning) ditaruh berikutnya agar warga tahu jalur yang harus dihindari
+    // 3. Rute Kustom ditaruh di akhir jika ada
+    const safeRoutes = uniqueRoutes.filter((r) => r.statusBadgeType === "safe");
+    const warningRoutes = uniqueRoutes.filter((r) => r.statusBadgeType === "warning");
+    const customRoutes = uniqueRoutes.filter((r) => r.statusBadgeType === "custom");
+
+    safeRoutes.sort((a, b) => a.distanceMeters - b.distanceMeters);
+    warningRoutes.sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+    const sortedRoutes = [...safeRoutes, ...warningRoutes, ...customRoutes];
+    return sortedRoutes;
+  };
+
+  // Pilih Route Index di Mode Preview (Card Detail Posko) tanpa menutup detail
+  const handleSelectPreviewRoute = (idx: number) => {
+    setSelectedPreviewRouteIndex(idx);
+    const curDetail = activeShelterDetailRef.current;
+    const curRoutes = shelterPreviewRoutesRef.current;
+    if (!curDetail || !curRoutes[idx]) return;
+
+    const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+
+    renderNavRoutesOnMap(
+      curRoutes,
+      idx,
+      "motorcycle",
+      [curDetail.lat, curDetail.lng],
+      startCoord,
+      false
+    );
+  };
+  handleSelectPreviewRouteRef.current = handleSelectPreviewRoute;
+
+  // Jalankan Mode Navigasi Panduan Giliran dari Rute Terpilih di Preview
+  const startNavigationFromPreview = () => {
+    const shelter = activeShelterDetailRef.current;
+    if (!shelter) return;
+    const routes = shelterPreviewRoutesRef.current.length > 0 ? shelterPreviewRoutesRef.current : [];
+    if (routes.length === 0) {
+      drawSafeRoute(shelter);
+      return;
+    }
+    const safeIdx = Math.min(selectedPreviewRouteIndexRef.current, routes.length - 1);
+    const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+
+    const navData: ActiveNavRouteData = {
+      shelter,
+      originName: "Lokasi Anda",
+      originCoords: startCoord,
+      destinationName: shelter.name,
+      destinationCoords: [shelter.lat, shelter.lng],
+      transportMode: "motorcycle",
+      routes,
+      selectedRouteIndex: safeIdx,
+      showingSteps: false,
+    };
+
+    setActiveNavRoute(navData);
+    setActiveShelterDetail(null);
+    setSheetSnap("mid");
+    setIsRoutingLoading(false);
+
+    renderNavRoutesOnMap(
+      routes,
+      safeIdx,
+      "motorcycle",
+      [shelter.lat, shelter.lng],
+      startCoord,
+      false
+    );
+
+    setToastMessage(`Navigasi rute aktif: Menuju ${shelter.name}`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Preview Rute untuk 3 Klasifikasi (Backward Compatibility)
+  const previewShelterRoute = (
+    _shelter: MapShelterPoint,
+    classification: 1 | 2 | 3 | "custom",
+    _customWpData?: any
+  ) => {
+    const targetIdx = classification === 2 ? 1 : classification === 3 ? 2 : 0;
+    handleSelectPreviewRoute(targetIdx);
+  };
+
+  // Handler klik peta saat mode titik singgah kustom aktif
   const handleMapClickForWaypoint = async (lat: number, lng: number) => {
     setIsPickingWaypoint(false);
     isPickingWaypointRef.current = false;
@@ -3292,15 +3672,31 @@ function WargaSpatialMap({
 
     setCustomWaypoint(wpData);
     setSelectedRouteClassification("custom");
-    previewShelterRoute(shelter, "custom", wpData);
+
+    // Re-hitung rute dengan titik singgah ini
+    const updatedRoutes = await fetchAndComputeShelterRoutes(shelter, wpData);
+    shelterRoutesCacheRef.current.set(shelter.id, updatedRoutes);
+    setShelterPreviewRoutes(updatedRoutes);
+
+    const customIdx = updatedRoutes.findIndex((r) => r.statusBadgeType === "custom");
+    const targetIdx = customIdx >= 0 ? customIdx : 0;
+    setSelectedPreviewRouteIndex(targetIdx);
+
+    renderNavRoutesOnMap(
+      updatedRoutes,
+      targetIdx,
+      "motorcycle",
+      [poskoLat, poskoLng],
+      startCoord,
+      false
+    );
 
     setToastMessage(`Titik singgah berhasil disetel (${distText} • ${durText})`);
     setTimeout(() => setToastMessage(null), 3000);
   };
   handleMapClickForWaypointRef.current = handleMapClickForWaypoint;
 
-  // Eksekusi Pembuatan Rute Jalan Aktual (OSRM API + Fallback)
-  // Menghasilkan 3 opsi klasifikasi + custom waypoint jika disetel
+  // Eksekusi Langsung Mode Navigasi (OSRM API + Fallback)
   const drawSafeRoute = async (
     shelter: MapShelterPoint,
     initialMode: "motorcycle" | "car" | "walking" = "motorcycle",
@@ -3313,182 +3709,18 @@ function WargaSpatialMap({
 
     const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
     const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
-    const userLat = startCoord[0];
-    const userLng = startCoord[1];
-    const poskoLat = shelter.lat;
-    const poskoLng = shelter.lng;
 
-    const baseMeters = parseDistanceInMeters(shelter.distance);
-    const baseMinutes = Math.max(1, Math.round(baseMeters / 300));
-
-    let rawRoutes: any[] = [];
-
-    try {
-      // Endpoint OSRM driving resmi dengan parameter alternatives=true
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
-      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === "Ok" && Array.isArray(data.routes) && data.routes.length > 0) {
-          rawRoutes = data.routes;
-        }
-      }
-    } catch (err) {
-      console.warn("Gagal menghubungi OSRM router:", err);
-    }
-
-    // Jika OSRM hanya mengembalikan 1 rute tunggal, query rute alternatif kedua via jalan paralel
-    if (rawRoutes.length === 1 && rawRoutes[0].geometry?.coordinates?.length > 4) {
-      const coords = rawRoutes[0].geometry.coordinates;
-      const mid = coords[Math.floor(coords.length / 2)];
-      const detourLng = mid[0] + 0.0035;
-      const detourLat = mid[1] + 0.0035;
-      try {
-        const altUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${detourLng},${detourLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
-        const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(4000) });
-        if (altRes.ok) {
-          const altData = await altRes.json();
-          if (altData.code === "Ok" && altData.routes?.[0]) {
-            rawRoutes.push(altData.routes[0]);
-          }
-        }
-      } catch { }
-    }
-
-    const computedRoutes: NavigationRouteOption[] = [];
-
-    if (rawRoutes.length > 0) {
-      // 1. Proses setiap rute riil yang dikembalikan OSRM
-      rawRoutes.forEach((r, idx) => {
-        const rawCoords = r.geometry?.coordinates || [];
-        // PENTING: OSRM GeoJSON format [lng, lat] DIUBAH menjadi format Leaflet [lat, lng]
-        const leafletPositions: [number, number][] = rawCoords.map(
-          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-        );
-
-        const rDist = Math.round(r.distance || baseMeters);
-        const rDur = Math.round(r.duration || baseMinutes * 60);
-
-        // Deteksi perpotongan dengan 20 titik hambatan genangan (Radius 200m)
-        const hitObstacles = detectIntersectedFloodObstacles(leafletPositions, FLOOD_OBSTACLES);
-        const isFlooded = hitObstacles.length > 0;
-        const maxWaterDepth = isFlooded ? Math.max(...hitObstacles.map((o) => o.depthCm)) : 0;
-
-        const rawSteps = r.legs?.[0]?.steps || [];
-        const steps: NavigationStep[] = rawSteps.map((st: any) => {
-          const street = st.name || "Jalan Penghubung";
-          let instr = `Lurus di ${street}`;
-          if (st.maneuver?.type === "depart") instr = `Mulai dari titik Anda menuju ${street}`;
-          else if (st.maneuver?.type === "arrive") instr = `Tiba di ${shelter.name}`;
-          else if (st.maneuver?.modifier === "right") instr = `Belok kanan ke ${street}`;
-          else if (st.maneuver?.modifier === "left") instr = `Belok kiri ke ${street}`;
-          else if (st.maneuver?.modifier === "slight right") instr = `Belok sedikit ke kanan ke ${street}`;
-          else if (st.maneuver?.modifier === "slight left") instr = `Belok sedikit ke kiri ke ${street}`;
-          return {
-            instruction: instr,
-            distance: formatNavDistance(st.distance || 0),
-            distanceMeters: st.distance || 0,
-            location: st.maneuver?.location ? [st.maneuver.location[1], st.maneuver.location[0]] : undefined,
-            type: st.maneuver?.type,
-            modifier: st.maneuver?.modifier,
-          };
-        });
-
-        if (isFlooded) {
-          computedRoutes.push({
-            id: `rt-${idx + 1}-warning`,
-            name: idx === 0 ? `Terdekat tapi Ada Genangan (lewat ${hitObstacles[0].location.split(",")[0]})` : `Jalur Alternatif ${idx + 1} (Ada Genangan)`,
-            summary: `lewat ${hitObstacles[0].location} (Melintasi Radius 200m)`,
-            distanceText: formatNavDistance(rDist),
-            distanceMeters: rDist,
-            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
-            durationSeconds: rDur,
-            statusBadge: `Rawan Genangan (${maxWaterDepth} cm)`,
-            statusBadgeType: "warning",
-            coordinates: leafletPositions,
-            steps: [
-              ...steps,
-              { instruction: `PERINGATAN: Jalur ini terdeteksi genangan air ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm`, distance: "200 m" },
-            ],
-          });
-        } else {
-          computedRoutes.push({
-            id: `rt-${idx + 1}-safe`,
-            name: idx === 0 ? "Terdekat & Bebas Genangan (Rekomendasi BPBD)" : `Jalur Bebas Banjir Alternatif ${idx + 1}`,
-            summary: `lewat ${steps[1]?.instruction.replace("Lurus di ", "") || "jalur jalan aman"}`,
-            distanceText: formatNavDistance(rDist),
-            distanceMeters: rDist,
-            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
-            durationSeconds: rDur,
-            statusBadge: "Bebas Genangan • Rekomendasi BPBD",
-            statusBadgeType: "safe",
-            coordinates: leafletPositions,
-            steps,
-          });
-        }
-      });
-    } else {
-      // Fallback lokal aman dengan midpoint jika offline/rate-limit
-      const midPoint: [number, number] = [(userLat + poskoLat) / 2, (userLng + poskoLng) / 2];
-      const fallbackPositions: [number, number][] = [
-        [userLat, userLng],
-        midPoint,
-        [poskoLat, poskoLng],
-      ];
-      computedRoutes.push({
-        id: "rt-1-fallback",
-        name: "Navigasi Langsung ke Gerbang Posko",
-        summary: "Jalur darat menuju posko",
-        distanceText: formatNavDistance(baseMeters),
-        distanceMeters: baseMeters,
-        durationText: formatNavDuration(baseMinutes * 60),
-        durationSeconds: baseMinutes * 60,
-        statusBadge: "Bebas Genangan • Rekomendasi BPBD",
-        statusBadgeType: "safe",
-        coordinates: fallbackPositions,
-        steps: [
-          { instruction: "Mulai dari lokasi Anda menuju gerbang posko", distance: formatNavDistance(baseMeters) },
-          { instruction: `Tiba di ${shelter.name}`, distance: "10 m" },
-        ],
-      });
-    }
-
-    // Jika ada custom waypoint aktif
-    if (customWp && customWp.lat && customWp.lng) {
-      const customCoords = customWp.coordinates || [
-        [userLat, userLng],
-        [customWp.lat, customWp.lng],
-        [poskoLat, poskoLng],
-      ];
-      computedRoutes.push({
-        id: "rt-custom-wp",
-        name: "Rute Kustom via Titik Singgah",
-        summary: "lewat titik singgah pilihan Anda",
-        distanceText: customWp.distanceText || formatNavDistance(Math.round(baseMeters * 1.2)),
-        distanceMeters: Math.round(baseMeters * 1.2),
-        durationText: customWp.durationText || formatNavDuration(Math.round(baseMinutes * 60 * 1.2)),
-        durationSeconds: Math.round(baseMinutes * 60 * 1.2),
-        statusBadge: "Titik Singgah Kustom",
-        statusBadgeType: "custom",
-        coordinates: customCoords,
-        steps: [
-          { instruction: "Menuju titik singgah pilihan Anda", distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
-          { instruction: `Melanjutkan perjalanan menuju ${shelter.name}`, distance: formatNavDistance(Math.round(baseMeters * 0.6)) },
-        ],
-      });
-    }
-
-    // Tentukan rute yang terpilih
-    const safeSelectedIdx = Math.min(targetSelectedIdx, computedRoutes.length - 1);
+    const routes = await fetchAndComputeShelterRoutes(shelter, customWp || customWaypoint, initialMode);
+    const safeSelectedIdx = Math.min(targetSelectedIdx, Math.max(0, routes.length - 1));
 
     const navData: ActiveNavRouteData = {
       shelter,
       originName: "Lokasi Anda",
-      originCoords: [userLat, userLng],
+      originCoords: startCoord,
       destinationName: shelter.name,
-      destinationCoords: [poskoLat, poskoLng],
+      destinationCoords: [shelter.lat, shelter.lng],
       transportMode: initialMode,
-      routes: computedRoutes,
+      routes,
       selectedRouteIndex: safeSelectedIdx,
       showingSteps: false,
     };
@@ -3498,12 +3730,78 @@ function WargaSpatialMap({
     setSheetSnap("mid");
     setIsRoutingLoading(false);
 
-    // Gambar di peta Leaflet & panggil fitBounds otomatis
-    renderNavRoutesOnMap(computedRoutes, safeSelectedIdx, initialMode, [poskoLat, poskoLng], [userLat, userLng]);
+    // Gambar di peta Leaflet & fitBounds otomatis
+    renderNavRoutesOnMap(
+      routes,
+      safeSelectedIdx,
+      initialMode,
+      [shelter.lat, shelter.lng],
+      startCoord,
+      false
+    );
 
     setToastMessage(`Navigasi rute aktif: Menuju ${shelter.name}`);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Efek Kalkulasi & Render Preview Rute Riil (OSRM) saat Detail Posko Dibuka
+  useEffect(() => {
+    if (!activeShelterDetail) {
+      if (!activeNavRouteRef.current && activeRouteLayerRef.current) {
+        activeRouteLayerRef.current.clearLayers();
+      }
+      setShelterPreviewRoutes([]);
+      return;
+    }
+
+    let isCancelled = false;
+    const loadRoutes = async () => {
+      setIsPreviewRoutesLoading(true);
+      const cached = shelterRoutesCacheRef.current.get(activeShelterDetail.id);
+      if (cached && cached.length > 0) {
+        if (!isCancelled) {
+          setShelterPreviewRoutes(cached);
+          setSelectedPreviewRouteIndex(0);
+          setIsPreviewRoutesLoading(false);
+          const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+          const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+          renderNavRoutesOnMap(
+            cached,
+            0,
+            "motorcycle",
+            [activeShelterDetail.lat, activeShelterDetail.lng],
+            startCoord,
+            false
+          );
+        }
+        return;
+      }
+
+      const computed = await fetchAndComputeShelterRoutes(activeShelterDetail, customWaypoint);
+      if (!isCancelled) {
+        shelterRoutesCacheRef.current.set(activeShelterDetail.id, computed);
+        setShelterPreviewRoutes(computed);
+        setSelectedPreviewRouteIndex(0);
+        setIsPreviewRoutesLoading(false);
+        const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+        const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+        renderNavRoutesOnMap(
+          computed,
+          0,
+          "motorcycle",
+          [activeShelterDetail.lat, activeShelterDetail.lng],
+          startCoord,
+          false
+        );
+      }
+    };
+
+    loadRoutes();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeShelterDetail?.id]);
 
   // Update lokasi GPS saat Mode Navigasi Berjalan aktif
   const handleGpsLocationUpdateInNavigation = (coords: [number, number], accuracy?: number) => {
@@ -4033,7 +4331,7 @@ function WargaSpatialMap({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                drawSafeRoute(sh);
+                handleSelectShelterItem(sh);
                 if (onSelectShelter) onSelectShelter(sh);
               }}
               className="h-6.5 px-2.5 rounded-lg bg-[#38746D] hover:bg-[#24544E] text-white text-[9.5px] font-bold flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E]"
@@ -4391,8 +4689,14 @@ function WargaSpatialMap({
               {activeNavRoute.routes.map((rt, idx) => {
                 const isSelected = idx === activeNavRoute.selectedRouteIndex;
                 const isSafe = rt.statusBadgeType === "safe";
-                const rawSummary = rt.summary || (idx === 0 ? "Jl. Raya Pantura" : "Jl. By-Pass Lohbener");
-                const roadName = rawSummary.startsWith("lewat") ? rawSummary : `lewat ${rawSummary}`;
+                let roadName = rt.summary || (idx === 0 ? "lewat Jalur Arteri Utama" : "lewat Jalur Alternatif");
+                roadName = roadName.replace(/^lewat\s+lewat\s+/i, "lewat ");
+                if (roadName.includes("Belok kanan ke") || roadName.includes("Belok kiri ke") || roadName.includes("Mulai dari")) {
+                  roadName = idx === 0 ? "lewat Jalur Arteri Lohbener - Indramayu" : "lewat Jalur Alternatif";
+                }
+                if (!roadName.startsWith("lewat")) {
+                  roadName = `lewat ${roadName}`;
+                }
 
                 return (
                   <div
@@ -4513,7 +4817,7 @@ function WargaSpatialMap({
                   {activeShelterDetail.name}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[280px]">
-                  {activeShelterDetail.location} &bull; {activeShelterDetail.distance.split("(")[0].trim()} dari Anda
+                  {activeShelterDetail.location} &bull; {shelterPreviewRoutes[selectedPreviewRouteIndex] ? `${shelterPreviewRoutes[selectedPreviewRouteIndex].distanceText} (${shelterPreviewRoutes[selectedPreviewRouteIndex].durationText}) dari Anda` : `${activeShelterDetail.distance.split("(")[0].trim()} dari Anda`}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0 -mr-1">
@@ -4601,14 +4905,7 @@ function WargaSpatialMap({
             <div className="flex items-center gap-1.5 py-0.5 shrink-0">
               <button
                 type="button"
-                onClick={() =>
-                  drawSafeRoute(
-                    activeShelterDetail,
-                    "motorcycle",
-                    selectedRouteClassification === 2 ? 1 : selectedRouteClassification === 3 ? 2 : selectedRouteClassification === "custom" ? 3 : 0,
-                    customWaypoint
-                  )
-                }
+                onClick={() => startNavigationFromPreview()}
                 className="h-9 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
               >
                 <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
@@ -4705,164 +5002,109 @@ function WargaSpatialMap({
               />
             </div>
 
-            {/* Pilihan & Saran Rute Evakuasi */}
+            {/* Pilihan & Saran Rute Evakuasi (100% Dinamis OSRM & Deteksi Genangan) */}
             <div className="pt-1 border-t border-gray-100 space-y-2">
-              <h4 className="text-[11.5px] font-black text-slate-900 flex items-center gap-1.5">
-                <span>Pilihan &amp; Saran Rute Evakuasi</span>
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-[11.5px] font-black text-slate-900 flex items-center gap-1.5">
+                  <span>Pilihan &amp; Saran Rute Evakuasi</span>
+                </h4>
+                {isPreviewRoutesLoading && (
+                  <span className="text-[10.5px] text-[#38746D] font-bold flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Mencari rute aman...</span>
+                  </span>
+                )}
+              </div>
 
               <div className="flex flex-col gap-2">
-                {/* Opsi 1: Terdekat & Bebas Banjir */}
-                <div
-                  onClick={() => {
-                    setSelectedRouteClassification(1);
-                    previewShelterRoute(activeShelterDetail, 1);
-                  }}
-                  className={`rounded-xl p-3 cursor-pointer transition-all ${
-                    selectedRouteClassification === 1
-                      ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
-                      : "bg-white border border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-bold text-base text-slate-800">
-                        {activeMeta.eta.replace("±", "").trim() || "4 mnt"}
-                      </span>
-                      <span className="text-sm text-slate-500 font-normal">
-                        ({activeShelterDetail.distance.split("(")[0].trim()})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-emerald-50 text-emerald-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                        Bebas Banjir
-                      </span>
-                      {selectedRouteClassification === 1 && (
-                        <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                {isPreviewRoutesLoading && shelterPreviewRoutes.length === 0 ? (
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="p-3 rounded-xl border border-slate-200 bg-white animate-pulse space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="h-4 w-28 bg-slate-200 rounded" />
+                          <div className="h-4 w-20 bg-slate-100 rounded" />
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-600 truncate mt-1">
-                    lewat Jl. Raya Pantura
-                  </p>
-                </div>
-
-                {/* Opsi 2: Rute dengan Titik Genangan */}
-                <div
-                  onClick={() => {
-                    setSelectedRouteClassification(2);
-                    previewShelterRoute(activeShelterDetail, 2);
-                  }}
-                  className={`rounded-xl p-3 cursor-pointer transition-all ${
-                    selectedRouteClassification === 2
-                      ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
-                      : "bg-white border border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-bold text-base text-slate-800">
-                        {Math.max(2, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 0.75))} mnt
-                      </span>
-                      <span className="text-sm text-slate-500 font-normal">
-                        ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 0.78))})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-amber-50 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                        Genangan 15 cm
-                      </span>
-                      {selectedRouteClassification === 2 && (
-                        <div className="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-600 truncate mt-1">
-                    lewat Jl. Nelayan Pesisir
-                  </p>
-                </div>
-
-                {/* Opsi 3: Jalur Alternatif Memutar */}
-                <div
-                  onClick={() => {
-                    setSelectedRouteClassification(3);
-                    previewShelterRoute(activeShelterDetail, 3);
-                  }}
-                  className={`rounded-xl p-3 cursor-pointer transition-all ${
-                    selectedRouteClassification === 3
-                      ? "bg-slate-50 border-2 border-slate-700 shadow-xs"
-                      : "bg-white border border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-bold text-base text-slate-800">
-                        {Math.max(4, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 2.25))} mnt
-                      </span>
-                      <span className="text-sm text-slate-500 font-normal">
-                        ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 2.45))})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                        Jalur Alternatif
-                      </span>
-                      {selectedRouteClassification === 3 && (
-                        <div className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-600 truncate mt-1">
-                    lewat By-Pass Lingkar Luar
-                  </p>
-                </div>
-
-                {/* Opsi Rute Kustom jika aktif */}
-                {customWaypoint && (
-                  <div
-                    onClick={() => {
-                      setSelectedRouteClassification("custom");
-                      previewShelterRoute(activeShelterDetail, "custom", customWaypoint);
-                    }}
-                    className={`rounded-xl p-3 cursor-pointer transition-all ${
-                      selectedRouteClassification === "custom"
-                        ? "bg-purple-50/50 border-2 border-purple-600 shadow-xs"
-                        : "bg-white border border-slate-200 hover:border-purple-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-bold text-base text-slate-800">
-                          {customWaypoint.durationText}
-                        </span>
-                        <span className="text-sm text-slate-500 font-normal">
-                          ({customWaypoint.distanceText})
-                        </span>
+                        <div className="h-3 w-48 bg-slate-100 rounded" />
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="bg-purple-50 text-purple-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                          Rute Manual
-                        </span>
-                        {selectedRouteClassification === "custom" && (
-                          <div className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    ))}
+                  </div>
+                ) : shelterPreviewRoutes.length > 0 ? (
+                  shelterPreviewRoutes.map((rt, idx) => {
+                    const isSelected = selectedPreviewRouteIndex === idx;
+                    const isSafe = rt.statusBadgeType === "safe";
+                    const isWarning = rt.statusBadgeType === "warning";
+                    const isCustom = rt.statusBadgeType === "custom";
+
+                    return (
+                      <div
+                        key={rt.id || idx}
+                        onClick={() => handleSelectPreviewRoute(idx)}
+                        className={`rounded-xl p-3 cursor-pointer transition-all ${
+                          isSelected
+                            ? isSafe
+                              ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
+                              : isWarning
+                              ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
+                              : isCustom
+                              ? "bg-purple-50/50 border-2 border-purple-600 shadow-xs"
+                              : "bg-slate-50 border-2 border-slate-700 shadow-xs"
+                            : "bg-white border border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-base text-slate-800">
+                              {rt.durationText}
+                            </span>
+                            <span className="text-sm text-slate-500 font-normal">
+                              ({rt.distanceText})
+                            </span>
                           </div>
-                        )}
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                                isSafe
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : isWarning
+                                  ? "bg-amber-50 text-amber-700"
+                                  : isCustom
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {rt.statusBadge}
+                            </span>
+                            {isSelected && (
+                              <div
+                                className={`w-4 h-4 rounded-full text-white flex items-center justify-center shrink-0 ${
+                                  isSafe
+                                    ? "bg-[#38746D]"
+                                    : isWarning
+                                    ? "bg-amber-600"
+                                    : isCustom
+                                    ? "bg-purple-600"
+                                    : "bg-slate-700"
+                                }`}
+                              >
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 truncate mt-1">
+                          {rt.summary}
+                        </p>
                       </div>
-                    </div>
-                    <p className="text-xs text-slate-600 truncate mt-1">
-                      via Titik Singgah Pilihan Anda
-                    </p>
+                    );
+                  })
+                ) : (
+                  <div className="p-3 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
+                    Rute langsung ke lokasi posko siap dipandu.
                   </div>
                 )}
 
-                {/* Tombol Tentukan Jalur Sendiri (Custom) */}
+                {/* Tombol Tentukan Jalur Sendiri (Custom Waypoint) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -4871,7 +5113,7 @@ function WargaSpatialMap({
                   }}
                   className="text-xs font-medium text-[#38746D] hover:text-[#23533E] py-2 flex items-center justify-center gap-1.5 w-full border border-dashed border-emerald-300 rounded-xl bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer transition-colors"
                 >
-                  <span>Pilih rute manual di peta ✏️</span>
+                  <span>Tentukan Jalur Sendiri (Custom Waypoint) ✏️</span>
                 </button>
               </div>
             </div>
@@ -5492,7 +5734,7 @@ function WargaSpatialMap({
             </h3>
             <p className="text-[10.5px] text-slate-500 flex items-center gap-1 truncate">
               <MapPin className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
-              <span>{activeShelterDetail.location} &bull; {activeShelterDetail.distance.split("(")[0].trim()} dari Anda</span>
+              <span>{activeShelterDetail.location} &bull; {shelterPreviewRoutes[selectedPreviewRouteIndex] ? `${shelterPreviewRoutes[selectedPreviewRouteIndex].distanceText} (${shelterPreviewRoutes[selectedPreviewRouteIndex].durationText}) dari Anda` : `${activeShelterDetail.distance.split("(")[0].trim()} dari Anda`}</span>
             </p>
           </div>
 
@@ -5500,14 +5742,7 @@ function WargaSpatialMap({
           <div className="flex items-center gap-1.5 pt-0.5">
             <button
               type="button"
-              onClick={() =>
-                drawSafeRoute(
-                  activeShelterDetail,
-                  "motorcycle",
-                  selectedRouteClassification === 2 ? 1 : selectedRouteClassification === 3 ? 2 : selectedRouteClassification === "custom" ? 3 : 0,
-                  customWaypoint
-                )
-              }
+              onClick={() => startNavigationFromPreview()}
               className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
             >
               <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
@@ -5584,151 +5819,135 @@ function WargaSpatialMap({
             </div>
           </div>
 
-          {/* 5. SECTION PILIHAN & SARAN RUTE EVAKUASI (GAYA GOOGLE MAPS) */}
+          {/* 5. SECTION PILIHAN & SARAN RUTE EVAKUASI (100% Dinamis OSRM & Deteksi Genangan) */}
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-[11.5px] font-black text-slate-900 flex items-center gap-1.5">
                 <span>Pilihan &amp; Saran Rute Evakuasi</span>
               </h4>
+              {isPreviewRoutesLoading && (
+                <span className="text-[10px] text-[#38746D] font-bold flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Mencari rute aman...</span>
+                </span>
+              )}
             </div>
 
-            {/* Deretan Pilihan Kartu Selector Rute Evakuasi */}
+            {/* Deretan Pilihan Kartu Selector Rute Evakuasi Riil */}
             <div className="flex flex-col gap-2">
-              {/* Opsi 1: Terdekat & Bebas Banjir */}
-              <div
-                onClick={() => {
-                  setSelectedRouteClassification(1);
-                  previewShelterRoute(activeShelterDetail, 1);
-                }}
-                className={`rounded-xl p-3 cursor-pointer transition-all ${
-                  selectedRouteClassification === 1
-                    ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
-                    : "bg-white border border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-bold text-base text-slate-800">
-                      {activeMeta.eta.replace("±", "").trim() || "4 mnt"}
-                    </span>
-                    <span className="text-sm text-slate-500 font-normal">
-                      ({activeShelterDetail.distance.split("(")[0].trim()})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="bg-emerald-50 text-emerald-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                      Bebas Banjir
-                    </span>
-                    {selectedRouteClassification === 1 && (
-                      <div className="w-4 h-4 rounded-full bg-[#38746D] text-white flex items-center justify-center shrink-0">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+              {isPreviewRoutesLoading && shelterPreviewRoutes.length === 0 ? (
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="p-3 rounded-xl border border-slate-200 bg-white animate-pulse space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 bg-slate-200 rounded" />
+                        <div className="h-4 w-20 bg-slate-100 rounded" />
                       </div>
-                    )}
-                  </div>
+                      <div className="h-3 w-48 bg-slate-100 rounded" />
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-slate-600 truncate mt-1">
-                  lewat Jl. Raya Pantura
-                </p>
-              </div>
+              ) : shelterPreviewRoutes.length > 0 ? (
+                shelterPreviewRoutes.map((rt, idx) => {
+                  const isSelected = selectedPreviewRouteIndex === idx;
+                  const isSafe = rt.statusBadgeType === "safe";
+                  const isWarning = rt.statusBadgeType === "warning";
+                  const isCustom = rt.statusBadgeType === "custom";
 
-              {/* Opsi 2: Rute dengan Titik Genangan */}
-              <div
-                onClick={() => {
-                  setSelectedRouteClassification(2);
-                  previewShelterRoute(activeShelterDetail, 2);
-                }}
-                className={`rounded-xl p-3 cursor-pointer transition-all ${
-                  selectedRouteClassification === 2
-                    ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
-                    : "bg-white border border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-bold text-base text-slate-800">
-                      {Math.max(2, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 0.75))} mnt
-                    </span>
-                    <span className="text-sm text-slate-500 font-normal">
-                      ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 0.78))})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="bg-amber-50 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                      Genangan 15 cm
-                    </span>
-                    {selectedRouteClassification === 2 && (
-                      <div className="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center shrink-0">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  return (
+                    <div
+                      key={rt.id || idx}
+                      onClick={() => handleSelectPreviewRoute(idx)}
+                      className={`rounded-xl p-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? isSafe
+                            ? "bg-emerald-50/40 border-2 border-[#38746D] shadow-xs"
+                            : isWarning
+                            ? "bg-amber-50/40 border-2 border-amber-600 shadow-xs"
+                            : isCustom
+                            ? "bg-purple-50/50 border-2 border-purple-600 shadow-xs"
+                            : "bg-slate-50 border-2 border-slate-700 shadow-xs"
+                          : "bg-white border border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-base text-slate-800">
+                            {rt.durationText}
+                          </span>
+                          <span className="text-sm text-slate-500 font-normal">
+                            ({rt.distanceText})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                              isSafe
+                                ? "bg-emerald-50 text-emerald-700"
+                                : isWarning
+                                ? "bg-amber-50 text-amber-700"
+                                : isCustom
+                                ? "bg-purple-50 text-purple-700"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {rt.statusBadge}
+                          </span>
+                          {isSelected && (
+                            <div
+                              className={`w-4 h-4 rounded-full text-white flex items-center justify-center shrink-0 ${
+                                isSafe
+                                  ? "bg-[#38746D]"
+                                  : isWarning
+                                  ? "bg-amber-600"
+                                  : isCustom
+                                  ? "bg-purple-600"
+                                  : "bg-slate-700"
+                              }`}
+                            >
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <p className="text-xs text-slate-600 truncate mt-1">
+                        {rt.summary}
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-3 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
+                  Rute langsung ke lokasi posko siap dipandu.
                 </div>
-                <p className="text-xs text-slate-600 truncate mt-1">
-                  lewat Jl. Nelayan Pesisir
-                </p>
-              </div>
-
-              {/* Opsi 3: Jalur Alternatif Memutar */}
-              <div
-                onClick={() => {
-                  setSelectedRouteClassification(3);
-                  previewShelterRoute(activeShelterDetail, 3);
-                }}
-                className={`rounded-xl p-3 cursor-pointer transition-all ${
-                  selectedRouteClassification === 3
-                    ? "bg-slate-50 border-2 border-slate-700 shadow-xs"
-                    : "bg-white border border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-bold text-base text-slate-800">
-                      {Math.max(4, Math.round(Math.max(2, Math.round(parseDistanceInMeters(activeShelterDetail.distance) / 300)) * 2.25))} mnt
-                    </span>
-                    <span className="text-sm text-slate-500 font-normal">
-                      ({formatNavDistance(Math.round(parseDistanceInMeters(activeShelterDetail.distance) * 2.45))})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                      Jalur Alternatif
-                    </span>
-                    {selectedRouteClassification === 3 && (
-                      <div className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-slate-600 truncate mt-1">
-                  lewat By-Pass Lingkar Luar
-                </p>
-              </div>
+              )}
 
               {/* Opsi Kustom: Tentukan Jalur Sendiri (Custom Waypoint) */}
               <div
                 onClick={() => {
                   if (customWaypoint) {
-                    setSelectedRouteClassification("custom");
-                    previewShelterRoute(activeShelterDetail, "custom", customWaypoint);
+                    const customIdx = shelterPreviewRoutes.findIndex((r) => r.statusBadgeType === "custom");
+                    if (customIdx >= 0) handleSelectPreviewRoute(customIdx);
                   } else {
                     setIsPickingWaypoint(true);
                   }
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${selectedRouteClassification === "custom"
-                  ? "bg-purple-50/80 border-purple-500 ring-1 ring-purple-500/30 shadow-xs"
-                  : "bg-white hover:bg-purple-50/30 border-gray-200 hover:border-purple-200"
-                  }`}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                  selectedPreviewRouteIndex >= 0 && shelterPreviewRoutes[selectedPreviewRouteIndex]?.statusBadgeType === "custom"
+                    ? "bg-purple-50/80 border-purple-500 ring-1 ring-purple-500/30 shadow-xs"
+                    : "bg-white hover:bg-purple-50/30 border-gray-200 hover:border-purple-200"
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${selectedRouteClassification === "custom"
-                        ? "border-purple-600 bg-purple-600"
-                        : "border-slate-300 bg-white"
-                        }`}
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                        selectedPreviewRouteIndex >= 0 && shelterPreviewRoutes[selectedPreviewRouteIndex]?.statusBadgeType === "custom"
+                          ? "border-purple-600 bg-purple-600"
+                          : "border-slate-300 bg-white"
+                      }`}
                     >
-                      {selectedRouteClassification === "custom" && (
+                      {selectedPreviewRouteIndex >= 0 && shelterPreviewRoutes[selectedPreviewRouteIndex]?.statusBadgeType === "custom" && (
                         <span className="w-1.5 h-1.5 rounded-full bg-white" />
                       )}
                     </div>

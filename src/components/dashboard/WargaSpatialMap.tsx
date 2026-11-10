@@ -1772,10 +1772,56 @@ function WargaSpatialMap({
 
       // 1. Cari target dari props reports
       let target = (reports || []).find(
-        (r) => r.id === focusReportId || r.ticketCode === focusReportId
+        (r) => focusReportId && (r.id === focusReportId || r.ticketCode === focusReportId)
       );
 
-      // 2. Jika tidak ditemukan di props, cari di INITIAL_CITIZEN_REPORTS
+      // 2. Jika belum ditemukan via ID, coba cocokkan berdasarkan koordinat terdekat (~80 meter)
+      if (!target && focusCoords) {
+        target = (reports || []).find(
+          (r) =>
+            Math.abs(r.lat - focusCoords.lat) < 0.0008 &&
+            Math.abs(r.lng - focusCoords.lng) < 0.0008
+        );
+      }
+
+      // 3. Jika belum ditemukan di props, cari di LocalStorage (laporan lokal warga)
+      if (!target) {
+        try {
+          const saved = typeof window !== "undefined" ? localStorage.getItem("dermayu_citizen_reports") : null;
+          if (saved) {
+            const list = JSON.parse(saved);
+            if (Array.isArray(list)) {
+              const matched = list.find((item: any) =>
+                (focusReportId && (item.id === focusReportId || item.ticketCode === focusReportId)) ||
+                (focusCoords && (
+                  (item.gps?.lat && Math.abs(item.gps.lat - focusCoords.lat) < 0.001 && Math.abs(item.gps.lng - focusCoords.lng) < 0.001) ||
+                  (item.lat && Math.abs(item.lat - focusCoords.lat) < 0.001 && Math.abs(item.lng - focusCoords.lng) < 0.001)
+                ))
+              );
+              if (matched) {
+                target = {
+                  id: matched.id || matched.ticketCode,
+                  ticketCode: matched.ticketCode || matched.id,
+                  title: matched.notes || matched.title || "Laporan Titik Banjir",
+                  category: matched.category || "Genangan Banjir",
+                  severity: matched.severity || "HIGH",
+                  waterLevelText: matched.waterLevel || "Genangan Air",
+                  status: matched.status === "DIVERIFIKASI" || matched.status === "VERIFIED" ? "Terverifikasi Aktif" : "Menunggu Verifikasi Posko",
+                  location: matched.location || "Indramayu",
+                  lat: Number(matched.gps?.lat ?? matched.lat ?? focusCoords?.lat),
+                  lng: Number(matched.gps?.lng ?? matched.lng ?? focusCoords?.lng),
+                  timeAgo: matched.time || "Baru saja",
+                  photos: matched.photos || (matched.photoUrl ? [matched.photoUrl] : []),
+                  photoUrl: matched.photos?.[0] || matched.photoUrl,
+                  note: matched.notes || matched.description || "",
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 4. Jika masih belum ditemukan, cari di INITIAL_CITIZEN_REPORTS
       if (!target && focusReportId) {
         const foundCitizen = INITIAL_CITIZEN_REPORTS.find(
           (c) => c.id === focusReportId
@@ -1809,7 +1855,7 @@ function WargaSpatialMap({
         }
       }
 
-      // 3. Jika masih belum ditemukan tapi ada koordinat, buat fallback titik aduan (HANYA jika bukan navigasi posko)
+      // 5. Fallback titik aduan jika benar-benar tidak ditemukan (HANYA jika bukan navigasi posko)
       if (!target && focusCoords && !focusShelterId) {
         target = {
           id: focusReportId || `LOC-${focusCoords.lat}-${focusCoords.lng}`,

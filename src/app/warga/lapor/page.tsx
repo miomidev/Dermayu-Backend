@@ -302,18 +302,8 @@ export default function WargaLaporPage() {
     }
   };
 
-  // Reports List State - Langsung baca dari localStorage saat inisialisasi agar tidak pernah kosong/hilang saat refresh
-  const [reports, setReports] = useState<ReportTicket[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [];
-  });
+  // Reports List State - Inisialisasi aman [] untuk mencegah error hydration mismatch Next.js SSR
+  const [reports, setReports] = useState<ReportTicket[]>([]);
 
   // Status Koneksi Jaringan & Mode Offline (PWA Offline-First)
   const [isOnline, setIsOnline] = useState(true);
@@ -326,6 +316,17 @@ export default function WargaLaporPage() {
     try {
       if (localStorage.getItem("dermayu_user_reports")) {
         localStorage.removeItem("dermayu_user_reports");
+      }
+
+      // Ambil data lokal segera saat komponen mount di client
+      const initialLocal = localStorage.getItem(STORAGE_KEY);
+      if (initialLocal) {
+        try {
+          const parsed = JSON.parse(initialLocal);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setReports(parsed);
+          }
+        } catch {}
       }
 
       // Ambil data aduan resmi dari Server API (single source of truth)
@@ -1119,7 +1120,7 @@ export default function WargaLaporPage() {
               {successModal.isAutoVerified ? (
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <Link
-                    href={`/warga/evakuasi?lat=${successModal.lat}&lng=${successModal.lng}`}
+                    href={`/warga/evakuasi?reportId=${encodeURIComponent(successModal.ticketCode)}&lat=${successModal.lat}&lng=${successModal.lng}`}
                     onClick={() => setSuccessModal(null)}
                     className="flex-1 py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#2C5C56] text-white text-xs sm:text-sm font-bold text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >

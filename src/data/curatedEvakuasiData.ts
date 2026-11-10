@@ -174,7 +174,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Camat Kandanghaur",
       "telp": "0811-2300-4455"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/2/24/Kantor_Kecamatan_Kandanghaur%2C_Indramayu.jpg",
     "tier": 1
   },
   {
@@ -197,7 +197,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Ilir",
       "telp": "0877-4455-6677"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/88/Kantor_Kuwu_Bulak_Lor.jpg",
     "tier": 3
   },
   {
@@ -220,7 +220,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Sulaeman (DKM)",
       "telp": "0812-9900-1188"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Masjid_Al-ijtihad_Sukahaji_-_panoramio.jpg",
     "tier": 2
   },
   {
@@ -244,7 +244,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Mas'ud",
       "telp": "0821-3344-5566"
     },
-    "foto": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Gedung_Olahraga_Beber.jpg",
     "tier": 3
   },
   {
@@ -268,7 +268,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ibu Ratna (Tagana)",
       "telp": "0821-4433-2100"
     },
-    "foto": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/d6/GOR_Saparua_Bandung.jpg",
     "tier": 1
   },
   {
@@ -292,7 +292,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Mulyadi (Kuwu)",
       "telp": "0812-3456-7890"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/46/Foto_kantor_desa.jpg",
     "tier": 1
   },
   {
@@ -315,7 +315,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Dedi Sukardi",
       "telp": "0813-2211-9988"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_desa.JPG",
     "tier": 2
   },
   {
@@ -430,7 +430,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Imron Rosyadi",
       "telp": "0812-4455-6677"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Masjid_Agung_Indramayu_-_panoramio.jpg",
     "tier": 1
   },
   {
@@ -453,7 +453,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuswanto",
       "telp": "0813-5566-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/0/0c/GOR_Merdeka_Sukabumi.jpg",
     "tier": 2
   },
   {
@@ -569,7 +569,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Tarkim (Kuwu)",
       "telp": "0877-3344-5511"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/df/Kantor_Desa_Kemiri_Timur.jpg",
     "tier": 1
   },
   {
@@ -592,7 +592,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Wastika",
       "telp": "0812-6677-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/46/Foto_kantor_desa.jpg",
     "tier": 3
   },
   {
@@ -615,7 +615,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Mustofa",
       "telp": "0821-8899-7766"
     },
-    "foto": "https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Masjid_Al-ijtihad_Sukahaji_-_panoramio.jpg",
     "tier": 2
   },
   {
@@ -707,7 +707,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Pak Carma (Satgas)",
       "telp": "0877-2233-4411"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/88/Kantor_Kuwu_Bulak_Lor.jpg",
     "tier": 1
   },
   {
@@ -730,7 +730,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Wartono",
       "telp": "0812-8877-6655"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_desa.JPG",
     "tier": 3
   },
   {
@@ -753,7 +753,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ust. Rahmat Hidayat",
       "telp": "0821-2233-4411"
     },
-    "foto": "https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/60/Masjid_At-Taqwa_Cirebon_-_panoramio.jpg",
     "tier": 3
   },
   {
@@ -846,7 +846,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Balongan",
       "telp": "0813-7788-9911"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/df/Kantor_Desa_Kemiri_Timur.jpg",
     "tier": 2
   },
   {
@@ -869,7 +869,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Abdul Wahid",
       "telp": "0821-4455-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Masjid_Agung_Sumber.jpg",
     "tier": 2
   },
   {
@@ -962,7 +962,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Camat Lohbener",
       "telp": "0811-9988-7766"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/0/05/Kantor_Kecamatan_Losarang%2C_Indramayu.jpg",
     "tier": 1
   },
   {
@@ -985,7 +985,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Syamsuri",
       "telp": "0821-3322-1100"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Masjid_Agung_Indramayu_-_panoramio.jpg",
     "tier": 2
   },
   {
@@ -1009,7 +1009,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Sukirno (Koordinator)",
       "telp": "0819-8877-6655"
     },
-    "foto": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Gedung_Olahraga_Beber.jpg",
     "tier": 1
   },
   {
@@ -1078,7 +1078,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Waryono (Kuwu)",
       "telp": "0813-6677-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/46/Foto_kantor_desa.jpg",
     "tier": 2
   },
   {
@@ -1101,7 +1101,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Terusan",
       "telp": "0852-8899-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/88/Kantor_Kuwu_Bulak_Lor.jpg",
     "tier": 3
   },
   {
@@ -1124,7 +1124,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Ahmad Fauzi",
       "telp": "0821-7788-9900"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Masjid_Al-ijtihad_Sukahaji_-_panoramio.jpg",
     "tier": 1
   },
   {
@@ -1148,7 +1148,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Drs. Dadang (BPBD)",
       "telp": "0811-2345-6789"
     },
-    "foto": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/2/21/GOR_ABIRAWA_KABUPATEN_BATANG.jpg",
     "tier": 1
   },
   {
@@ -1218,7 +1218,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Camat Kota",
       "telp": "0811-7788-9900"
     },
-    "foto": "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_Bupati_Indramayu.jpg",
     "tier": 1
   },
   {
@@ -1241,7 +1241,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Singaraja",
       "telp": "0852-3344-5566"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_desa.JPG",
     "tier": 3
   },
   {
@@ -1265,7 +1265,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Syaerozi Bilal",
       "telp": "0812-9988-1122"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Masjid_Agung_Indramayu_-_panoramio.jpg",
     "tier": 1
   },
   {
@@ -1288,7 +1288,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. H. Malik",
       "telp": "0813-8899-2233"
     },
-    "foto": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/2/2a/GOR_Djarum_Kudus%2C_Jawa_Tengah.jpg",
     "tier": 1
   },
   {
@@ -1381,7 +1381,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Kertasmaya",
       "telp": "0813-2244-6688"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/df/Kantor_Desa_Kemiri_Timur.jpg",
     "tier": 2
   },
   {
@@ -1404,7 +1404,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Badruzzaman",
       "telp": "0821-6677-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/60/Masjid_At-Taqwa_Cirebon_-_panoramio.jpg",
     "tier": 2
   },
   {
@@ -1474,7 +1474,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Camat Jatibarang",
       "telp": "0811-3344-5566"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/6a/JATIBARANG.jpg",
     "tier": 1
   },
   {
@@ -1497,7 +1497,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Abdullah",
       "telp": "0821-5566-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Masjid_Agung_Sumber.jpg",
     "tier": 2
   },
   {
@@ -1520,7 +1520,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Gunawan",
       "telp": "0812-4411-9900"
     },
-    "foto": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/d6/GOR_Saparua_Bandung.jpg",
     "tier": 2
   },
   {
@@ -1589,7 +1589,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Kerticala",
       "telp": "0813-8877-6655"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/46/Foto_kantor_desa.jpg",
     "tier": 3
   },
   {
@@ -1612,7 +1612,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ust. Syamsul Maarif",
       "telp": "0821-7766-5544"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Masjid_Al-ijtihad_Sukahaji_-_panoramio.jpg",
     "tier": 3
   },
   {
@@ -1658,7 +1658,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Bangodua",
       "telp": "0852-1133-7799"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/88/Kantor_Kuwu_Bulak_Lor.jpg",
     "tier": 3
   },
   {
@@ -1681,7 +1681,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "H. Syafi'i",
       "telp": "0821-9988-7711"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/0/08/Masjid_Agung_Sang_Cipta_Rasa_01.jpg",
     "tier": 3
   },
   {
@@ -1729,7 +1729,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Suhendra",
       "telp": "0813-5544-3322"
     },
-    "foto": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Gedung_Olahraga_Beber.jpg",
     "tier": 2
   },
   {
@@ -1752,7 +1752,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Lukman Hakim",
       "telp": "0821-1122-3344"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Masjid_Agung_Indramayu_-_panoramio.jpg",
     "tier": 2
   },
   {
@@ -1821,7 +1821,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Suhandi",
       "telp": "0877-3322-1144"
     },
-    "foto": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/0/0c/GOR_Merdeka_Sukabumi.jpg",
     "tier": 3
   },
   {
@@ -1891,7 +1891,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Anjatan Baru",
       "telp": "0852-7788-3311"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_desa.JPG",
     "tier": 2
   },
   {
@@ -1960,7 +1960,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Sukra Kulon",
       "telp": "0878-1144-6677"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/84/Kantor_Kecamatan_Patrol%2C_Indramayu.jpg",
     "tier": 2
   },
   {
@@ -2007,7 +2007,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Gabuswetan",
       "telp": "0813-8899-3322"
     },
-    "foto": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/2/22/Kantor_Kecamatan_Gabuswetan%2C_Indramayu.jpg",
     "tier": 2
   },
   {
@@ -2030,7 +2030,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Ust. H. Syarif",
       "telp": "0821-4455-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/6/60/Masjid_At-Taqwa_Cirebon_-_panoramio.jpg",
     "tier": 3
   },
   {
@@ -2099,7 +2099,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Kroya",
       "telp": "0877-2244-6688"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/d/df/Kantor_Desa_Kemiri_Timur.jpg",
     "tier": 2
   },
   {
@@ -2168,7 +2168,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Lelea",
       "telp": "0813-4455-8899"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/4/46/Foto_kantor_desa.jpg",
     "tier": 2
   },
   {
@@ -2238,7 +2238,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Sliyeg",
       "telp": "0878-4455-9900"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/8/88/Kantor_Kuwu_Bulak_Lor.jpg",
     "tier": 2
   },
   {
@@ -2307,7 +2307,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. Kuwu Juntinyuat",
       "telp": "0852-8811-4477"
     },
-    "foto": "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Kantor_desa.JPG",
     "tier": 2
   },
   {
@@ -2354,7 +2354,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "K.H. Nurhadi",
       "telp": "0821-6655-4433"
     },
-    "foto": "https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Masjid_Merah_Panjunan_01.jpg",
     "tier": 1
   },
   {
@@ -2377,7 +2377,7 @@ export const CURATED_POSKO_LIST: PoskoItem[] = [
       "pj": "Bpk. H. Sukanta",
       "telp": "0813-2211-7788"
     },
-    "foto": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80",
+    "foto": "https://upload.wikimedia.org/wikipedia/commons/2/21/GOR_ABIRAWA_KABUPATEN_BATANG.jpg",
     "tier": 2
   }
 ];

@@ -303,10 +303,11 @@ export function getDbPoskoList(): PoskoRecord[] {
       .map((p: any) => {
         const curated = curatedMap.get(p.id);
         if (curated) {
-          if (curated.foto && curated.foto.startsWith("https://file.data.kemendikdasmen.go.id")) {
+          const isCustomUpload = Array.isArray(p.photos) && p.photos.some((f: any) => typeof f === "string" && (f.startsWith("data:") || f.startsWith("/uploads/")));
+          if (!isCustomUpload && curated.foto) {
             p.foto = curated.foto;
-            p.photos = [curated.foto];
-            p.fotos = [curated.foto];
+            p.photos = (curated.fotos && curated.fotos.length > 0) ? curated.fotos : [curated.foto];
+            p.fotos = p.photos;
           }
           p.lat = curated.lat;
           p.lng = curated.lng;

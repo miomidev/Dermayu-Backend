@@ -241,12 +241,14 @@ export function getAllPosko(): PoskoRecord[] {
           photos = photos.filter((f) => typeof f === "string" && !f.includes("default.jpg"));
         }
 
-        // Sinkronisasi foto resmi Kemendikdasmen dan koordinat GPS presisi dari dataset kurasi
+        // Sinkronisasi foto resmi kurasi (Kemendikdasmen, Wikimedia Commons kantor desa/masjid/GOR)
         const curated = curatedMap.get(p.id);
         if (curated) {
-          if (curated.foto && curated.foto.startsWith("https://file.data.kemendikdasmen.go.id")) {
-            if (p.foto !== curated.foto || !photos || photos.length !== 1 || photos[0] !== curated.foto) {
-              photos = [curated.foto];
+          const isUserUploaded = photos && photos.some((f) => typeof f === "string" && f.startsWith("data:"));
+          if (!isUserUploaded && curated.foto) {
+            if (p.foto !== curated.foto || !photos || photos[0] !== curated.foto) {
+              p.foto = curated.foto;
+              photos = (curated.fotos && curated.fotos.length > 0) ? curated.fotos : [curated.foto];
               hasContaminatedData = true;
             }
           }

@@ -7,18 +7,69 @@ import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Patch pengaman Leaflet DomUtil.getPosition: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
-// saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi
-if (typeof window !== "undefined" && L && L.DomUtil) {
-  const _origGetPos = L.DomUtil.getPosition;
-  L.DomUtil.getPosition = function (el: any) {
-    if (!el) return new L.Point(0, 0);
-    try {
-      return _origGetPos.call(L.DomUtil, el);
-    } catch {
-      return new L.Point(0, 0);
+// Patch pengaman Leaflet: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
+// saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi flyTo
+if (typeof window !== "undefined" && L) {
+  if (L.DomUtil) {
+    if (L.DomUtil.getPosition) {
+      const _origGetPos = L.DomUtil.getPosition;
+      L.DomUtil.getPosition = function (el: any) {
+        if (!el) return new L.Point(0, 0);
+        try {
+          return _origGetPos.call(L.DomUtil, el) || new L.Point(0, 0);
+        } catch {
+          return new L.Point(0, 0);
+        }
+      };
     }
-  };
+    if (L.DomUtil.setPosition) {
+      const _origSetPos = L.DomUtil.setPosition;
+      L.DomUtil.setPosition = function (el: any, point: any) {
+        if (!el) return;
+        try {
+          return _origSetPos.call(L.DomUtil, el, point);
+        } catch {}
+      };
+    }
+  }
+
+  if (L.PosAnimation && L.PosAnimation.prototype) {
+    const _origPosRun = L.PosAnimation.prototype.run;
+    if (_origPosRun) {
+      L.PosAnimation.prototype.run = function (el: any, newPos: any, duration: any, easeLinearity: any) {
+        if (!el) return;
+        try {
+          return _origPosRun.call(this, el, newPos, duration, easeLinearity);
+        } catch {
+          (this as any)._inProgress = false;
+        }
+      };
+    }
+    const _origPosStop = L.PosAnimation.prototype.stop;
+    if (_origPosStop) {
+      L.PosAnimation.prototype.stop = function () {
+        try {
+          return _origPosStop.call(this);
+        } catch {
+          (this as any)._inProgress = false;
+        }
+      };
+    }
+  }
+
+  if (L.Map && L.Map.prototype) {
+    const _origGetMapPanePos = (L.Map.prototype as any)._getMapPanePos;
+    if (_origGetMapPanePos) {
+      (L.Map.prototype as any)._getMapPanePos = function () {
+        if (!this._mapPane) return new L.Point(0, 0);
+        try {
+          return _origGetMapPanePos.call(this) || new L.Point(0, 0);
+        } catch {
+          return new L.Point(0, 0);
+        }
+      };
+    }
+  }
 }
 
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
@@ -1658,12 +1709,14 @@ function WargaSpatialMap({
   // Efek Fokus Otomatis jika pengguna mengklik aduan dari halaman Lapor atau Daftar Aduan
   const lastFocusedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    // SANGAT PENTING: Jika focusShelterId ada, jangan jalankan efek fokus aduan!
+    if (focusShelterId) return;
     if (!focusReportId && !focusCoords) return;
     const focusKey = `${focusReportId || ""}_${focusCoords?.lat || ""}_${focusCoords?.lng || ""}`;
     if (lastFocusedKeyRef.current === focusKey) return;
 
-    if (focusReportId || focusCoords || focusShelterId) {
-      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan/posko dengan fit GPS default
+    if (focusReportId || focusCoords) {
+      initialGpsFittedRef.current = true; // Jangan timpa fokus aduan dengan fit GPS default
     }
 
     const tryFocus = () => {
@@ -1709,8 +1762,8 @@ function WargaSpatialMap({
         }
       }
 
-      // 3. Jika masih belum ditemukan tapi ada koordinat, buat fallback titik aduan
-      if (!target && focusCoords) {
+      // 3. Jika masih belum ditemukan tapi ada koordinat, buat fallback titik aduan (HANYA jika bukan navigasi posko)
+      if (!target && focusCoords && !focusShelterId) {
         target = {
           id: focusReportId || `LOC-${focusCoords.lat}-${focusCoords.lng}`,
           ticketCode: focusReportId || "ADUAN",
@@ -1735,14 +1788,24 @@ function WargaSpatialMap({
         setSelectedMarker({ type: "report", data: target });
         setPoskoExpanded(true);
         setSheetSnap("mid");
-        map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        try {
+          if (typeof (map as any).stop === "function") {
+            (map as any).stop();
+          }
+          map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        } catch {}
         if (onSelectReport) onSelectReport(target);
         return true;
       }
 
-      if (focusCoords) {
+      if (focusCoords && !focusShelterId) {
         lastFocusedKeyRef.current = focusKey;
-        map.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
+        try {
+          if (typeof (map as any).stop === "function") {
+            (map as any).stop();
+          }
+          map.flyTo([focusCoords.lat, focusCoords.lng], 16, { duration: 1.2 });
+        } catch {}
         return true;
       }
 
@@ -1766,7 +1829,7 @@ function WargaSpatialMap({
       clearInterval(interval);
       clearTimeout(timer);
     };
-  }, [focusReportId, focusCoords?.lat, focusCoords?.lng, reports, onSelectReport]);
+  }, [focusReportId, focusCoords, focusShelterId, reports, onSelectReport]);
 
   // Kalkulasi jarak real-time & Skema 5-Level Tiering Posko (LoD by Zoom Level)
   const processedShelters = useMemo(() => {
@@ -3680,15 +3743,26 @@ function WargaSpatialMap({
   // Efek Fokus Otomatis & Tampilkan Detail Posko jika pengguna diarahkan dari halaman Pantauan Posko (/warga/posko)
   const hasFocusedShelterRef = useRef(false);
   useEffect(() => {
-    if (!mapInstanceRef.current || hasFocusedShelterRef.current || !focusShelterId) return;
+    if (hasFocusedShelterRef.current || !focusShelterId) return;
 
-    if (processedShelters && processedShelters.length > 0) {
-      const target = processedShelters.find(
+    const tryFocusShelter = () => {
+      const map = mapInstanceRef.current;
+      if (!map) return false;
+
+      const shelterList =
+        processedShelters && processedShelters.length > 0
+          ? processedShelters
+          : shelters || [];
+      if (!shelterList || shelterList.length === 0) return false;
+
+      const target = shelterList.find(
         (s) =>
           s.id === focusShelterId ||
           (s as any).nama?.toLowerCase() === focusShelterId.toLowerCase() ||
           s.name?.toLowerCase() === focusShelterId.toLowerCase() ||
-          (focusCoords && Math.abs(s.lat - focusCoords.lat) < 0.001 && Math.abs(s.lng - focusCoords.lng) < 0.001)
+          (focusCoords &&
+            Math.abs(s.lat - focusCoords.lat) < 0.001 &&
+            Math.abs(s.lng - focusCoords.lng) < 0.001)
       );
 
       if (target) {
@@ -3701,11 +3775,38 @@ function WargaSpatialMap({
         setPoskoExpanded(true);
         setSheetSnap("mid");
         showRadarGlow(target.lat, target.lng);
-        mapInstanceRef.current.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+
+        try {
+          if (typeof (map as any).stop === "function") {
+            (map as any).stop();
+          }
+          map.flyTo([target.lat, target.lng], 16, { duration: 1.2 });
+        } catch {}
+
         if (onSelectShelter) onSelectShelter(target);
+        return true;
       }
-    }
-  }, [focusShelterId, processedShelters, focusCoords, onSelectShelter]);
+
+      return false;
+    };
+
+    if (tryFocusShelter()) return;
+
+    const interval = setInterval(() => {
+      if (tryFocusShelter()) {
+        clearInterval(interval);
+      }
+    }, 150);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+    }, 4000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [focusShelterId, processedShelters, shelters, focusCoords, onSelectShelter]);
 
   // Recenter to Indramayu (Fit to entire administrative boundary)
   const handleRecenter = () => {

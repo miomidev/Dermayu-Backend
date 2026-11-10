@@ -301,8 +301,18 @@ export default function WargaLaporPage() {
     }
   };
 
-  // Reports List State
-  const [reports, setReports] = useState<ReportTicket[]>([]);
+  // Reports List State - Langsung baca dari localStorage saat inisialisasi agar tidak pernah kosong/hilang saat refresh
+  const [reports, setReports] = useState<ReportTicket[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
 
   // Status Koneksi Jaringan & Mode Offline (PWA Offline-First)
   const [isOnline, setIsOnline] = useState(true);
@@ -317,11 +327,19 @@ export default function WargaLaporPage() {
         localStorage.removeItem("dermayu_user_reports");
       }
 
-      // 1. Ambil data aduan resmi dari Server API (single source of truth)
+      // Ambil data aduan resmi dari Server API (single source of truth)
       fetch("/api/laporan?type=citizen", { cache: "no-store" })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
         .then((json) => {
-          const list = json.data?.data || json.data || [];
+          const list = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.data?.data)
+            ? json.data.data
+            : [];
+
           const serverTickets: ReportTicket[] = Array.isArray(list)
             ? list.map((item: any) => ({
                 id: item.ticketCode || item.id,
@@ -331,9 +349,9 @@ export default function WargaLaporPage() {
                 location: item.location,
                 time: item.timeReceived || "Hari ini",
                 status:
-                  item.status === "VERIFIED"
+                  item.status === "VERIFIED" || item.status === "DIVERIFIKASI"
                     ? "DIVERIFIKASI"
-                    : item.status === "ARMADA_DIKERAHKAN"
+                    : item.status === "ARMADA_DIKERAHKAN" || item.status === "PENANGANAN"
                     ? "PENANGANAN"
                     : item.status === "SELESAI"
                     ? "SELESAI"
@@ -343,24 +361,25 @@ export default function WargaLaporPage() {
                 statusNote: item.description || "Laporan terverifikasi sistem",
                 photos: item.photos || (item.photoUrl ? [item.photoUrl] : []),
                 aiConfidence: item.aiConfidence,
-                isFloodDetected: item.status === "VERIFIED" || (item.aiConfidence && item.aiConfidence > 60),
-                gps: item.lat ? { lat: item.lat, lng: item.lng } : undefined,
+                isFloodDetected: item.status === "VERIFIED" || item.status === "DIVERIFIKASI" || (item.aiConfidence && item.aiConfidence > 60),
+                gps: item.lat ? { lat: Number(item.lat), lng: Number(item.lng) } : undefined,
               }))
             : [];
 
-          // 2. Cek apakah ada antrean aduan offline dari perangkat ini yang belum tersinkron
-          let offlineQueue: ReportTicket[] = [];
+          // Ambil seluruh tiket lokal yang sudah ada di memori perangkat
+          let localTickets: ReportTicket[] = [];
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                offlineQueue = parsed.filter((r: any) => r.isOfflineQueue === true);
+                localTickets = parsed;
               }
             }
           } catch {}
 
-          // Kirim antrean offline ke server bila ada
+          // Sinkronkan antrean offline ke server bila ada
+          const offlineQueue = localTickets.filter((r) => r.isOfflineQueue === true);
           offlineQueue.forEach((rpt) => {
             fetch("/api/laporan", {
               method: "POST",
@@ -369,24 +388,38 @@ export default function WargaLaporPage() {
             }).catch(() => {});
           });
 
-          const finalReports = [...offlineQueue, ...serverTickets];
-          setReports(finalReports);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalReports));
+          // Gabungkan tiket: utamakan tiket lokal lalu lengkapi dengan serverTickets
+          const ticketMap = new Map<string, ReportTicket>();
+          serverTickets.forEach((t) => ticketMap.set(t.id, t));
+          localTickets.forEach((t) => ticketMap.set(t.id, t));
+
+          const finalReports = Array.from(ticketMap.values());
+          if (finalReports.length > 0) {
+            setReports(finalReports);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalReports));
+          }
         })
-        .catch(() => {
-          // Jika server offline, fallback ke localStorage perangkat
+        .catch((err) => {
+          console.warn("Gagal fetch dari server, mempertahankan cache lokal:", err);
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
               const parsed = JSON.parse(saved);
-              if (Array.isArray(parsed)) {
+              if (Array.isArray(parsed) && parsed.length > 0) {
                 setReports(parsed);
               }
             }
           } catch {}
         });
     } catch {
-      setReports(initialReports);
+      // Fallback aman
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) setReports(parsed);
+        }
+      } catch {}
     }
   }, []);
 
@@ -763,7 +796,36 @@ export default function WargaLaporPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTicket),
-      }).catch((err) => console.warn("Background API sync report error:", err));
+      })
+        .then((res) => res.json())
+        .then((json) => {
+          if (json?.data) {
+            const serverItem = json.data.data || json.data;
+            if (serverItem && (serverItem.photoUrl || (serverItem.photos && serverItem.photos.length > 0))) {
+              const fresh = localStorage.getItem(STORAGE_KEY);
+              if (fresh) {
+                try {
+                  const list = JSON.parse(fresh);
+                  const updatedList = list.map((item: any) => {
+                    if (item.id === ticketCode || item.ticketCode === ticketCode) {
+                      return {
+                        ...item,
+                        photos: serverItem.photos && serverItem.photos.length > 0 ? serverItem.photos : [serverItem.photoUrl],
+                        photoUrl: serverItem.photoUrl || (serverItem.photos ? serverItem.photos[0] : item.photoUrl),
+                      };
+                    }
+                    return item;
+                  });
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+                  setReports(updatedList);
+                  window.dispatchEvent(new Event("storage"));
+                  window.dispatchEvent(new CustomEvent("dermayu_reports_updated", { detail: updatedList }));
+                } catch {}
+              }
+            }
+          }
+        })
+        .catch((err) => console.warn("Background API sync report error:", err));
     }
 
     const finalLat = newTicket.gps?.lat ?? -6.3475;

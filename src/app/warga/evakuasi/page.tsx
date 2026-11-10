@@ -214,9 +214,16 @@ function WargaEvakuasiContent() {
 
       // 1. Fetch dari server sebagai single source of truth
       fetch("/api/laporan?type=citizen", { cache: "no-store" })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
         .then((json) => {
-          const list = json.data?.data || json.data || [];
+          const list = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.data?.data)
+            ? json.data.data
+            : [];
           const apiTickets: ComplaintTicket[] = Array.isArray(list)
             ? list.map((item: any) => ({
                 id: item.id || item.ticketCode,
@@ -227,51 +234,72 @@ function WargaEvakuasiContent() {
                 location: item.location || "Indramayu",
                 severity: (item.severity === "TINGGI" ? "HIGH" : "MEDIUM") as SeverityLevel,
                 waterLevelText: item.waterLevel || "Genangan Air",
-                status: (item.status === "ARMADA_DIKERAHKAN" ? "ASSIGNED" : item.status === "VERIFIED" ? "VERIFIED" : "SUBMITTED") as ReportStatusCode,
+                status: (item.status === "ARMADA_DIKERAHKAN" || item.status === "PENANGANAN"
+                  ? "ASSIGNED"
+                  : item.status === "VERIFIED" || item.status === "DIVERIFIKASI"
+                  ? "VERIFIED"
+                  : "SUBMITTED") as ReportStatusCode,
                 createdAt: item.timeReceived || "Hari ini",
                 note: item.description || "Laporan terverifikasi sistem",
                 photos: item.photos || (item.photoUrl ? [item.photoUrl] : []),
                 urgentNeeds: ["Bantuan Evakuasi"],
-                isFloodDetected: item.status === "VERIFIED" || (item.aiConfidence && item.aiConfidence > 60),
-                lat: item.lat || -6.4093,
-                lng: item.lng || 108.2817,
+                isFloodDetected:
+                  item.status === "VERIFIED" ||
+                  item.status === "DIVERIFIKASI" ||
+                  (item.aiConfidence && item.aiConfidence > 60),
+                lat: Number(item.lat || -6.4093),
+                lng: Number(item.lng || 108.2817),
               }))
             : [];
 
-          // 2. Gabungkan hanya tiket antrean offline lokal yang belum tersinkron
-          let offlineTickets: ComplaintTicket[] = [];
+          // 2. Gabungkan seluruh tiket lokal dari perangkat
+          let localTickets: ComplaintTicket[] = [];
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                offlineTickets = parsed
-                  .filter((t: any) => t.isOfflineQueue === true)
-                  .map((t: any, idx: number) => ({
-                    id: t.id || `ticket-off-${idx}`,
-                    ticketCode: t.id || `DMY-OFF-${idx}`,
-                    category: (t.categoryCode || "FLOOD") as ReportCategoryCode,
-                    categoryLabel: t.category || "Banjir / Rob Pesisir",
-                    title: t.title,
-                    location: t.location,
-                    severity: "HIGH" as SeverityLevel,
-                    waterLevelText: t.waterLevel || "Genangan Air",
-                    status: "SUBMITTED" as ReportStatusCode,
-                    createdAt: t.time || "Baru saja",
-                    note: t.statusNote || "Antrean offline",
-                    photos: Array.isArray(t.photos) ? t.photos : [],
-                    urgentNeeds: ["Evakuasi Warga"],
-                    isFloodDetected: false,
-                    lat: t.gps?.lat ?? -6.3475,
-                    lng: t.gps?.lng ?? 108.1189,
-                  }));
+                localTickets = parsed.map((t: any, idx: number) => ({
+                  id: t.id || `ticket-${idx}`,
+                  ticketCode: t.ticketCode || t.id || `DMY-TKT-${idx}`,
+                  category: (t.categoryCode || "FLOOD") as ReportCategoryCode,
+                  categoryLabel: t.category || "Banjir / Rob Pesisir",
+                  title: t.title || "Laporan Titik Banjir",
+                  location: t.location || "Indramayu",
+                  severity: (t.severity || "HIGH") as SeverityLevel,
+                  waterLevelText: t.waterLevel || "Genangan Air",
+                  status: (t.status === "DIVERIFIKASI" || t.status === "VERIFIED"
+                    ? "VERIFIED"
+                    : t.status === "PENANGANAN"
+                    ? "ASSIGNED"
+                    : "SUBMITTED") as ReportStatusCode,
+                  createdAt: t.time || "Baru saja",
+                  note: t.statusNote || t.notes || "Laporan warga",
+                  photos: Array.isArray(t.photos) ? t.photos : [],
+                  urgentNeeds: ["Evakuasi Warga"],
+                  isFloodDetected:
+                    t.isFloodDetected === true ||
+                    t.status === "DIVERIFIKASI" ||
+                    t.status === "VERIFIED",
+                  lat: Number(t.gps?.lat ?? t.lat ?? -6.3475),
+                  lng: Number(t.gps?.lng ?? t.lng ?? 108.1189),
+                }));
               }
             }
           } catch {}
 
           const uniqueMap = new Map<string, ComplaintTicket>();
-          [...apiTickets, ...offlineTickets].forEach((it) => {
-            if (!uniqueMap.has(it.ticketCode)) uniqueMap.set(it.ticketCode, it);
+          [...localTickets, ...apiTickets].forEach((it) => {
+            if (!uniqueMap.has(it.ticketCode)) {
+              uniqueMap.set(it.ticketCode, it);
+            } else {
+              const existing = uniqueMap.get(it.ticketCode)!;
+              const hasValidPhoto = (arr?: string[]) =>
+                Array.isArray(arr) && arr.length > 0 && !arr[0].includes("placeholder");
+              if (!hasValidPhoto(existing.photos) && hasValidPhoto(it.photos)) {
+                existing.photos = it.photos;
+              }
+            }
           });
           setComplaints(Array.from(uniqueMap.values()));
         })
@@ -896,14 +924,8 @@ function WargaEvakuasiContent() {
       lat: c.lat || -6.3475,
       lng: c.lng || 108.1189,
       timeAgo: c.createdAt,
-      photos:
-        c.photos && c.photos.length > 0
-          ? c.photos
-          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
-      photoUrl:
-        c.photos && c.photos.length > 0
-          ? c.photos[0]
-          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
+      photos: c.photos && c.photos.length > 0 ? c.photos : [],
+      photoUrl: c.photos && c.photos.length > 0 ? c.photos[0] : undefined,
       note: c.note,
       isFloodDetected: true,
       aiScore: c.aiScore,
@@ -921,14 +943,8 @@ function WargaEvakuasiContent() {
       lat: c.lat || -6.2842,
       lng: c.lng || 108.2635,
       timeAgo: c.createdAt,
-      photos:
-        c.photos && c.photos.length > 0
-          ? c.photos
-          : [REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length]],
-      photoUrl:
-        c.photos && c.photos.length > 0
-          ? c.photos[0]
-          : REALISTIC_FLOOD_PHOTOS[idx % REALISTIC_FLOOD_PHOTOS.length],
+      photos: c.photos && c.photos.length > 0 ? c.photos : [],
+      photoUrl: c.photos && c.photos.length > 0 ? c.photos[0] : undefined,
       note: c.note,
       urgentNeeds: c.urgentNeeds,
     })),

@@ -1,12 +1,50 @@
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { recordAuditLog } from "@/lib/audit";
+import fs from "fs";
+import path from "path";
 import {
   getDbReportsList,
   getCitizenReports,
   addCitizenReport,
   type CitizenReportRecord,
 } from "@/lib/serverDb";
+
+const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+}
+
+function saveAndSanitizePhoto(p: string, idx = 0): string | null {
+  if (typeof p !== "string" || !p.trim()) return null;
+
+  // Jika berupa Base64 (data:image/...) dari kamera / galeri warga:
+  // Tulis ke disk public/uploads agar foto asli warga tersimpan fisik permanen
+  // dan database JSON tetap ringan (hanya simpan URL relatif)
+  if (p.startsWith("data:")) {
+    try {
+      ensureUploadDir();
+      const matches = p.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const extType = matches[1].split("/")[1] || "jpeg";
+        const ext = extType.includes("png") ? ".png" : extType.includes("webp") ? ".webp" : ".jpg";
+        const fileName = `laporan-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}-${idx}${ext}`;
+        const filePath = path.join(UPLOAD_DIR, fileName);
+        const buffer = Buffer.from(matches[2], "base64");
+        fs.writeFileSync(filePath, buffer);
+        return `/uploads/${fileName}`;
+      }
+    } catch (err) {
+      console.error("Gagal menyimpan foto laporan base64 ke disk:", err);
+      return null;
+    }
+  }
+
+  return p;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,29 +56,23 @@ export async function GET(req: NextRequest) {
     if (type === "citizen" || type === "triage") {
       let citizen = getCitizenReports();
       if (status) {
-        citizen = citizen.filter((r) => r.status.toLowerCase() === status.toLowerCase());
+        citizen = citizen.filter((r) => r.status && r.status.toLowerCase() === status.toLowerCase());
       }
       if (severity) {
-        citizen = citizen.filter((r) => r.severity.toLowerCase() === severity.toLowerCase());
+        citizen = citizen.filter((r) => r.severity && r.severity.toLowerCase() === severity.toLowerCase());
       }
-      return apiSuccess({
-        data: citizen,
-        meta: { total: citizen.length },
-      });
+      return apiSuccess(citizen, { total: citizen.length });
     }
 
     if (type === "obstacle") {
       let obstacles = getDbReportsList();
       if (status) {
-        obstacles = obstacles.filter((r) => r.status.toLowerCase() === status.toLowerCase());
+        obstacles = obstacles.filter((r) => r.status && r.status.toLowerCase() === status.toLowerCase());
       }
       if (severity) {
-        obstacles = obstacles.filter((r) => r.severity.toLowerCase() === severity.toLowerCase());
+        obstacles = obstacles.filter((r) => r.severity && r.severity.toLowerCase() === severity.toLowerCase());
       }
-      return apiSuccess({
-        data: obstacles,
-        meta: { total: obstacles.length },
-      });
+      return apiSuccess(obstacles, { total: obstacles.length });
     }
 
     // Default: Combine citizen reports (at the top) and obstacle points
@@ -48,15 +80,8 @@ export async function GET(req: NextRequest) {
     const obstacles = getDbReportsList();
     const combined = [...citizen, ...obstacles];
 
-    return apiSuccess({
-      data: combined,
-      citizenReports: citizen,
-      obstacles: obstacles,
-      meta: {
-        total: combined.length,
-        citizenTotal: citizen.length,
-        obstaclesTotal: obstacles.length,
-      },
+    return apiSuccess(combined, {
+      total: combined.length,
     });
   } catch (error) {
     console.error("GET /api/v1/laporan error:", error);
@@ -104,22 +129,13 @@ export async function POST(req: NextRequest) {
       status = "DITOLAK";
     }
 
-    // Sanitasi foto: strip base64 data URL agar citizen_reports.json tidak membengkak
-    // Foto asli warga disimpan di /public/uploads, bukan di JSON
-    const sanitizePhoto = (p: string): string => {
-      if (typeof p === "string" && p.startsWith("data:")) {
-        return "/uploads/laporan-placeholder.jpg";
-      }
-      return p;
-    };
+    // Simpan foto asli warga ke disk (public/uploads) dan gunakan URL relatifnya
+    const rawPhotos: string[] = Array.isArray(body.photos)
+      ? (body.photos.map((p: string, idx: number) => saveAndSanitizePhoto(p, idx)).filter(Boolean) as string[])
+      : [];
+    const rawPhotoUrl = typeof body.photoUrl === "string" ? saveAndSanitizePhoto(body.photoUrl, 0) : null;
 
-    const rawPhotos: string[] = Array.isArray(body.photos) ? body.photos.map(sanitizePhoto) : [];
-    const rawPhotoUrl = typeof body.photoUrl === "string" ? sanitizePhoto(body.photoUrl) : null;
-
-    const photoUrl =
-      rawPhotos[0] ||
-      rawPhotoUrl ||
-      "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80";
+    const photoUrl = rawPhotos[0] || rawPhotoUrl || "";
 
     const newRecord: CitizenReportRecord = {
       id,
@@ -142,7 +158,7 @@ export async function POST(req: NextRequest) {
           : `Menunggu Verifikasi Posko (${aiConfidence}%)`),
       description: body.notes || body.description || body.title || "Laporan genangan air dari warga siaga.",
       photoUrl,
-      photos: rawPhotos.length > 0 ? rawPhotos : [photoUrl],
+      photos: rawPhotos.length > 0 ? rawPhotos : photoUrl ? [photoUrl] : [],
       lat: body.gps?.lat ?? body.lat,
       lng: body.gps?.lng ?? body.lng,
       createdAt: new Date().toISOString(),

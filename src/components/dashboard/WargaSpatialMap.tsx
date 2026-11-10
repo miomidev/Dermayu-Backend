@@ -1177,24 +1177,59 @@ function WargaSpatialMap({
         const res = await fetch("/api/laporan", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          const list = json.data?.data || json.data || [];
+          const list = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.data?.data)
+            ? json.data.data
+            : [];
           if (Array.isArray(list) && list.length > 0 && isMounted) {
             setInternalReports((prev) => {
-              const mapById = new Map<string, any>();
-              list.forEach((item: any) => mapById.set(item.id, item));
+              const existingMap = new Map<string, MapReportPoint>();
+              prev.forEach((p) => existingMap.set(p.id, p));
 
-              return prev.map((p) => {
-                const apiItem = mapById.get(p.id);
-                if (!apiItem) return p;
-                const photo = getReportPhoto(apiItem) || getReportPhoto(p);
-                return {
-                  ...p,
-                  ...apiItem,
-                  photos: apiItem.photos || p.photos || (photo ? [photo] : []),
-                  photoUrl: photo || p.photoUrl,
-                  note: apiItem.note || p.note || getReportNote(apiItem),
+              list.forEach((item: any) => {
+                if (!item.lat || !item.lng) return;
+                const itemId = item.id || item.ticketCode;
+                const existing = existingMap.get(itemId);
+                const photo =
+                  getReportPhoto(item) ||
+                  (existing ? getReportPhoto(existing) : undefined) ||
+                  item.photoUrl ||
+                  (item.photos && item.photos[0]);
+
+                const isVerified =
+                  item.status === "VERIFIED" ||
+                  item.status === "DIVERIFIKASI" ||
+                  item.isFloodDetected === true ||
+                  (item.aiConfidence && item.aiConfidence > 60);
+
+                const formatted: MapReportPoint = {
+                  id: itemId,
+                  ticketCode: item.ticketCode || itemId,
+                  title: item.title || item.description || "Titik Genangan Banjir",
+                  category: item.disasterCategory || item.category || "Banjir / Rob Pesisir",
+                  severity:
+                    item.severity === "TINGGI"
+                      ? "HIGH"
+                      : item.severity === "RENDAH"
+                      ? "LOW"
+                      : (item.severity || "MEDIUM"),
+                  waterLevelText: item.waterLevel || item.waterLevelText || "Genangan Air",
+                  status: isVerified ? "Terverifikasi Aktif" : (item.status || "Aktif Terpantau"),
+                  location: item.location || "Indramayu",
+                  lat: Number(item.lat),
+                  lng: Number(item.lng),
+                  timeAgo: item.timeReceived || item.timeAgo || "Baru saja",
+                  photos: item.photos || (photo ? [photo] : []),
+                  photoUrl: photo,
+                  note: item.note || item.description || getReportNote(item),
+                  isFloodDetected: isVerified,
                 };
+
+                existingMap.set(itemId, formatted);
               });
+
+              return Array.from(existingMap.values());
             });
           }
         }
@@ -6079,8 +6114,7 @@ function WargaSpatialMap({
                 className="w-full h-40 object-cover rounded-xl"
                 loading="eager"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src =
-                    "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80";
+                  (e.currentTarget as HTMLImageElement).src = "/uploads/laporan-placeholder.jpg";
                 }}
               />
             </div>

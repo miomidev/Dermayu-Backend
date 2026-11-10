@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "@/utils/leafletPatch";
 import Link from "next/link";
 import {
   Waves,
@@ -37,6 +38,7 @@ import {
   SunMedium,
   Database,
 } from "lucide-react";
+import { getWeatherIcon } from "@/components/weather/WeatherWidgetTrigger";
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
 
 export interface TelemetryLogEntry {
@@ -523,7 +525,12 @@ function TelemetrySpatialMap() {
   useEffect(() => {
     if (!selectedSensorId) {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          if (typeof mapInstanceRef.current.stop === "function") mapInstanceRef.current.stop();
+          mapInstanceRef.current.remove();
+        } catch (e) {
+          console.warn("[Leaflet] telemetry map remove suppressed:", e);
+        }
         mapInstanceRef.current = null;
         markersGroupRef.current = null;
       }
@@ -597,7 +604,12 @@ function TelemetrySpatialMap() {
     return () => {
       clearTimeout(resizeTimer);
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          if (typeof mapInstanceRef.current.stop === "function") mapInstanceRef.current.stop();
+          mapInstanceRef.current.remove();
+        } catch (e) {
+          console.warn("[Leaflet] telemetry map remove suppressed:", e);
+        }
         mapInstanceRef.current = null;
         markersGroupRef.current = null;
       }
@@ -1642,9 +1654,10 @@ function TelemetrySpatialMap() {
                 </span>
                 <span className="text-xs font-semibold text-slate-500">mm / 3 jam</span>
               </div>
-              <div className="text-right text-[11px] font-medium text-slate-600">
-                <span>{weatherData?.ikonCuaca || "🌤️"} {weatherData?.kondisiSekarang || "Cerah Berawan"}</span>
-                <span className="text-slate-400 ml-1">({weatherData?.suhu ?? 29}°C)</span>
+              <div className="text-right text-[11px] font-medium text-slate-600 flex items-center justify-end gap-1.5">
+                {getWeatherIcon(weatherData?.kondisiSekarang, undefined, weatherData?.ikonCuaca, "w-3.5 h-3.5 shrink-0")}
+                <span>{weatherData?.kondisiSekarang || "Cerah Berawan"}</span>
+                <span className="text-slate-400">({weatherData?.suhu ?? 29}°C)</span>
               </div>
             </div>
 
@@ -2037,9 +2050,10 @@ function TelemetrySpatialMap() {
                     </span>
                     <span className="text-xs font-semibold text-slate-500">mm / 3 jam</span>
                   </div>
-                  <div className="text-right text-[11px] font-medium text-slate-600">
-                    <span>{weatherData?.ikonCuaca || "🌤️"} {weatherData?.kondisiSekarang || "Cerah Berawan"}</span>
-                    <span className="text-slate-400 ml-1">({weatherData?.suhu ?? 29}°C)</span>
+                  <div className="text-right text-[11px] font-medium text-slate-600 flex items-center justify-end gap-1.5">
+                    {getWeatherIcon(weatherData?.kondisiSekarang, undefined, weatherData?.ikonCuaca, "w-3.5 h-3.5 shrink-0")}
+                    <span>{weatherData?.kondisiSekarang || "Cerah Berawan"}</span>
+                    <span className="text-slate-400">({weatherData?.suhu ?? 29}°C)</span>
                   </div>
                 </div>
 

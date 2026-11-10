@@ -18,24 +18,55 @@ export interface WeatherWidgetTriggerProps {
   title?: string;
 }
 
-export function getWeatherIcon(kondisi?: string, code?: number) {
+export function getWeatherIcon(
+  kondisi?: string,
+  code?: number,
+  iconName?: string,
+  className = "w-5 h-5 md:w-6 md:h-6 mb-0.5 sm:mb-1 shrink-0"
+) {
+  const i = (iconName || "").toLowerCase();
   const k = (kondisi || "").toLowerCase();
-  if (k.includes("petir") || k.includes("badai") || code === 95 || code === 96 || code === 99) {
-    return <CloudLightning className="w-5 h-5 md:w-6 md:h-6 text-amber-500 mb-0.5 sm:mb-1 shrink-0" />;
+
+  if (
+    i.includes("lightning") ||
+    k.includes("petir") ||
+    k.includes("badai") ||
+    code === 95 ||
+    code === 96 ||
+    code === 99
+  ) {
+    return <CloudLightning className={`${className} text-amber-500`} />;
   }
-  if (k.includes("gerimis") || code === 51 || code === 53 || code === 55) {
-    return <CloudDrizzle className="w-5 h-5 md:w-6 md:h-6 text-sky-400 mb-0.5 sm:mb-1 shrink-0" />;
+  if (
+    i.includes("drizzle") ||
+    k.includes("gerimis") ||
+    code === 51 ||
+    code === 53 ||
+    code === 55
+  ) {
+    return <CloudDrizzle className={`${className} text-sky-400`} />;
   }
-  if (k.includes("hujan") || (code !== undefined && code >= 61 && code <= 82)) {
-    return <CloudRain className="w-5 h-5 md:w-6 md:h-6 text-sky-500 mb-0.5 sm:mb-1 shrink-0" />;
+  if (
+    i.includes("rain") ||
+    k.includes("hujan") ||
+    (code !== undefined && code >= 61 && code <= 82)
+  ) {
+    return <CloudRain className={`${className} text-sky-500`} />;
   }
-  if (k.includes("berawan") || k.includes("mendung") || code === 2 || code === 3) {
-    return <CloudSun className="w-5 h-5 md:w-6 md:h-6 text-amber-500 mb-0.5 sm:mb-1 shrink-0" />;
+  if (
+    i.includes("cloud-sun") ||
+    k.includes("berawan") ||
+    k.includes("mendung") ||
+    code === 1 ||
+    code === 2 ||
+    code === 3
+  ) {
+    return <CloudSun className={`${className} text-amber-500`} />;
   }
-  if (k.includes("kabut") || code === 45 || code === 48) {
-    return <Cloud className="w-5 h-5 md:w-6 md:h-6 text-slate-400 mb-0.5 sm:mb-1 shrink-0" />;
+  if (i === "cloud" || k.includes("kabut") || code === 45 || code === 48) {
+    return <Cloud className={`${className} text-slate-400`} />;
   }
-  return <Sun className="w-5 h-5 md:w-6 md:h-6 text-amber-500 mb-0.5 sm:mb-1 shrink-0" />;
+  return <Sun className={`${className} text-amber-500`} />;
 }
 
 export function WeatherWidgetTrigger({
@@ -47,8 +78,8 @@ export function WeatherWidgetTrigger({
   const suhu = weatherData?.suhu ?? 28;
   const kondisi = weatherData?.kondisiSekarang || "Cerah Berawan";
   const icon = useMemo(
-    () => getWeatherIcon(kondisi, weatherData?.weatherCode),
-    [kondisi, weatherData?.weatherCode]
+    () => getWeatherIcon(kondisi, weatherData?.weatherCode, weatherData?.ikonCuaca),
+    [kondisi, weatherData?.weatherCode, weatherData?.ikonCuaca]
   );
 
   return (

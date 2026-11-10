@@ -57,6 +57,7 @@ export interface DetailedWeatherData {
   suhuMin: number;
   kondisiSekarang: string;
   weatherCode: number;
+  ikonCuaca?: string;
   peringatanHujan?: {
     judul: string;
     deskripsi: string;

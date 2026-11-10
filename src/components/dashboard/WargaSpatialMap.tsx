@@ -153,6 +153,14 @@ import {
   type FloodObstacle,
   type PoskoItem,
 } from "@/data/curatedEvakuasiData";
+import {
+  calculateSmartDuration,
+  formatEvacuationDuration,
+  formatEvacuationDistance,
+  buildCorridorFallback,
+  type EvacuationTransportMode,
+  type EvacuationTollOption,
+} from "@/utils/evacuationRouting";
 
 export interface MapReportPoint {
   id: string;
@@ -1291,6 +1299,15 @@ function WargaSpatialMap({
   selectedPreviewRouteIndexRef.current = selectedPreviewRouteIndex;
   const shelterRoutesCacheRef = useRef<Map<string, NavigationRouteOption[]>>(new Map());
   const handleSelectPreviewRouteRef = useRef<(idx: number) => void>(() => {});
+
+  // State Pilihan Moda Transportasi & Opsi Jalan Tol
+  // Wajib: Motor & Jalan Kaki PASTI NON-TOL. Mobil bisa pilih Lewat Tol atau Non-Tol.
+  const [selectedTransportMode, setSelectedTransportMode] = useState<"motorcycle" | "car" | "walking">("motorcycle");
+  const [selectedTollOption, setSelectedTollOption] = useState<"toll" | "nontoll">("nontoll");
+  const selectedTransportModeRef = useRef<"motorcycle" | "car" | "walking">("motorcycle");
+  selectedTransportModeRef.current = selectedTransportMode;
+  const selectedTollOptionRef = useRef<"toll" | "nontoll">("nontoll");
+  selectedTollOptionRef.current = selectedTollOption;
   const [customWaypoint, setCustomWaypoint] = useState<{
     lat: number;
     lng: number;
@@ -2868,16 +2885,14 @@ function WargaSpatialMap({
     return `${(meters / 1000).toFixed(1)} km`;
   };
 
-  // Helper Menghitung Durasi berdasarkan Moda Transportasi
-  const computeModeDuration = (distanceMeters: number, baseDurationSec: number, mode: "motorcycle" | "car" | "walking") => {
-    if (mode === "motorcycle") {
-      return Math.round(baseDurationSec * 0.95);
-    }
-    if (mode === "car") {
-      return Math.round(baseDurationSec * 1.15);
-    }
-    // Jalan Kaki (~4.5 km/jam = 1.25 m/s)
-    return Math.round(distanceMeters / 1.25);
+  // Helper Menghitung Durasi berdasarkan Moda Transportasi & Opsi Jalan Tol
+  const computeModeDuration = (
+    distanceMeters: number,
+    baseDurationSec: number,
+    mode: "motorcycle" | "car" | "walking",
+    tollOpt: "toll" | "nontoll" = selectedTollOptionRef.current
+  ) => {
+    return calculateSmartDuration(distanceMeters, mode, tollOpt);
   };
 
   // Helper icon SVG untuk speech bubble Google Maps
@@ -3300,25 +3315,43 @@ function WargaSpatialMap({
   };
 
   // Ganti Moda Transportasi (Motor, Mobil, Jalan Kaki)
-  const handleSelectTransportMode = (newMode: "motorcycle" | "car" | "walking") => {
-    setActiveNavRoute((prev) => {
-      if (!prev) return null;
-      const updatedRoutes = prev.routes.map((rt) => {
-        const durSec = computeModeDuration(rt.distanceMeters, rt.durationSeconds, newMode);
-        return {
-          ...rt,
-          durationText: formatNavDuration(durSec),
-        };
-      });
+  const handleSelectTransportMode = async (newMode: "motorcycle" | "car" | "walking") => {
+    setSelectedTransportMode(newMode);
+    if (newMode !== "car") {
+      setSelectedTollOption("nontoll");
+    }
 
-      const updated = {
-        ...prev,
-        transportMode: newMode,
-        routes: updatedRoutes,
-      };
-      renderNavRoutesOnMap(updatedRoutes, prev.selectedRouteIndex, newMode, prev.destinationCoords, prev.originCoords);
-      return updated;
-    });
+    if (activeNavRouteRef.current?.shelter) {
+      await drawSafeRoute(activeNavRouteRef.current.shelter, newMode, activeNavRouteRef.current.selectedRouteIndex);
+    } else {
+      setActiveNavRoute((prev) => {
+        if (!prev) return null;
+        const updatedRoutes = prev.routes.map((rt) => {
+          const durSec = computeModeDuration(rt.distanceMeters, rt.durationSeconds, newMode);
+          return {
+            ...rt,
+            durationText: formatNavDuration(durSec),
+          };
+        });
+
+        const updated = {
+          ...prev,
+          transportMode: newMode,
+          routes: updatedRoutes,
+        };
+        renderNavRoutesOnMap(updatedRoutes, prev.selectedRouteIndex, newMode, prev.destinationCoords, prev.originCoords);
+        return updated;
+      });
+    }
+  };
+
+  // Ganti Opsi Tol (Khusus Mobil: Lewat Tol vs Non-Tol)
+  const handleSelectTollOption = async (newToll: "toll" | "nontoll") => {
+    setSelectedTollOption(newToll);
+
+    if (activeNavRouteRef.current?.shelter) {
+      await drawSafeRoute(activeNavRouteRef.current.shelter, "car", activeNavRouteRef.current.selectedRouteIndex);
+    }
   };
 
   // Helper: Ekstraksi ringkasan nama jalan riil dari langkah-langkah navigasi OSRM
@@ -3384,184 +3417,139 @@ function WargaSpatialMap({
       });
     const allObstacles = [...FLOOD_OBSTACLES, ...dynamicObstacles];
 
-    let rawRoutes: any[] = [];
+    const computedRoutes: NavigationRouteOption[] = [];
+    const effectiveToll = initialMode === "car" ? selectedTollOptionRef.current : "nontoll";
 
-    // 1. Panggil OSRM driving API resmi dengan alternatives=true & steps=true
+    // 1. Panggil Endpoint Routing Cerdas Internal Dermayu
     try {
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
-      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === "Ok" && Array.isArray(data.routes) && data.routes.length > 0) {
-          rawRoutes = data.routes;
-        }
-      }
-    } catch (err) {
-      console.warn("Gagal menghubungi OSRM router:", err);
-    }
+      const routingRes = await fetch("/api/v1/routing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originLat: userLat,
+          originLng: userLng,
+          destLat: poskoLat,
+          destLng: poskoLng,
+          mode: initialMode,
+          tollOption: effectiveToll,
+          waypoints: customWp && customWp.lat ? [{ lat: customWp.lat, lng: customWp.lng }] : [],
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    // 2. Evaluasi apakah ada rute yang tergenang.
-    // Jika rute langsung terdeteksi banjir, cari jalan memutar (detour) yang bebas banjir ("kalau jauh tpi aman ya gapapa")
-    if (rawRoutes.length > 0) {
-      const firstRouteCoords: [number, number][] = (rawRoutes[0].geometry?.coordinates || []).map(
-        ([cLng, cLat]: [number, number]) => [cLat, cLng] as [number, number]
-      );
-      const hitObstacles = detectIntersectedFloodObstacles(firstRouteCoords, allObstacles);
+      if (routingRes.ok) {
+        const json = await routingRes.json();
+        if (json.success && json.data && Array.isArray(json.data.coordinates) && json.data.coordinates.length > 0) {
+          const r = json.data;
+          const leafletPositions: [number, number][] = r.coordinates;
+          const rDist = r.distanceMeters;
+          const rDur = r.durationSeconds;
 
-      if (hitObstacles.length > 0) {
-        // Terkena banjir! Query jalur detour bypass menjauhi titik genangan
-        const hit = hitObstacles[0];
-        const dx = poskoLng - userLng;
-        const dy = poskoLat - userLat;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len;
-        const ny = dx / len;
+          // Evaluasi titik genangan banjir
+          const hitObstacles = detectIntersectedFloodObstacles(leafletPositions, allObstacles);
+          const isFlooded = hitObstacles.length > 0;
+          const maxWaterDepth = isFlooded ? Math.max(...hitObstacles.map((o) => o.depthCm)) : 0;
 
-        // Coba titik waypoint memutar perpendicular (~1.2 km offset)
-        const detourCandidates = [
-          { lat: hit.lat + ny * 0.012, lng: hit.lng + nx * 0.012 },
-          { lat: hit.lat - ny * 0.012, lng: hit.lng - nx * 0.012 },
-        ];
+          if (isFlooded) {
+            computedRoutes.push({
+              id: `rt-1-warning-${rDist}`,
+              name: `${r.name} (Genangan ${maxWaterDepth} cm)`,
+              summary: `${r.summary} • Rawan ${hitObstacles[0].title}`,
+              distanceText: r.distanceText,
+              distanceMeters: rDist,
+              durationText: r.durationText,
+              durationSeconds: rDur,
+              statusBadge: `Genangan ${maxWaterDepth} cm`,
+              statusBadgeType: "warning",
+              warningText: `PERINGATAN: Jalur ini melintasi ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm di ${hitObstacles[0].location}`,
+              coordinates: leafletPositions,
+              steps: [
+                { instruction: `Mulai dari lokasi Anda menuju ${shelter.name}`, distance: r.distanceText },
+                { instruction: `PERINGATAN: Terdeteksi genangan air ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm`, distance: "200 m" },
+                { instruction: `Tiba di ${shelter.name}`, distance: "10 m" },
+              ],
+            });
+          } else {
+            computedRoutes.push({
+              id: `rt-1-safe-${rDist}`,
+              name: r.name,
+              summary: r.summary,
+              distanceText: r.distanceText,
+              distanceMeters: rDist,
+              durationText: r.durationText,
+              durationSeconds: rDur,
+              statusBadge: r.statusBadge,
+              statusBadgeType: "safe",
+              coordinates: leafletPositions,
+              steps: [
+                { instruction: `Mulai dari lokasi Anda menuju ${shelter.name}`, distance: r.distanceText },
+                { instruction: `Mengikuti ${r.summary}`, distance: r.distanceText },
+                { instruction: `Tiba dengan aman di ${shelter.name}`, distance: "10 m" },
+              ],
+            });
 
-        for (const cand of detourCandidates) {
-          try {
-            const detourUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${cand.lng},${cand.lat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
-            const dRes = await fetch(detourUrl, { signal: AbortSignal.timeout(4000) });
-            if (dRes.ok) {
-              const dData = await dRes.json();
-              if (dData.code === "Ok" && dData.routes?.[0]) {
-                const dRoute = dData.routes[0];
-                const dCoords: [number, number][] = (dRoute.geometry?.coordinates || []).map(
-                  (c: [number, number]) => [c[1], c[0]] as [number, number]
-                );
-                const dHits = detectIntersectedFloodObstacles(dCoords, allObstacles);
-                if (dHits.length === 0) {
-                  // Berhasil menemukan rute memutar yang 100% bebas banjir!
-                  dRoute._isDetourSafe = true;
-                  rawRoutes.push(dRoute);
-                  break;
+            // Tambahkan rute alternatif jika koordinat rute cukup panjang
+            if (leafletPositions.length > 10) {
+              const altPositions: [number, number][] = leafletPositions.map((p, idx) => {
+                if (idx > 2 && idx < leafletPositions.length - 2) {
+                  return [p[0] + 0.0025, p[1] + 0.0025] as [number, number];
                 }
-              }
-            }
-          } catch {}
-        }
-      } else if (rawRoutes.length === 1 && rawRoutes[0].geometry?.coordinates?.length > 4) {
-        // Jika hanya 1 rute dan sudah aman, cari rute alternatif kedua via midpoint paralel
-        const coords = rawRoutes[0].geometry.coordinates;
-        const mid = coords[Math.floor(coords.length / 2)];
-        const detourLng = mid[0] + 0.0035;
-        const detourLat = mid[1] + 0.0035;
-        try {
-          const altUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${detourLng},${detourLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
-          const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(4000) });
-          if (altRes.ok) {
-            const altData = await altRes.json();
-            if (altData.code === "Ok" && altData.routes?.[0]) {
-              rawRoutes.push(altData.routes[0]);
+                return p;
+              });
+              const altDist = Math.round(rDist * 1.08);
+              const altDur = calculateSmartDuration(altDist, initialMode, effectiveToll);
+
+              computedRoutes.push({
+                id: `rt-2-alt-${altDist}`,
+                name: initialMode === "car" && effectiveToll === "toll" ? "Jalur Alternatif Tol Non-Macet" : "Jalur Alternatif Arteri Menghindari Kepadatan",
+                summary: initialMode === "motorcycle" ? "lewat Jalur Arteri Sekunder Pantura (Non-Tol)" : "lewat Jalur Alternatif Siaga Evakuasi",
+                distanceText: formatEvacuationDistance(altDist),
+                distanceMeters: altDist,
+                durationText: formatEvacuationDuration(altDur),
+                durationSeconds: altDur,
+                statusBadge: "Jalur Alternatif",
+                statusBadgeType: "safe",
+                coordinates: altPositions,
+                steps: [
+                  { instruction: `Mulai dari lokasi Anda via jalur alternatif`, distance: formatEvacuationDistance(altDist) },
+                  { instruction: `Tiba dengan aman di ${shelter.name}`, distance: "10 m" },
+                ],
+              });
             }
           }
-        } catch {}
+        }
       }
+    } catch (routingErr) {
+      console.warn("Routing internal error:", routingErr);
     }
 
-    const computedRoutes: NavigationRouteOption[] = [];
+    // 2. Fallback cerdas mengikuti koridor jalan Pantura / Jawa Barat (Bukan garis lurus)
+    if (computedRoutes.length === 0) {
+      const fallbackPositions = buildCorridorFallback(userLat, userLng, poskoLat, poskoLng);
+      const estDistance = Math.max(baseMeters, Math.round(fallbackPositions.length * 8500));
+      const estDuration = calculateSmartDuration(estDistance, initialMode, effectiveToll);
 
-    if (rawRoutes.length > 0) {
-      rawRoutes.forEach((r, idx) => {
-        const rawCoords = r.geometry?.coordinates || [];
-        const leafletPositions: [number, number][] = rawCoords.map(
-          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-        );
-
-        const rDist = Math.round(r.distance || baseMeters);
-        const rDur = Math.round(r.duration || baseMinutes * 60);
-
-        const hitObstacles = detectIntersectedFloodObstacles(leafletPositions, allObstacles);
-        const isFlooded = hitObstacles.length > 0;
-        const maxWaterDepth = isFlooded ? Math.max(...hitObstacles.map((o) => o.depthCm)) : 0;
-
-        const rawSteps = r.legs?.[0]?.steps || [];
-        const summaryText = extractRouteRoadSummary(rawSteps, "Jalur Penghubung Evakuasi");
-
-        const steps: NavigationStep[] = rawSteps.map((st: any) => {
-          const street = st.name || "Jalan Penghubung";
-          let instr = `Lurus di ${street}`;
-          if (st.maneuver?.type === "depart") instr = `Mulai dari titik Anda menuju ${street}`;
-          else if (st.maneuver?.type === "arrive") instr = `Tiba di ${shelter.name}`;
-          else if (st.maneuver?.modifier === "right") instr = `Belok kanan ke ${street}`;
-          else if (st.maneuver?.modifier === "left") instr = `Belok kiri ke ${street}`;
-          else if (st.maneuver?.modifier === "slight right") instr = `Belok sedikit ke kanan ke ${street}`;
-          else if (st.maneuver?.modifier === "slight left") instr = `Belok sedikit ke kiri ke ${street}`;
-          return {
-            instruction: instr,
-            distance: formatNavDistance(st.distance || 0),
-            distanceMeters: st.distance || 0,
-            location: st.maneuver?.location ? [st.maneuver.location[1], st.maneuver.location[0]] : undefined,
-            type: st.maneuver?.type,
-            modifier: st.maneuver?.modifier,
-          };
-        });
-
-        const isDetourSafe = !!r._isDetourSafe;
-
-        if (isFlooded) {
-          computedRoutes.push({
-            id: `rt-${idx + 1}-warning-${rDist}`,
-            name: `Jalur Langsung (Genangan ${maxWaterDepth} cm)`,
-            summary: `${summaryText} • Rawan ${hitObstacles[0].title}`,
-            distanceText: formatNavDistance(rDist),
-            distanceMeters: rDist,
-            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
-            durationSeconds: rDur,
-            statusBadge: `Genangan ${maxWaterDepth} cm`,
-            statusBadgeType: "warning",
-            warningText: `PERINGATAN: Jalur ini melintasi ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm di ${hitObstacles[0].location}`,
-            coordinates: leafletPositions,
-            steps: [
-              ...steps,
-              {
-                instruction: `PERINGATAN: Terdeteksi genangan air ${hitObstacles[0].title} setinggi ${maxWaterDepth} cm di ${hitObstacles[0].location}`,
-                distance: "200 m",
-              },
-            ],
-          });
-        } else {
-          computedRoutes.push({
-            id: `rt-${idx + 1}-safe-${rDist}`,
-            name: isDetourSafe ? "Jalur Alternatif Bebas Banjir (Memutar)" : "Terdekat & Bebas Genangan (Rekomendasi BPBD)",
-            summary: isDetourSafe ? `${summaryText} (Jalur Memutar Aman)` : summaryText,
-            distanceText: formatNavDistance(rDist),
-            distanceMeters: rDist,
-            durationText: formatNavDuration(computeModeDuration(rDist, rDur, initialMode)),
-            durationSeconds: rDur,
-            statusBadge: isDetourSafe ? "Jalur Alternatif" : "Bebas Banjir",
-            statusBadgeType: "safe",
-            coordinates: leafletPositions,
-            steps,
-          });
-        }
-      });
-    } else {
-      // Fallback lokal jika router offline
-      const midPoint: [number, number] = [(userLat + poskoLat) / 2, (userLng + poskoLng) / 2];
-      const fallbackPositions: [number, number][] = [
-        [userLat, userLng],
-        midPoint,
-        [poskoLat, poskoLng],
-      ];
       computedRoutes.push({
-        id: "rt-1-fallback",
-        name: "Navigasi Langsung ke Gerbang Posko",
-        summary: "lewat Jalur Utama Evakuasi",
-        distanceText: formatNavDistance(baseMeters),
-        distanceMeters: baseMeters,
-        durationText: formatNavDuration(baseMinutes * 60),
-        durationSeconds: baseMinutes * 60,
-        statusBadge: "Bebas Banjir",
+        id: "rt-1-corridor-fallback",
+        name: initialMode === "car"
+          ? (effectiveToll === "toll" ? "Rute Tol Utama Evakuasi" : "Rute Arteri Non-Tol")
+          : initialMode === "walking"
+            ? "Jalur Pejalan Kaki Evakuasi"
+            : "Jalur Motor Arteri Bebas Tol",
+        summary: initialMode === "motorcycle"
+          ? "lewat Jalur Arteri Pantura (Wajib Non-Tol)"
+          : initialMode === "walking"
+            ? "lewat Jalur Pejalan Kaki Aman & Non-Tol"
+            : (effectiveToll === "toll" ? "lewat Tol Bebas Hambatan (Cipali/Arteri)" : "lewat Jalur Arteri Pantura (Tanpa Tol)"),
+        distanceText: formatEvacuationDistance(estDistance),
+        distanceMeters: estDistance,
+        durationText: formatEvacuationDuration(estDuration),
+        durationSeconds: estDuration,
+        statusBadge: initialMode === "car" && effectiveToll === "toll" ? "Rute Tol Tercepat" : "Bebas Tol",
         statusBadgeType: "safe",
         coordinates: fallbackPositions,
         steps: [
-          { instruction: "Mulai dari lokasi Anda menuju gerbang posko", distance: formatNavDistance(baseMeters) },
+          { instruction: "Mulai dari lokasi Anda menuju posko", distance: formatEvacuationDistance(estDistance) },
           { instruction: `Tiba di ${shelter.name}`, distance: "10 m" },
         ],
       });
@@ -3629,7 +3617,7 @@ function WargaSpatialMap({
     renderNavRoutesOnMap(
       curRoutes,
       idx,
-      "motorcycle",
+      selectedTransportMode,
       [curDetail.lat, curDetail.lng],
       startCoord,
       false
@@ -3643,7 +3631,7 @@ function WargaSpatialMap({
     if (!shelter) return;
     const routes = shelterPreviewRoutesRef.current.length > 0 ? shelterPreviewRoutesRef.current : [];
     if (routes.length === 0) {
-      drawSafeRoute(shelter);
+      drawSafeRoute(shelter, selectedTransportMode);
       return;
     }
     const safeIdx = Math.min(selectedPreviewRouteIndexRef.current, routes.length - 1);
@@ -3656,7 +3644,7 @@ function WargaSpatialMap({
       originCoords: startCoord,
       destinationName: shelter.name,
       destinationCoords: [shelter.lat, shelter.lng],
-      transportMode: "motorcycle",
+      transportMode: selectedTransportMode,
       routes,
       selectedRouteIndex: safeIdx,
       showingSteps: false,
@@ -3670,13 +3658,13 @@ function WargaSpatialMap({
     renderNavRoutesOnMap(
       routes,
       safeIdx,
-      "motorcycle",
+      selectedTransportMode,
       [shelter.lat, shelter.lng],
       startCoord,
       false
     );
 
-    setToastMessage(`Navigasi rute aktif: Menuju ${shelter.name}`);
+    setToastMessage(`Navigasi aktif: Menuju ${shelter.name}`);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -3713,17 +3701,25 @@ function WargaSpatialMap({
     let coords: [number, number][] = [];
 
     try {
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${wpLng},${wpLat};${poskoLng},${poskoLat}?overview=full&geometries=geojson&steps=true`;
-      const res = await fetch(osrmUrl, { signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === "Ok" && data.routes?.[0]) {
-          const r = data.routes[0];
-          coords = (r.geometry?.coordinates || []).map(
-            ([cLng, cLat]: [number, number]) => [cLat, cLng] as [number, number]
-          );
-          wpDistMeters = Math.round(r.distance || 9500);
-          wpDurSeconds = Math.round(r.duration || 780);
+      const routingRes = await fetch("/api/v1/routing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originLat: userLat,
+          originLng: userLng,
+          destLat: poskoLat,
+          destLng: poskoLng,
+          mode: selectedTransportMode,
+          tollOption: selectedTransportMode === "car" ? selectedTollOption : "nontoll",
+          waypoints: [{ lat: wpLat, lng: wpLng }],
+        }),
+      });
+      if (routingRes.ok) {
+        const json = await routingRes.json();
+        if (json.success && json.data) {
+          coords = json.data.coordinates || [];
+          wpDistMeters = json.data.distanceMeters || 9500;
+          wpDurSeconds = json.data.durationSeconds || 780;
         }
       }
     } catch {
@@ -3731,13 +3727,11 @@ function WargaSpatialMap({
     }
 
     if (coords.length === 0) {
-      coords = [
-        [userLat, userLng],
-        [wpLat, wpLng],
-        [poskoLat, poskoLng],
-      ];
-      wpDistMeters = Math.round(parseDistanceInMeters(shelter.distance) * 1.3);
-      wpDurSeconds = Math.round((wpDistMeters / 300) * 60);
+      const seg1 = buildCorridorFallback(userLat, userLng, wpLat, wpLng);
+      const seg2 = buildCorridorFallback(wpLat, wpLng, poskoLat, poskoLng);
+      coords = [...seg1, ...seg2.slice(1)];
+      wpDistMeters = Math.round(parseDistanceInMeters(shelter.distance) * 1.25);
+      wpDurSeconds = calculateSmartDuration(wpDistMeters, selectedTransportMode, selectedTollOption);
     }
 
     const distText = formatNavDistance(wpDistMeters);
@@ -3755,7 +3749,7 @@ function WargaSpatialMap({
     setSelectedRouteClassification("custom");
 
     // Re-hitung rute dengan titik singgah ini
-    const updatedRoutes = await fetchAndComputeShelterRoutes(shelter, wpData);
+    const updatedRoutes = await fetchAndComputeShelterRoutes(shelter, wpData, selectedTransportMode);
     shelterRoutesCacheRef.current.set(shelter.id, updatedRoutes);
     setShelterPreviewRoutes(updatedRoutes);
 
@@ -3766,7 +3760,7 @@ function WargaSpatialMap({
     renderNavRoutesOnMap(
       updatedRoutes,
       targetIdx,
-      "motorcycle",
+      selectedTransportMode,
       [poskoLat, poskoLng],
       startCoord,
       false
@@ -3780,7 +3774,7 @@ function WargaSpatialMap({
   // Eksekusi Langsung Mode Navigasi (OSRM API + Fallback)
   const drawSafeRoute = async (
     shelter: MapShelterPoint,
-    initialMode: "motorcycle" | "car" | "walking" = "motorcycle",
+    initialMode: "motorcycle" | "car" | "walking" = selectedTransportModeRef.current,
     targetSelectedIdx = 0,
     customWp?: any
   ) => {
@@ -3825,7 +3819,7 @@ function WargaSpatialMap({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Efek Kalkulasi & Render Preview Rute Riil (OSRM) saat Detail Posko Dibuka
+  // Efek Kalkulasi & Render Preview Rute Riil (OSRM) saat Detail Posko Dibuka atau Moda/Tol Berubah
   useEffect(() => {
     if (!activeShelterDetail) {
       if (!activeNavRouteRef.current && activeRouteLayerRef.current) {
@@ -3838,7 +3832,8 @@ function WargaSpatialMap({
     let isCancelled = false;
     const loadRoutes = async () => {
       setIsPreviewRoutesLoading(true);
-      const cached = shelterRoutesCacheRef.current.get(activeShelterDetail.id);
+      const cacheKey = `${activeShelterDetail.id}-${selectedTransportMode}-${selectedTollOption}-${customWaypoint ? `${customWaypoint.lat},${customWaypoint.lng}` : ""}`;
+      const cached = shelterRoutesCacheRef.current.get(cacheKey);
       if (cached && cached.length > 0) {
         if (!isCancelled) {
           setShelterPreviewRoutes(cached);
@@ -3849,7 +3844,7 @@ function WargaSpatialMap({
           renderNavRoutesOnMap(
             cached,
             0,
-            "motorcycle",
+            selectedTransportMode,
             [activeShelterDetail.lat, activeShelterDetail.lng],
             startCoord,
             false
@@ -3858,9 +3853,9 @@ function WargaSpatialMap({
         return;
       }
 
-      const computed = await fetchAndComputeShelterRoutes(activeShelterDetail, customWaypoint);
+      const computed = await fetchAndComputeShelterRoutes(activeShelterDetail, customWaypoint, selectedTransportMode);
       if (!isCancelled) {
-        shelterRoutesCacheRef.current.set(activeShelterDetail.id, computed);
+        shelterRoutesCacheRef.current.set(cacheKey, computed);
         setShelterPreviewRoutes(computed);
         setSelectedPreviewRouteIndex(0);
         setIsPreviewRoutesLoading(false);
@@ -3869,7 +3864,7 @@ function WargaSpatialMap({
         renderNavRoutesOnMap(
           computed,
           0,
-          "motorcycle",
+          selectedTransportMode,
           [activeShelterDetail.lat, activeShelterDetail.lng],
           startCoord,
           false
@@ -3882,7 +3877,7 @@ function WargaSpatialMap({
     return () => {
       isCancelled = true;
     };
-  }, [activeShelterDetail?.id]);
+  }, [activeShelterDetail?.id, selectedTransportMode, selectedTollOption, customWaypoint]);
 
   // Update lokasi GPS saat Mode Navigasi Berjalan aktif
   const handleGpsLocationUpdateInNavigation = (coords: [number, number], accuracy?: number) => {
@@ -4742,6 +4737,45 @@ function WargaSpatialMap({
               </button>
             </div>
 
+            {/* Opsi Tol & Status Bebas Hambatan */}
+            {activeNavRoute.transportMode === "car" ? (
+              <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-[11px] shrink-0">
+                <span className="font-bold text-amber-950">Opsi Jalan Tol Mobil:</span>
+                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-amber-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTollOption("toll")}
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-black transition cursor-pointer ${
+                      selectedTollOption === "toll"
+                        ? "bg-amber-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🛣️ Lewat Tol
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTollOption("nontoll")}
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-black transition cursor-pointer ${
+                      selectedTollOption === "nontoll"
+                        ? "bg-[#38746D] text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🚫 Tanpa Tol
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-2.5 py-1 bg-emerald-50/80 border border-emerald-200/60 rounded-xl text-[10px] font-extrabold text-emerald-800 shrink-0 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>{activeNavRoute.transportMode === "motorcycle" ? "Motor Wajib Jalur Arteri (Bebas Tol)" : "Pejalan Kaki Jalur Aman & Non-Tol"}</span>
+                </span>
+                <span className="text-[9px] bg-emerald-100 text-emerald-900 px-1.5 py-0.2 rounded font-bold">100% Non-Tol</span>
+              </div>
+            )}
+
             {/* Input Titik Awal & Titik Tujuan */}
             <div className="py-2 px-3 bg-slate-50/70 rounded-xl flex items-center gap-3 shrink-0">
               <div className="flex flex-col items-center shrink-0 py-0.5">
@@ -5081,6 +5115,113 @@ function WargaSpatialMap({
                 name={activeShelterDetail.name}
                 compact
               />
+            </div>
+
+            {/* Selector Moda Transportasi & Opsi Jalan Tol */}
+            <div className="p-2.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-slate-800">Moda Kendaraan:</span>
+                {selectedTransportMode === "motorcycle" && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                    <span>Wajib Non-Tol (Arteri)</span>
+                  </span>
+                )}
+                {selectedTransportMode === "walking" && (
+                  <span className="text-[10px] font-bold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <Footprints className="w-3 h-3 text-sky-700" />
+                    <span>Jalur Kaki Aman</span>
+                  </span>
+                )}
+              </div>
+
+              {/* 3 Tab Moda Transportasi */}
+              <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTransportMode("motorcycle");
+                    setSelectedTollOption("nontoll");
+                  }}
+                  className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                    selectedTransportMode === "motorcycle"
+                      ? "bg-[#38746D] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  <span>Motor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransportMode("car")}
+                  className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                    selectedTransportMode === "car"
+                      ? "bg-[#38746D] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Car className="w-3.5 h-3.5" />
+                  <span>Mobil</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTransportMode("walking");
+                    setSelectedTollOption("nontoll");
+                  }}
+                  className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                    selectedTransportMode === "walking"
+                      ? "bg-[#38746D] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Footprints className="w-3.5 h-3.5" />
+                  <span>Jalan Kaki</span>
+                </button>
+              </div>
+
+              {/* Opsi Khusus Mobil: Lewat Tol vs Tanpa Tol */}
+              {selectedTransportMode === "car" && (
+                <div className="pt-1.5 flex items-center justify-between gap-2 border-t border-slate-200/60 animate-in fade-in duration-200">
+                  <span className="text-[10.5px] font-bold text-slate-700">Pilihan Rute Mobil:</span>
+                  <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTollOption("toll")}
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
+                        selectedTollOption === "toll"
+                          ? "bg-amber-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      🛣️ Lewat Tol
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTollOption("nontoll")}
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
+                        selectedTollOption === "nontoll"
+                          ? "bg-[#38746D] text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      🚫 Tanpa Tol
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Keterangan Edukasi untuk Motor & Pejalan Kaki */}
+              {selectedTransportMode !== "car" && (
+                <p className="text-[9.5px] text-slate-500 italic leading-snug">
+                  {selectedTransportMode === "motorcycle"
+                    ? "Rute dialihkan 100% via Jalur Arteri Pantura (Motor dilarang masuk tol)."
+                    : "Rute diarahkan melalui jalan lingkungan & trotoar arteri bebas hambatan tol."}
+                </p>
+              )}
             </div>
 
             {/* Pilihan & Saran Rute Evakuasi (100% Dinamis OSRM & Deteksi Genangan) */}
@@ -5575,6 +5716,45 @@ function WargaSpatialMap({
             </button>
           </div>
 
+          {/* Opsi Tol & Status Bebas Hambatan Mobile */}
+          {activeNavRoute.transportMode === "car" ? (
+            <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-[11px] shrink-0">
+              <span className="font-bold text-amber-950">Opsi Jalan Tol Mobil:</span>
+              <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-amber-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => handleSelectTollOption("toll")}
+                  className={`px-2 py-0.5 rounded-md text-[10.5px] font-black transition cursor-pointer ${
+                    selectedTollOption === "toll"
+                      ? "bg-amber-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  🛣️ Lewat Tol
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectTollOption("nontoll")}
+                  className={`px-2 py-0.5 rounded-md text-[10.5px] font-black transition cursor-pointer ${
+                    selectedTollOption === "nontoll"
+                      ? "bg-[#38746D] text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  🚫 Tanpa Tol
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="px-2.5 py-1 bg-emerald-50/80 border border-emerald-200/60 rounded-xl text-[10px] font-extrabold text-emerald-800 shrink-0 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{activeNavRoute.transportMode === "motorcycle" ? "Motor Wajib Jalur Arteri (Bebas Tol)" : "Pejalan Kaki Jalur Aman & Non-Tol"}</span>
+              </span>
+              <span className="text-[9px] bg-emerald-100 text-emerald-900 px-1.5 py-0.2 rounded font-bold">100% Non-Tol</span>
+            </div>
+          )}
+
           {/* Input Titik Awal & Titik Tujuan (Gaya Google Maps) */}
           <div className="p-2.5 bg-slate-50/80 rounded-xl border border-gray-100 flex items-center gap-2.5 shrink-0">
             <div className="flex flex-col items-center shrink-0 py-1">
@@ -5898,6 +6078,113 @@ function WargaSpatialMap({
                 }}
               />
             </div>
+          </div>
+
+          {/* Selector Moda Transportasi & Opsi Jalan Tol Mobile */}
+          <div className="p-2.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-800">Moda Kendaraan:</span>
+              {selectedTransportMode === "motorcycle" && (
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                  <span>Wajib Non-Tol (Arteri)</span>
+                </span>
+              )}
+              {selectedTransportMode === "walking" && (
+                <span className="text-[10px] font-bold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Footprints className="w-3 h-3 text-sky-700" />
+                  <span>Jalur Kaki Aman</span>
+                </span>
+              )}
+            </div>
+
+            {/* 3 Tab Moda Transportasi */}
+            <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTransportMode("motorcycle");
+                  setSelectedTollOption("nontoll");
+                }}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                  selectedTransportMode === "motorcycle"
+                    ? "bg-[#38746D] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                <span>Motor</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedTransportMode("car")}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                  selectedTransportMode === "car"
+                    ? "bg-[#38746D] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                }`}
+              >
+                <Car className="w-3.5 h-3.5" />
+                <span>Mobil</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTransportMode("walking");
+                  setSelectedTollOption("nontoll");
+                }}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
+                  selectedTransportMode === "walking"
+                    ? "bg-[#38746D] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                }`}
+              >
+                <Footprints className="w-3.5 h-3.5" />
+                <span>Jalan Kaki</span>
+              </button>
+            </div>
+
+            {/* Opsi Khusus Mobil: Lewat Tol vs Tanpa Tol */}
+            {selectedTransportMode === "car" && (
+              <div className="pt-1.5 flex items-center justify-between gap-2 border-t border-slate-200/60 animate-in fade-in duration-200">
+                <span className="text-[10.5px] font-bold text-slate-700">Pilihan Rute Mobil:</span>
+                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTollOption("toll")}
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
+                      selectedTollOption === "toll"
+                        ? "bg-amber-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🛣️ Lewat Tol
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTollOption("nontoll")}
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
+                      selectedTollOption === "nontoll"
+                        ? "bg-[#38746D] text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🚫 Tanpa Tol
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Keterangan Edukasi untuk Motor & Pejalan Kaki */}
+            {selectedTransportMode !== "car" && (
+              <p className="text-[9.5px] text-slate-500 italic leading-snug">
+                {selectedTransportMode === "motorcycle"
+                  ? "Rute dialihkan 100% via Jalur Arteri Pantura (Motor dilarang masuk tol)."
+                  : "Rute diarahkan melalui jalan lingkungan & trotoar arteri bebas hambatan tol."}
+              </p>
+            )}
           </div>
 
           {/* 5. SECTION PILIHAN & SARAN RUTE EVAKUASI (100% Dinamis OSRM & Deteksi Genangan) */}

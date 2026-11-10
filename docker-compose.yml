@@ -10,7 +10,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://ai:8000}
+      - AI_SERVICE_URL=http://ai:8000
       - PORT=3000
       - NODE_ENV=production
     depends_on:

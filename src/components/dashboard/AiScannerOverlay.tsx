@@ -16,6 +16,7 @@ export interface AiScanResult {
   is_auto_verified?: boolean;
   is_review?: boolean;
   needs_officer_review?: boolean;
+  is_rejected?: boolean;
 }
 
 export interface AiScannerOverlayProps {
@@ -56,11 +57,14 @@ export function AiScannerOverlay({
   if (!isOpen || !photoUrl) return null;
 
   const probFlood = scanResult ? scanResult.prob_flood : 0.942;
-  // Aturan Ambang Batas: > 60% (60.1%+) otomatis verifikasi AI, 0 - 60% tetap verifikasi petugas
-  const isAutoVerified = scanResult
-    ? (scanResult.is_auto_verified ?? (probFlood > 0.60))
-    : true;
-  const floodPct = (probFlood * 100).toFixed(1);
+  const isAutoVerified = scanResult?.is_auto_verified ?? (probFlood > 0.60);
+  const isRejected = scanResult?.is_rejected ?? (probFlood < 0.25);
+  const isReview = !isAutoVerified && !isRejected;
+
+  // Persentase keyakinan sesuai kelas deteksi
+  const displayPct = isRejected
+    ? ((scanResult?.prob_non_flood ?? (1 - probFlood)) * 100).toFixed(1)
+    : (probFlood * 100).toFixed(1);
 
   return (
     <AnimatePresence>
@@ -112,6 +116,8 @@ export function AiScannerOverlay({
                 className={`absolute inset-0 ${
                   isAutoVerified
                     ? "bg-emerald-950/85"
+                    : isRejected
+                    ? "bg-rose-950/85"
                     : "bg-amber-950/85"
                 } backdrop-blur-xs flex flex-col items-center justify-center p-5 text-center`}
               >
@@ -119,11 +125,15 @@ export function AiScannerOverlay({
                   className={`w-14 h-14 rounded-2xl ${
                     isAutoVerified
                       ? "bg-emerald-500/20 text-emerald-400 border border-emerald-400/40"
+                      : isRejected
+                      ? "bg-rose-500/20 text-rose-400 border border-rose-400/40"
                       : "bg-amber-500/20 text-amber-400 border border-amber-400/40"
                   } flex items-center justify-center mb-3 shadow-lg`}
                 >
                   {isAutoVerified ? (
                     <CheckCircle2 className="w-7 h-7" />
+                  ) : isRejected ? (
+                    <AlertCircle className="w-7 h-7" />
                   ) : (
                     <AlertTriangle className="w-7 h-7" />
                   )}
@@ -132,6 +142,8 @@ export function AiScannerOverlay({
                 <h4 className="text-base font-bold text-white leading-tight">
                   {isAutoVerified
                     ? "Genangan Terkonfirmasi (Valid)"
+                    : isRejected
+                    ? "Tidak Terindikasi Banjir"
                     : "Perlu Verifikasi Petugas"}
                 </h4>
 
@@ -139,12 +151,16 @@ export function AiScannerOverlay({
                   className={`text-xs font-bold mt-1 px-3 py-1 rounded-full ${
                     isAutoVerified
                       ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/30"
+                      : isRejected
+                      ? "bg-rose-500/30 text-rose-200 border border-rose-400/30"
                       : "bg-amber-500/30 text-amber-200 border border-amber-400/30"
                   }`}
                 >
                   {isAutoVerified
-                    ? `Otomatis Terverifikasi AI: ${floodPct}%`
-                    : `Keyakinan AI: ${floodPct}% (Menunggu Review Petugas)`}
+                    ? `Terverifikasi AI: ${displayPct}%`
+                    : isRejected
+                    ? `Keyakinan: ${displayPct}% (Kondisi Normal / Kering)`
+                    : `Keyakinan: ${displayPct}% (Menunggu Review Petugas)`}
                 </p>
               </motion.div>
             )}
@@ -162,18 +178,26 @@ export function AiScannerOverlay({
             ) : (
               <p
                 className={`text-xs sm:text-sm font-semibold ${
-                  isAutoVerified ? "text-emerald-300" : "text-amber-300"
+                  isAutoVerified
+                    ? "text-emerald-300"
+                    : isRejected
+                    ? "text-rose-300"
+                    : "text-amber-300"
                 }`}
               >
                 {isAutoVerified
-                  ? "Pemeriksaan selesai. Laporan terverifikasi AI (> 60%)."
-                  : "Pemeriksaan selesai. Laporan diteruskan untuk verifikasi petugas (0-60%)."}
+                  ? "Pemeriksaan selesai. Laporan terverifikasi otomatis AI (> 60%)."
+                  : isRejected
+                  ? "Foto ditolak: Sistem mendeteksi kondisi jalan normal / tidak ada banjir."
+                  : "Pemeriksaan selesai. Laporan diteruskan untuk verifikasi petugas (25-60%)."}
               </p>
             )}
             <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
               {isAutoVerified
                 ? "Foto tervalidasi otomatis dan langsung aktif di Peta Spasial Siaga."
-                : "Tingkat keyakinan ≤ 60%, laporan menunggu verifikasi visual posko sebelum dipetakan."}
+                : isRejected
+                ? "Foto tidak memenuhi kriteria genangan banjir. Silakan ganti foto genangan air yang valid."
+                : "Tingkat keyakinan 25-60%, laporan menunggu verifikasi visual posko sebelum dipetakan."}
             </p>
           </div>
         </div>

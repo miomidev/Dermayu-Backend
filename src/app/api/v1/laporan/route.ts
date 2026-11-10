@@ -104,9 +104,21 @@ export async function POST(req: NextRequest) {
       status = "DITOLAK";
     }
 
+    // Sanitasi foto: strip base64 data URL agar citizen_reports.json tidak membengkak
+    // Foto asli warga disimpan di /public/uploads, bukan di JSON
+    const sanitizePhoto = (p: string): string => {
+      if (typeof p === "string" && p.startsWith("data:")) {
+        return "/uploads/laporan-placeholder.jpg";
+      }
+      return p;
+    };
+
+    const rawPhotos: string[] = Array.isArray(body.photos) ? body.photos.map(sanitizePhoto) : [];
+    const rawPhotoUrl = typeof body.photoUrl === "string" ? sanitizePhoto(body.photoUrl) : null;
+
     const photoUrl =
-      (body.photos && body.photos.length > 0 ? body.photos[0] : null) ||
-      body.photoUrl ||
+      rawPhotos[0] ||
+      rawPhotoUrl ||
       "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=800&q=80";
 
     const newRecord: CitizenReportRecord = {
@@ -130,7 +142,7 @@ export async function POST(req: NextRequest) {
           : `Menunggu Verifikasi Posko (${aiConfidence}%)`),
       description: body.notes || body.description || body.title || "Laporan genangan air dari warga siaga.",
       photoUrl,
-      photos: body.photos || [photoUrl],
+      photos: rawPhotos.length > 0 ? rawPhotos : [photoUrl],
       lat: body.gps?.lat ?? body.lat,
       lng: body.gps?.lng ?? body.lng,
       createdAt: new Date().toISOString(),

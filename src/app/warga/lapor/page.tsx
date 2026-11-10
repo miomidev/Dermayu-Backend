@@ -29,6 +29,7 @@ import {
   WifiOff,
   Database,
   ClipboardList,
+  Copy,
 } from "lucide-react";
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
 import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
@@ -282,7 +283,23 @@ export default function WargaLaporPage() {
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newlyCreatedTicket, setNewlyCreatedTicket] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{
+    ticketCode: string;
+    location: string;
+    notes?: string;
+    isAutoVerified: boolean;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [copiedTicket, setCopiedTicket] = useState(false);
+
+  const handleCopyTicket = (code: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopiedTicket(true);
+      setTimeout(() => setCopiedTicket(false), 2000);
+    }
+  };
 
   // Reports List State
   const [reports, setReports] = useState<ReportTicket[]>([]);
@@ -497,21 +514,25 @@ export default function WargaLaporPage() {
     setIsAiAnalyzing(true);
 
     // Deteksi Jika Perangkat Berada di Mode Offline:
-    // Terapkan Edge Optimistic Pre-validation agar proses mitigasi darurat tidak terhenti
+    // Terapkan penampungan antrean offline (review) agar warga tetap bisa simpan laporan
     if (typeof window !== "undefined" && (!window.navigator.onLine || !isOnline)) {
       setTimeout(() => {
         setAiScanResult({
-          label: "flood",
-          confidence: 0.935,
-          confidence_percent: 93.5,
-          prob_flood: 0.935,
-          prob_non_flood: 0.065,
-          inference_ms: 120,
+          label: "review",
+          confidence: 0.35,
+          confidence_percent: 35,
+          prob_flood: 0.35,
+          prob_non_flood: 0.65,
+          inference_ms: 10,
           model_version: "MobileNetV2-EdgeOffline",
-          is_flood: true,
+          is_flood: false,
+          is_auto_verified: false,
+          is_review: true,
+          needs_officer_review: true,
+          is_rejected: false,
         });
         setIsAiAnalyzing(false);
-      }, 750);
+      }, 500);
       return;
     }
 
@@ -539,29 +560,37 @@ export default function WargaLaporPage() {
           return;
         }
       }
-      // Fallback jika API server lambat/unreachable
+      // Fallback jika API server lambat/unreachable: masuk ke antrean verifikasi posko (review)
       setAiScanResult({
-        label: "flood",
-        confidence: 0.92,
-        confidence_percent: 92,
-        prob_flood: 0.92,
-        prob_non_flood: 0.08,
-        inference_ms: 180,
-        model_version: "MobileNetV2-LocalHeuristic",
-        is_flood: true,
+        label: "review",
+        confidence: 0.35,
+        confidence_percent: 35,
+        prob_flood: 0.35,
+        prob_non_flood: 0.65,
+        inference_ms: 50,
+        model_version: "EdgeFallback-Triage",
+        is_flood: false,
+        is_auto_verified: false,
+        is_review: true,
+        needs_officer_review: true,
+        is_rejected: false,
       });
     } catch (err) {
       console.warn("AI scan offline fallback applied:", err);
-      // Fallback mulus saat offline / fetch error
+      // Fallback mulus saat offline / fetch error: arahkan ke review posko
       setAiScanResult({
-        label: "flood",
-        confidence: 0.915,
-        confidence_percent: 91.5,
-        prob_flood: 0.915,
-        prob_non_flood: 0.085,
-        inference_ms: 150,
-        model_version: "MobileNetV2-EdgeOffline",
-        is_flood: true,
+        label: "review",
+        confidence: 0.35,
+        confidence_percent: 35,
+        prob_flood: 0.35,
+        prob_non_flood: 0.65,
+        inference_ms: 50,
+        model_version: "EdgeOffline-Triage",
+        is_flood: false,
+        is_auto_verified: false,
+        is_review: true,
+        needs_officer_review: true,
+        is_rejected: false,
       });
     } finally {
       setIsAiAnalyzing(false);
@@ -644,6 +673,11 @@ export default function WargaLaporPage() {
 
     if (!location.trim()) {
       alert("Mohon tentukan titik lokasi kejadian (gunakan GPS atau ketik patokan lokasi).");
+      return;
+    }
+
+    if (aiScanResult && (aiScanResult.is_rejected ?? (aiScanResult.prob_flood < 0.25))) {
+      alert("Foto ditolak otomatis oleh AI karena terdeteksi bukan genangan banjir. Silakan ganti foto yang memperlihatkan genangan air.");
       return;
     }
 
@@ -732,7 +766,17 @@ export default function WargaLaporPage() {
       }).catch((err) => console.warn("Background API sync report error:", err));
     }
 
-    setNewlyCreatedTicket(ticketCode);
+    const finalLat = newTicket.gps?.lat ?? -6.3475;
+    const finalLng = newTicket.gps?.lng ?? 108.1189;
+
+    setSuccessModal({
+      ticketCode,
+      location: location.trim(),
+      notes: notes.trim() || undefined,
+      isAutoVerified,
+      lat: finalLat,
+      lng: finalLng,
+    });
     setIsSubmitting(false);
 
     // Reset Form
@@ -864,41 +908,149 @@ export default function WargaLaporPage() {
         )}
       </AnimatePresence>
 
-      {/* ALERT BANNER TIKET BERHASIL DIBUAT */}
+      {/* MODAL POPUP LAPORAN BERHASIL DITERBITKAN */}
       <AnimatePresence>
-        {newlyCreatedTicket && (
+        {successModal && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start justify-between gap-3 shadow-xs"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setSuccessModal(null)}
           >
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#38746D] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <CheckCircle2 className="w-5 h-5" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 14 }}
+              transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 relative text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Tombol Tutup X */}
+              <button
+                type="button"
+                onClick={() => setSuccessModal(null)}
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+                title="Tutup dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Icon & Title */}
+              <div className="flex items-center gap-3.5 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 text-[#38746D] flex items-center justify-center shrink-0 shadow-2xs">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-[#132422] leading-snug">
+                    Laporan Berhasil Terkirim
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Laporan Anda sudah kami terima dan masuk ke sistem.
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs sm:text-sm font-bold text-emerald-950">
-                  Laporan Berhasil Diterbitkan: Tiket #{newlyCreatedTicket}
-                </p>
-                {reports.find((r) => r.id === newlyCreatedTicket)?.isFloodDetected ? (
-                  <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                    🟢 <strong>Laporan Terverifikasi:</strong> Titik genangan Anda telah divalidasi dan aktif pada Peta Spasial Siaga &amp; Rute Evakuasi Warga.
+
+              {/* Tiket Code Box */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Nomor Tiket
+                  </span>
+                  <span className="text-sm font-extrabold text-[#132422] font-mono tracking-wide">
+                    #{successModal.ticketCode}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyTicket(successModal.ticketCode)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-[#38746D] text-slate-700 hover:text-[#38746D] transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedTicket ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700">Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Salin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Status Validation Box */}
+              {successModal.isAutoVerified ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-950 mb-4">
+                  <div className="flex items-center gap-2 font-bold text-xs mb-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                    <span>Laporan Terverifikasi</span>
+                  </div>
+                  <p className="text-[11.5px] text-emerald-800 leading-relaxed">
+                    Titik banjir telah aktif di peta dan otomatis dihindari dalam pencarian rute evakuasi.
                   </p>
-                ) : (
-                  <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                    ⏳ <strong>Menunggu Verifikasi:</strong> Laporan tersimpan di sistem kendali dan menunggu peninjauan visual oleh petugas posko siaga sebelum dipetakan.
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-950 mb-4">
+                  <div className="flex items-center gap-2 font-bold text-xs mb-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Menunggu Verifikasi Petugas</span>
+                  </div>
+                  <p className="text-[11.5px] text-amber-800 leading-relaxed">
+                    Petugas posko siaga akan mengecek foto dan lokasi laporan Anda terlebih dahulu sebelum ditampilkan di peta publik.
                   </p>
+                </div>
+              )}
+
+              {/* Ringkasan Laporan */}
+              <div className="space-y-1.5 mb-5 text-xs border-t border-slate-100 pt-3">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-slate-400">Lokasi:</span>
+                  <span className="font-semibold text-slate-800 text-right truncate max-w-[220px]">
+                    {successModal.location}
+                  </span>
+                </div>
+                {successModal.notes && (
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-slate-400 shrink-0">Catatan:</span>
+                    <span className="font-medium text-slate-700 text-right line-clamp-2 max-w-[220px]">
+                      {successModal.notes}
+                    </span>
+                  </div>
                 )}
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNewlyCreatedTicket(null)}
-              className="text-emerald-700 hover:text-emerald-950 cursor-pointer p-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+
+              {/* Tombol Aksi */}
+              {successModal.isAutoVerified ? (
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <Link
+                    href={`/warga/evakuasi?lat=${successModal.lat}&lng=${successModal.lng}`}
+                    onClick={() => setSuccessModal(null)}
+                    className="flex-1 py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#2C5C56] text-white text-xs sm:text-sm font-bold text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span>Lihat di Peta</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setSuccessModal(null)}
+                    className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold text-center transition cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSuccessModal(null)}
+                  className="w-full py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#2C5C56] text-white text-xs sm:text-sm font-bold text-center transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>Lihat Riwayat Laporan Saya</span>
+                </button>
+              )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1155,12 +1307,16 @@ export default function WargaLaporPage() {
                           aiScanResult
                             ? (aiScanResult.prob_flood * 100) > 60
                               ? "bg-emerald-500 text-white"
+                              : (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25))
+                              ? "bg-rose-600 text-white"
                               : "bg-amber-500 text-white"
                             : "bg-slate-700 text-white"
                         }`}
                       >
                         {aiScanResult && (aiScanResult.prob_flood * 100) > 60 ? (
                           <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : aiScanResult && (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25)) ? (
+                          <AlertCircle className="w-3.5 h-3.5" />
                         ) : (
                           <AlertTriangle className="w-3.5 h-3.5" />
                         )}
@@ -1168,6 +1324,8 @@ export default function WargaLaporPage() {
                           {aiScanResult
                             ? (aiScanResult.prob_flood * 100) > 60
                               ? `Bukti Terverifikasi Valid (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
+                              : (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25))
+                              ? `Foto Ditolak: Bukan Banjir (${((aiScanResult.prob_non_flood ?? (1 - aiScanResult.prob_flood)) * 100).toFixed(1)}%)`
                               : `Menunggu Verifikasi Posko (${(aiScanResult.prob_flood * 100).toFixed(1)}%)`
                             : isAiAnalyzing
                             ? "Memeriksa Foto Genangan..."
@@ -1180,6 +1338,8 @@ export default function WargaLaporPage() {
                       {aiScanResult
                         ? (aiScanResult.prob_flood * 100) > 60
                           ? `Bukti visual genangan air valid. Laporan langsung dipetakan ke Rute Evakuasi & diteruskan ke regu posko.`
+                          : (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25))
+                          ? `Foto tidak terindikasi genangan banjir (${((aiScanResult.prob_non_flood ?? (1 - aiScanResult.prob_flood)) * 100).toFixed(1)}% kondisi kering). Foto ditolak dan tidak dapat dikirim ke peta rute.`
                           : `Laporan disimpan dan dalam antrean peninjauan petugas posko sebelum masuk ke peta rute.`
                         : "Memeriksa karakteristik visual foto genangan..."}
                     </p>
@@ -1292,18 +1452,34 @@ export default function WargaLaporPage() {
 
                   {/* Tombol Besar Kirim Laporan */}
                   <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || !location.trim()}
-                      className="w-full py-3.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-md shadow-[#38746D]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <Send className="w-4 h-4 text-[#88BDB6]" />
-                      <span>
-                        {isSubmitting
-                          ? "Mengirim Laporan ke Posko..."
-                          : "Kirim Laporan Darurat Sekarang"}
-                      </span>
-                    </button>
+                    {aiScanResult && (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25)) ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-not-allowed opacity-90 shadow-2xs"
+                        >
+                          <AlertCircle className="w-4 h-4 text-rose-600" />
+                          <span>Foto Ditolak: Bukan Genangan Banjir</span>
+                        </button>
+                        <p className="text-center text-[11px] text-rose-600 font-medium">
+                          Gunakan tombol &quot;Ganti Foto&quot; di kanan atas foto untuk mengunggah bukti genangan air.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !location.trim()}
+                        className="w-full py-3.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-md shadow-[#38746D]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Send className="w-4 h-4 text-[#88BDB6]" />
+                        <span>
+                          {isSubmitting
+                            ? "Mengirim Laporan ke Posko..."
+                            : "Kirim Laporan Darurat Sekarang"}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </form>
               </motion.div>

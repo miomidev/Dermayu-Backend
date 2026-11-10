@@ -29,6 +29,13 @@ import {
   Check,
   PhoneCall,
   MoreHorizontal,
+  Shield,
+  Package,
+  Navigation,
+  HeartHandshake,
+  Layers,
+  Info,
+  Phone,
 } from "lucide-react";
 import { getActiveSession } from "@/utils/authSession";
 
@@ -266,15 +273,12 @@ export function KomunitasView() {
     }
   }, [activeMenuPostId]);
 
-  // FAB State & IntersectionObserver
+  // FAB State & IntersectionObserver (Deteksi Scroll Desktop)
   const topButtonRef = useRef<HTMLButtonElement>(null);
   const [isTopButtonVisible, setIsTopButtonVisible] = useState(true);
-  const [isFabHidden, setIsFabHidden] = useState(false);
-  const [hiddenEdge, setHiddenEdge] = useState<"right" | "left">("right");
-  const dragBoundsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Jika di detail view atau sedang buat postingan inline, top button tidak dirender sehingga FAB selalu terpicu bila diaktifkan
+    // Jika di detail view atau sedang buat postingan inline, top button tidak dirender
     if (selectedPostId || isCreatingPost) {
       setIsTopButtonVisible(false);
       return;
@@ -297,41 +301,9 @@ export function KomunitasView() {
     return () => observer.disconnect();
   }, [selectedPostId, isCreatingPost]);
 
-  // FAB hanya muncul jika tidak sedang membuat post inline DAN (di tampilan Detail ATAU tombol atas sudah terscroll keluar layar)
-  const shouldShowFab =
-    !isCreatingPost && (selectedPostId !== null || !isTopButtonVisible);
-
-  const handleDragEnd = (
-    _event: MouseEvent | TouchEvent | PointerEvent,
-    info: { point: { x: number; y: number } }
-  ) => {
-    if (typeof window === "undefined") return;
-    const screenWidth = window.innerWidth;
-    const dropX = info.point.x;
-
-    const distToRight = screenWidth - dropX;
-    const distToLeft = dropX;
-
-    // Jika digeser mendekati batas tepi kanan atau kiri layar (< 40px)
-    if (distToRight < 40) {
-      setHiddenEdge("right");
-      setIsFabHidden(true);
-    } else if (distToLeft < 40) {
-      setHiddenEdge("left");
-      setIsFabHidden(true);
-    } else {
-      setIsFabHidden(false);
-    }
-  };
-
   const handleFabClick = () => {
-    if (isFabHidden) {
-      // Jika user melakukan tap pada tab kecil yang menempel di tepi layar, kembalikan ke bentuk penuh
-      setIsFabHidden(false);
-    } else {
-      setSelectedPostId(null);
-      setIsCreatingPost(true);
-    }
+    setSelectedPostId(null);
+    setIsCreatingPost(true);
   };
 
   // 1. Initial LocalStorage Load
@@ -572,9 +544,9 @@ export function KomunitasView() {
         )}
       </AnimatePresence>
 
-      {/* HEADER KOMUNITAS WARGA SIAGA (Hanya di Feed Utama, Sembunyikan di Detail & Mode Buat Kabar) */}
+      {/* HEADER KOMUNITAS WARGA SIAGA (Desktop Saja: Disembunyikan di Mobile agar Tidak Memakan Ruang Layar & Redundan) */}
       {!selectedPostId && !isCreatingPost && (
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="hidden sm:flex bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] text-[11px] font-bold border border-[#D5E4E0]">
               <Users className="w-3.5 h-3.5 text-[#38746D]" />
@@ -845,6 +817,10 @@ export function KomunitasView() {
                         activePost.authorRole === "PETUGAS" ||
                         activePost.authorName.toLowerCase().includes("petugas")
                           ? "bg-[#38746D] text-white"
+                          : activePost.authorRole === "APARAT"
+                          ? "bg-[#1D443F] text-white"
+                          : activePost.authorRole === "RELAWAN"
+                          ? "bg-[#E6F0ED] text-[#24544E] border border-[#A4C6C1]"
                           : "bg-[#EEF5F3] border border-[#38746D]/20 text-[#1D443F]"
                       } font-bold text-base flex items-center justify-center shrink-0`}
                     >
@@ -854,9 +830,30 @@ export function KomunitasView() {
                         : activePost.authorName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-sm sm:text-base font-bold text-[#132422]">
-                        {activePost.authorName}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-bold text-[#132422]">
+                          {activePost.authorName}
+                        </h3>
+                        {activePost.authorRole === "APARAT" && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <Shield className="w-3 h-3 text-emerald-700" />
+                            Pamong Desa
+                          </span>
+                        )}
+                        {activePost.authorRole === "RELAWAN" && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            <HeartHandshake className="w-3 h-3 text-amber-700" />
+                            Relawan Tagana
+                          </span>
+                        )}
+                        {(activePost.authorRole === "PETUGAS" ||
+                          activePost.authorName.toLowerCase().includes("petugas")) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                            <Shield className="w-3 h-3 text-teal-700" />
+                            Petugas TRC BPBD
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#38746D]" />
                         <span>{activePost.authorDistrict.split(",")[0].trim()} • {formatShortTime(activePost.timeAgo)}</span>
@@ -864,17 +861,48 @@ export function KomunitasView() {
                     </div>
                   </div>
 
-                  {/* Tombol Opsi / Salin Tautan */}
-                  <button
-                    type="button"
-                    onClick={() => handleSharePost(activePost)}
-                    className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                    title="Salin Tautan Kabar"
-                    aria-label="Opsi"
-                  >
-                    <MoreHorizontal className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                        activePost.category === "ROB"
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : activePost.category === "GOTONG_ROYONG"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : activePost.category === "LOGISTIK"
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-teal-50 text-teal-800 border-teal-200"
+                      }`}
+                    >
+                      {activePost.category === "ROB" && <Waves className="w-3.5 h-3.5 text-blue-600" />}
+                      {activePost.category === "GOTONG_ROYONG" && <Users className="w-3.5 h-3.5 text-emerald-600" />}
+                      {activePost.category === "LOGISTIK" && <Package className="w-3.5 h-3.5 text-amber-600" />}
+                      {activePost.category === "RUTE" && <Navigation className="w-3.5 h-3.5 text-teal-700" />}
+                      <span>{activePost.categoryLabel || CATEGORY_MAP[activePost.category]?.label}</span>
+                    </span>
+
+                    {/* Tombol Opsi / Salin Tautan */}
+                    <button
+                      type="button"
+                      onClick={() => handleSharePost(activePost)}
+                      className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      title="Salin Tautan Kabar"
+                      aria-label="Opsi"
+                    >
+                      <MoreHorizontal className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Telemetry Ketinggian Air di Detail View */}
+                {activePost.waterLevel && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F0F6F5] border border-[#D5E4E0] text-xs">
+                    <Waves className="w-4 h-4 text-[#38746D] shrink-0" />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-gray-600">Estimasi Ketinggian Air:</span>
+                      <span className="font-bold text-[#132422]">{activePost.waterLevel}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Isi Teks Postingan */}
                 <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-line">
@@ -1155,81 +1183,90 @@ export function KomunitasView() {
                     type="button"
                     onClick={() => setIsFilterOpen((prev) => !prev)}
                     className={`h-12 w-12 sm:w-auto sm:px-4.5 rounded-full border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer shrink-0 shadow-xs ${
-                      isFilterOpen || activeFilterCount > 0
+                      isFilterOpen || selectedDistrict !== "ALL"
                         ? "bg-[#38746D] text-white border-[#38746D]"
                         : "bg-white hover:bg-[#F8FAF9] text-[#1D443F] border-[#D5E4E0]"
                     }`}
-                    title="Filter Kabar Warga"
+                    title="Filter Wilayah"
                     aria-expanded={isFilterOpen}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
-                    <span className="hidden sm:inline">Filter</span>
-                    {activeFilterCount > 0 && (
+                    <span className="hidden sm:inline">Filter Wilayah</span>
+                    {selectedDistrict !== "ALL" && (
                       <span className="w-5 h-5 rounded-full bg-white text-[#38746D] text-[10px] font-extrabold flex items-center justify-center shrink-0">
-                        {activeFilterCount}
+                        1
                       </span>
                     )}
                   </button>
                 </div>
 
-                {/* Dropdown Menu Mengambang */}
+                {/* Horizontal Category Tabs (Akses Cepat Kategori) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mt-3 scrollbar-none">
+                  {[
+                    { id: "ALL", label: "Semua Topik", icon: Layers },
+                    { id: "ROB", label: "Genangan Rob", icon: Waves },
+                    { id: "GOTONG_ROYONG", label: "Gotong Royong", icon: Users },
+                    { id: "LOGISTIK", label: "Kebutuhan Logistik", icon: Package },
+                    { id: "RUTE", label: "Rute Aman", icon: Navigation },
+                  ].map((cat) => {
+                    const Icon = cat.icon;
+                    const isActive = selectedCategory === cat.id;
+                    const count =
+                      cat.id === "ALL"
+                        ? posts.length
+                        : posts.filter((p) => p.category === cat.id).length;
+
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-[#38746D] text-white shadow-2xs"
+                            : "bg-white text-[#4B635F] hover:bg-[#F8FAF9] border border-[#D5E4E0]"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <span>{cat.label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Dropdown Menu Mengambang (Filter Wilayah) */}
                 {isFilterOpen && (
-                  <div className="absolute top-full right-0 w-full sm:w-[420px] mt-2.5 bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 z-30">
+                  <div className="absolute top-full right-0 w-full sm:w-[380px] mt-2.5 bg-white rounded-3xl border border-[#D5E4E0] p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 z-30">
                     {/* Header Dropdown */}
                     <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                       <div className="flex items-center gap-2">
                         <SlidersHorizontal className="w-4 h-4 text-[#38746D]" />
                         <h4 className="text-sm font-extrabold text-[#132422]">
-                          Filter Kabar Warga
+                          Filter Wilayah Kecamatan
                         </h4>
                       </div>
-                      {activeFilterCount > 0 && (
+                      {selectedDistrict !== "ALL" && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedCategory("ALL");
-                            setSelectedDistrict("ALL");
-                          }}
+                          onClick={() => setSelectedDistrict("ALL")}
                           className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
                         >
-                          Reset Filter
+                          Reset
                         </button>
                       )}
                     </div>
 
-                    {/* Bagian 1: Pilih Topik */}
+                    {/* Pilihan Wilayah */}
                     <div className="space-y-2">
                       <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-                        Pilih Topik:
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          { id: "ALL", label: "Semua Topik" },
-                          { id: "ROB", label: "Genangan & Rob" },
-                          { id: "LOGISTIK", label: "Kebutuhan Logistik" },
-                          { id: "GOTONG_ROYONG", label: "Gotong Royong" },
-                          { id: "RUTE", label: "Rute Terupdate" },
-                        ].map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setSelectedCategory(tab.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              selectedCategory === tab.id
-                                ? "bg-[#38746D] text-white shadow-2xs"
-                                : "bg-[#F8FAF9] text-gray-600 border border-[#D5E4E0] hover:bg-gray-100"
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Bagian 2: Pilih Wilayah */}
-                    <div className="space-y-2 pt-2 border-t border-gray-100">
-                      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-                        Pilih Wilayah:
+                        Wilayah Kecamatan:
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {DISTRICT_FILTERS.map((df) => (
@@ -1256,7 +1293,7 @@ export function KomunitasView() {
                         onClick={() => setIsFilterOpen(false)}
                         className="w-full sm:w-auto px-5 py-2 rounded-xl bg-[#38746D] text-white text-xs font-bold hover:bg-[#24544E] transition cursor-pointer"
                       >
-                        Terapkan Filter
+                        Terapkan
                       </button>
                     </div>
                   </div>
@@ -1296,19 +1333,23 @@ export function KomunitasView() {
                       transition={{ duration: 0.3 }}
                       className="p-5 sm:p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-4 hover:border-[#88BDB6] transition-all"
                     >
-                      {/* Header Post: Info Penulis & Menu 3-Titik */}
+                      {/* Header Post: Info Penulis, Role Badge, Kategori & Menu */}
                       <div className="flex items-start justify-between gap-3">
                         <div
                           onClick={() => setSelectedPostId(post.id)}
-                          className="flex items-center gap-3 cursor-pointer group/author min-w-0"
+                          className="flex items-start gap-3 cursor-pointer group/author min-w-0"
                         >
                           <div
                             className={`w-10 h-10 rounded-2xl ${
                               post.authorRole === "PETUGAS" ||
                               post.authorName.toLowerCase().includes("petugas")
                                 ? "bg-[#38746D] text-white"
-                                : "bg-[#EEF5F3] text-[#1D443F]"
-                            } font-bold text-sm flex items-center justify-center shrink-0 group-hover/author:bg-[#D5E4E0] transition-colors`}
+                                : post.authorRole === "APARAT"
+                                ? "bg-[#1D443F] text-white"
+                                : post.authorRole === "RELAWAN"
+                                ? "bg-[#E6F0ED] text-[#24544E] border border-[#A4C6C1]"
+                                : "bg-[#EEF5F3] text-[#1D443F] border border-[#D5E4E0]"
+                            } font-bold text-sm flex items-center justify-center shrink-0 group-hover/author:opacity-90 transition-opacity`}
                           >
                             {post.authorRole === "PETUGAS" ||
                             post.authorName.toLowerCase().includes("petugas")
@@ -1316,76 +1357,132 @@ export function KomunitasView() {
                               : post.authorName.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors truncate">
-                              {post.authorName}
-                            </h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-[#132422] group-hover/author:text-[#38746D] transition-colors truncate">
+                                {post.authorName}
+                              </h4>
+                              {post.authorRole === "APARAT" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <Shield className="w-3 h-3 text-emerald-700" />
+                                  Pamong Desa
+                                </span>
+                              )}
+                              {post.authorRole === "RELAWAN" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <HeartHandshake className="w-3 h-3 text-amber-700" />
+                                  Relawan Tagana
+                                </span>
+                              )}
+                              {(post.authorRole === "PETUGAS" ||
+                                post.authorName.toLowerCase().includes("petugas")) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                                  <Shield className="w-3 h-3 text-teal-700" />
+                                  Petugas TRC BPBD
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
-                              <MapPin className="w-3 h-3 text-[#38746D] shrink-0" />
-                              <span className="truncate">{post.authorDistrict.split(",")[0].trim()} • {formatShortTime(post.timeAgo)}</span>
+                              <MapPin className="w-3 h-3 text-[#38746D]" />
+                              <span className="truncate">{post.authorDistrict.split(",")[0].trim()}</span>
+                              <span className="text-gray-300">•</span>
+                              <span>{formatShortTime(post.timeAgo)}</span>
                             </p>
                           </div>
                         </div>
 
-                        {/* Titik 3 Menu Opsi Pengganti Tag Kategori */}
-                        <div className="relative shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id);
-                            }}
-                            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                            title="Opsi"
-                            aria-label="Opsi"
+                        {/* Kategori Badge & Menu 3-Titik */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-semibold border ${
+                              post.category === "ROB"
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
+                                : post.category === "GOTONG_ROYONG"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : post.category === "LOGISTIK"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-teal-50 text-teal-800 border-teal-200"
+                            }`}
                           >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                            {post.category === "ROB" && <Waves className="w-3 h-3 text-blue-600" />}
+                            {post.category === "GOTONG_ROYONG" && <Users className="w-3 h-3 text-emerald-600" />}
+                            {post.category === "LOGISTIK" && <Package className="w-3 h-3 text-amber-600" />}
+                            {post.category === "RUTE" && <Navigation className="w-3 h-3 text-teal-700" />}
+                            <span>{post.categoryLabel || CATEGORY_MAP[post.category]?.label}</span>
+                          </span>
 
-                          {activeMenuPostId === post.id && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-full mt-1 w-44 bg-white rounded-2xl shadow-lg border border-gray-100 py-1.5 z-30 text-xs text-gray-700 animate-in fade-in zoom-in-95 duration-100"
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                              title="Opsi"
+                              aria-label="Opsi"
                             >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleSharePost(post);
-                                  setActiveMenuPostId(null);
-                                }}
-                                className="w-full px-3.5 py-2 text-left hover:bg-gray-50 flex items-center gap-2 cursor-pointer font-medium"
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {activeMenuPostId === post.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full mt-1 w-44 bg-white rounded-2xl shadow-lg border border-gray-100 py-1.5 z-30 text-xs text-gray-700 animate-in fade-in zoom-in-95 duration-100"
                               >
-                                <Share2 className="w-3.5 h-3.5 text-gray-500" />
-                                <span>Salin Tautan</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setToastMessage("Laporan konten telah dikirim ke tim moderator.");
-                                  setTimeout(() => setToastMessage(null), 3000);
-                                  setActiveMenuPostId(null);
-                                }}
-                                className="w-full px-3.5 py-2 text-left hover:bg-rose-50 flex items-center gap-2 text-rose-600 cursor-pointer font-medium"
-                              >
-                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Laporkan Kabar</span>
-                              </button>
-                            </div>
-                          )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleSharePost(post);
+                                    setActiveMenuPostId(null);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-left hover:bg-gray-50 flex items-center gap-2 cursor-pointer font-medium"
+                                >
+                                  <Share2 className="w-3.5 h-3.5 text-gray-500" />
+                                  <span>Salin Tautan</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setToastMessage("Laporan konten telah dikirim ke tim moderator.");
+                                    setTimeout(() => setToastMessage(null), 3000);
+                                    setActiveMenuPostId(null);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-left hover:bg-rose-50 flex items-center gap-2 text-rose-600 cursor-pointer font-medium"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Laporkan Kabar</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Area Isi Konten (Klik untuk Buka Selengkapnya) */}
+                      {/* Area Isi Konten */}
                       <div
                         onClick={() => setSelectedPostId(post.id)}
                         className="cursor-pointer group/content space-y-2 text-left"
                       >
-                        <p className="text-xs sm:text-sm text-gray-800 leading-relaxed line-clamp-3 group-hover/content:text-[#132422] transition-colors">
+                        <p className="text-xs sm:text-sm text-gray-800 leading-relaxed line-clamp-4 group-hover/content:text-[#132422] transition-colors">
                           {post.content}
                         </p>
-                        <span className="inline-block text-[11px] font-bold text-[#38746D] hover:text-[#1D443F] hover:underline cursor-pointer">
-                          Buka Selengkapnya
-                        </span>
+                        {post.content.length > 160 && (
+                          <span className="inline-block text-[11px] font-bold text-[#38746D] hover:text-[#1D443F] hover:underline cursor-pointer">
+                            Buka Selengkapnya
+                          </span>
+                        )}
                       </div>
+
+                      {/* Telemetry Ketinggian Air (Jika Ada) */}
+                      {post.waterLevel && (
+                        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#F0F6F5] border border-[#D5E4E0] text-xs">
+                          <Waves className="w-3.5 h-3.5 text-[#38746D] shrink-0" />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-medium text-gray-500">Estimasi Ketinggian Air:</span>
+                            <span className="font-bold text-[#132422]">{post.waterLevel}</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Thumbnail Media Preview (Jika Ada) */}
                       {post.media && post.media.length > 0 && (
@@ -1423,20 +1520,20 @@ export function KomunitasView() {
 
                       {/* Action Bar (Like, Lihat Diskusi, Share) */}
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
                           {/* Like Button */}
                           <button
                             type="button"
                             onClick={() => handleToggleLike(post.id)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                               post.userLiked
-                                ? "bg-rose-50 text-rose-600 font-bold border border-rose-200"
-                                : "hover:bg-gray-100 border border-transparent"
+                                ? "bg-rose-50 text-rose-600 border-rose-200 font-bold"
+                                : "bg-white hover:bg-gray-50 text-gray-600 border-[#D5E4E0]"
                             }`}
                           >
                             <Heart
-                              className={`w-4 h-4 ${
-                                post.userLiked ? "fill-rose-600" : ""
+                              className={`w-3.5 h-3.5 ${
+                                post.userLiked ? "fill-rose-600 text-rose-600" : "text-gray-400"
                               }`}
                             />
                             <span>{post.likesCount} Terbantu</span>
@@ -1446,9 +1543,9 @@ export function KomunitasView() {
                           <button
                             type="button"
                             onClick={() => setSelectedPostId(post.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] font-bold transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EEF5F3] hover:bg-[#D5E4E0] text-[#1D443F] border border-[#D5E4E0] font-semibold text-xs transition-colors cursor-pointer"
                           >
-                            <MessageSquare className="w-4 h-4 text-[#38746D]" />
+                            <MessageSquare className="w-3.5 h-3.5 text-[#38746D]" />
                             <span>
                               {post.comments.length > 0
                                 ? `${post.comments.length} Tanggapan`
@@ -1461,10 +1558,10 @@ export function KomunitasView() {
                         <button
                           type="button"
                           onClick={() => handleSharePost(post)}
-                          className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
                           title="Salin tautan kabar"
                         >
-                          <Share2 className="w-4 h-4" />
+                          <Share2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </motion.div>
@@ -1521,48 +1618,96 @@ export function KomunitasView() {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+
+          {/* Widget 2: Kontak Darurat Pantura */}
+          <div className="p-6 rounded-3xl bg-white border border-[#D5E4E0] shadow-xs space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#EEF5F3] text-[#38746D] flex items-center justify-center shrink-0">
+                <PhoneCall className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-[#132422] uppercase tracking-wider">
+                  Kontak Darurat Pantura
+                </h3>
+                <p className="text-[11px] text-gray-500">Panggilan siaga 24 jam wilayah Indramayu</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <a
+                href="tel:112"
+                className="p-3 rounded-2xl bg-[#F8FAF9] border border-gray-100 hover:border-[#38746D] transition-colors flex items-center justify-between block"
+              >
+                <div>
+                  <span className="font-bold text-[#132422] block">Call Center Darurat</span>
+                  <span className="text-[11px] text-gray-500">Bebas Pulsa / Semua Operator</span>
+                </div>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20">
+                  112
+                </span>
+              </a>
+
+              <a
+                href="tel:0234272113"
+                className="p-3 rounded-2xl bg-[#F8FAF9] border border-gray-100 hover:border-[#38746D] transition-colors flex items-center justify-between block"
+              >
+                <div>
+                  <span className="font-bold text-[#132422] block">Pusdalops PB Indramayu</span>
+                  <span className="text-[11px] text-gray-500">(0234) 272-113</span>
+                </div>
+                <Phone className="w-3.5 h-3.5 text-[#38746D]" />
+              </a>
+
+              <a
+                href="tel:0234274118"
+                className="p-3 rounded-2xl bg-[#F8FAF9] border border-gray-100 hover:border-[#38746D] transition-colors flex items-center justify-between block"
+              >
+                <div>
+                  <span className="font-bold text-[#132422] block">PMI Kab. Indramayu</span>
+                  <span className="text-[11px] text-gray-500">Posko Bantuan & Ambulans</span>
+                </div>
+                <Phone className="w-3.5 h-3.5 text-[#38746D]" />
+              </a>
+            </div>
+          </div>
+
+          {/* Widget 3: Pedoman Pelaporan Kabar */}
+          <div className="p-5 rounded-3xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-3">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-[#38746D] shrink-0" />
+              <h4 className="text-xs font-bold text-[#132422] uppercase tracking-wider">
+                Pedoman Kabar Warga
+              </h4>
+            </div>
+            <ul className="space-y-2 text-[11px] text-gray-600 leading-relaxed list-disc list-inside">
+              <li>Sertakan patokan lokasi jelas (nama jalan, RT/RW, atau balai desa).</li>
+              <li>Laporkan tren debit air (sedang naik, surut, atau tenang).</li>
+              <li>Hindari menyebarkan isu sebelum terkonfirmasi oleh aparat setempat.</li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* Area Batas Drag FAB (Safe Area di atas Mobile Bottom Navigation) */}
-      <div
-        ref={dragBoundsRef}
-        className="fixed inset-0 pointer-events-none z-30"
-        style={{ top: 75, bottom: 85, left: 10, right: 10 }}
-      />
-
-      {/* Floating Action Button (FAB) Draggable & Hideable */}
+      {/* Floating Action Button (FAB) Tanda Plus di Bawah Kanan (Mobile Selalu Muncul, Desktop Saat Scroll) */}
       <AnimatePresence>
-        {shouldShowFab && (
+        {!isCreatingPost && (
           <motion.div
-            drag
-            dragMomentum={false}
-            dragConstraints={dragBoundsRef}
-            onDragEnd={handleDragEnd}
             initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: 1,
-              opacity: isFabHidden ? 0.5 : 1,
-              x: isFabHidden ? (hiddenEdge === "right" ? 36 : -36) : 0,
-            }}
+            animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className={`fixed z-40 ${
-              hiddenEdge === "right" ? "right-5" : "left-5"
-            } bottom-24 pointer-events-auto touch-none select-none`}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className={`fixed z-40 right-4 sm:right-6 bottom-20 md:bottom-8 ${
+              !isTopButtonVisible ? "flex" : "flex md:hidden"
+            }`}
           >
             <button
               type="button"
               onClick={handleFabClick}
               aria-label="Buat Kabar Baru"
-              title={isFabHidden ? "Ketuk untuk membuka tombol" : "Buat Kabar Baru"}
-              className="w-14 h-14 rounded-full bg-[#38746D] hover:bg-[#24544E] active:scale-95 text-white shadow-xl flex items-center justify-center cursor-pointer transition-colors focus:outline-hidden focus:ring-4 focus:ring-[#38746D]/20 group relative overflow-hidden"
+              title="Buat Kabar Baru"
+              className="w-14 h-14 rounded-full bg-[#38746D] hover:bg-[#24544E] active:scale-90 text-white shadow-xl shadow-[#38746D]/30 border-2 border-white/30 flex items-center justify-center cursor-pointer transition-all focus:outline-hidden focus:ring-4 focus:ring-[#38746D]/20 group"
             >
-              <Plus
-                className={`w-6 h-6 stroke-[2.5] transition-transform ${
-                  isFabHidden ? "scale-90" : "group-hover:rotate-90 duration-200"
-                }`}
-              />
+              <Plus className="w-6 h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
             </button>
           </motion.div>
         )}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { getWargaPosko, fetchPoskoFromApi, type PoskoRecord } from "@/utils/poskoService";
+import { calculateDistanceInMeters } from "@/data/curatedEvakuasiData";
 import { trackFeatureInteraction } from "@/utils/activityTracker";
 import {
   Building2,
@@ -28,8 +29,13 @@ export default function WargaPoskoPage() {
   const [search, setSearch] = useState("");
   const [filterDistrict, setFilterDistrict] = useState("SEMUA");
   const [filterStatus, setFilterStatus] = useState("SEMUA");
+  const [sortBy, setSortBy] = useState<"TERDEKAT" | "KAPASITAS" | "NAMA">("TERDEKAT");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // State Geolocation Pengguna (GPS Haversine Real-Time)
+  const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
+  const [isGpsActive, setIsGpsActive] = useState(false);
 
   // State Pagination Modern
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,6 +91,54 @@ export default function WargaPoskoPage() {
     };
   }, []);
 
+  // Geolocation Real-Time GPS (getCurrentPosition & watchPosition)
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserCoords([pos.coords.latitude, pos.coords.longitude]);
+          setIsGpsActive(true);
+        },
+        (err) => {
+          console.warn("GPS tidak aktif/izin belum diberikan, menggunakan koordinat acuan Kandanghaur:", err.message);
+          setUserCoords([-6.3475, 108.1189]);
+          setIsGpsActive(false);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserCoords([pos.coords.latitude, pos.coords.longitude]);
+          setIsGpsActive(true);
+        },
+        (err) => {
+          console.warn("GPS watch notice:", err.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      );
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+      };
+    } else {
+      setUserCoords([-6.3475, 108.1189]);
+      setIsGpsActive(false);
+    }
+  }, []);
+
+  // Helper Jarak & Format Haversine
+  const getDistance = (sh: PoskoRecord): number | null => {
+    if (!userCoords || typeof sh.lat !== "number" || typeof sh.lng !== "number") return null;
+    return calculateDistanceInMeters(userCoords[0], userCoords[1], sh.lat, sh.lng);
+  };
+
+  const formatDistance = (meters: number | null): string => {
+    if (meters === null) return "Menghitung...";
+    if (meters < 1000) return `${Math.round(meters)} m`;
+    return `${(meters / 1000).toFixed(1)} km`;
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -102,7 +156,10 @@ export default function WargaPoskoPage() {
     };
   }, [isFilterOpen]);
 
-  const activeFilterCount = (filterDistrict !== "SEMUA" ? 1 : 0) + (filterStatus !== "SEMUA" ? 1 : 0);
+  const activeFilterCount =
+    (filterDistrict !== "SEMUA" ? 1 : 0) +
+    (filterStatus !== "SEMUA" ? 1 : 0) +
+    (sortBy !== "TERDEKAT" ? 1 : 0);
 
   const DISTRICTS = [
     "SEMUA",
@@ -145,15 +202,36 @@ export default function WargaPoskoPage() {
     });
   }, [shelters, search, filterDistrict, filterStatus]);
 
-  // Reset page ke 1 jika filter atau pencarian berubah
+  // Urutan Posko (Terdekat GPS, Kapasitas Tersedia, atau Abjad)
+  const sortedShelters = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "TERDEKAT") {
+        if (!userCoords) return 0;
+        const distA = getDistance(a) ?? Infinity;
+        const distB = getDistance(b) ?? Infinity;
+        return distA - distB;
+      }
+      if (sortBy === "KAPASITAS") {
+        const sisaA = a.kapasitas - a.terisi;
+        const sisaB = b.kapasitas - b.terisi;
+        return sisaB - sisaA;
+      }
+      if (sortBy === "NAMA") {
+        return (a.nama || "").localeCompare(b.nama || "");
+      }
+      return 0;
+    });
+  }, [filtered, sortBy, userCoords]);
+
+  // Reset page ke 1 jika filter, sort, atau pencarian berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterDistrict, filterStatus]);
+  }, [search, filterDistrict, filterStatus, sortBy]);
 
   // Kalkulasi Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(sortedShelters.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedItems = sortedShelters.slice(startIndex, startIndex + itemsPerPage);
 
   // Pastikan currentPage tidak melebihi totalPages
   useEffect(() => {
@@ -267,6 +345,7 @@ export default function WargaPoskoPage() {
                     onClick={() => {
                       setFilterDistrict("SEMUA");
                       setFilterStatus("SEMUA");
+                      setSortBy("TERDEKAT");
                     }}
                     className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
                   >
@@ -281,6 +360,33 @@ export default function WargaPoskoPage() {
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+            </div>
+
+            {/* Urutan Tampilan */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-extrabold text-[#4B635F] uppercase tracking-wider block">
+                Urutan Tampilan
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: "TERDEKAT", label: "📍 Jarak Terdekat" },
+                  { id: "KAPASITAS", label: "👥 Kapasitas Tersedia" },
+                  { id: "NAMA", label: "🔤 Nama A - Z" },
+                ].map((st) => (
+                  <button
+                    type="button"
+                    key={st.id}
+                    onClick={() => setSortBy(st.id as any)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      sortBy === st.id
+                        ? "bg-[#38746D] text-white shadow-xs"
+                        : "bg-[#F8FAF9] text-[#4B635F] border border-[#D5E4E0] hover:bg-gray-100"
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -406,8 +512,11 @@ export default function WargaPoskoPage() {
                           Kec. {sh.kecamatan}
                         </span>
                         <span className="text-[10px] text-gray-400">•</span>
-                        <span className="text-[11px] font-semibold text-[#4B635F]">
-                          1.2 km
+                        <span
+                          className="text-[11px] font-semibold text-[#4B635F]"
+                          title={isGpsActive ? "Jarak presisi dari lokasi GPS Anda" : "Jarak dari titik acuan Indramayu"}
+                        >
+                          {formatDistance(getDistance(sh))}
                         </span>
                       </div>
                       <Link

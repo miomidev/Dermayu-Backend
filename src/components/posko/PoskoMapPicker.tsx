@@ -3,6 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+// Patch pengaman Leaflet DomUtil.getPosition: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
+// saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi
+if (typeof window !== "undefined" && L && L.DomUtil) {
+  const _origGetPos = L.DomUtil.getPosition;
+  L.DomUtil.getPosition = function (el: any) {
+    if (!el) return new L.Point(0, 0);
+    try {
+      return _origGetPos.call(L.DomUtil, el);
+    } catch {
+      return new L.Point(0, 0);
+    }
+  };
+}
 import {
   MapPin,
   Crosshair,
@@ -110,11 +124,20 @@ export default function PoskoMapPicker({
     markerRef.current = marker;
 
     setTimeout(() => {
-      map.invalidateSize();
+      if (mapInstanceRef.current && (map as any)._mapPane) {
+        try {
+          map.invalidateSize();
+        } catch {}
+      }
     }, 200);
 
     return () => {
-      map.remove();
+      try {
+        map.stop();
+      } catch {}
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
       markerRef.current = null;
       tileLayerRef.current = null;

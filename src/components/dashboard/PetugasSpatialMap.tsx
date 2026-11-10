@@ -7,6 +7,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Patch pengaman Leaflet DomUtil.getPosition: Mencegah error "Cannot read properties of undefined (reading '_leaflet_pos')"
+// saat map di-unmount, berpindah halaman SPA, atau di-resize di tengah animasi
+if (typeof window !== "undefined" && L && L.DomUtil) {
+  const _origGetPos = L.DomUtil.getPosition;
+  L.DomUtil.getPosition = function (el: any) {
+    if (!el) return new L.Point(0, 0);
+    try {
+      return _origGetPos.call(L.DomUtil, el);
+    } catch {
+      return new L.Point(0, 0);
+    }
+  };
+}
+
 import indramayuBoundaryData from "@/data/indramayuBoundary.json";
 import { WeatherWidgetTrigger } from "@/components/weather/WeatherWidgetTrigger";
 import { WeatherDetailPanel } from "@/components/weather/WeatherDetailPanel";
@@ -1844,19 +1858,32 @@ function PetugasSpatialMap({
     // ResizeObserver to recalibrate Leaflet on sidebar toggle / window resize
     const container = mapContainerRef.current;
     const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (mapInstanceRef.current && (map as any)._mapPane) {
+        try {
+          map.invalidateSize();
+        } catch {
+          // ignore unmount resize race
+        }
+      }
     });
     if (container) {
       resizeObserver.observe(container);
     }
 
     return () => {
+      try {
+        map.stop();
+      } catch {}
       if (container) {
-        resizeObserver.unobserve(container);
+        try {
+          resizeObserver.unobserve(container);
+        } catch {}
       }
       resizeObserver.disconnect();
       if (userMarkerRef.current) {
-        userMarkerRef.current.remove();
+        try {
+          userMarkerRef.current.remove();
+        } catch {}
         userMarkerRef.current = null;
       }
       if (typeof document !== 'undefined') {
@@ -1867,10 +1894,14 @@ function PetugasSpatialMap({
         navWatchIdRef.current = null;
       }
       if (userAccuracyCircleRef.current) {
-        userAccuracyCircleRef.current.remove();
+        try {
+          userAccuracyCircleRef.current.remove();
+        } catch {}
         userAccuracyCircleRef.current = null;
       }
-      map.remove();
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
       activeRouteLayerRef.current = null;
     };

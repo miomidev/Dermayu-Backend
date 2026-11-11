@@ -124,24 +124,44 @@ export function WargaCompleteProfileModal({
     setLoading(true);
 
     try {
+      // Ambil token JWT dari localStorage
+      const localToken =
+        localStorage.getItem("dermayu_token") ||
+        localStorage.getItem("auth_token") ||
+        "";
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (localToken) {
+        headers["Authorization"] = `Bearer ${localToken}`;
+      }
+
       // 1. Kirim pembaruan ke Backend API /api/v1/me
       const res = await fetch("/api/v1/me", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         credentials: "include",
         body: JSON.stringify({
           phone: cleanPhone,
           districtName: selectedKecamatan,
           villageName: selectedDesa,
           address: addressDetail.trim(),
+          email: session?.email,
         }),
       });
 
       const json = await res.json().catch(() => ({}));
 
-      // 2. Simpan juga pembaruan ke session client lokal
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message ||
+            json?.message ||
+            "Gagal menyimpan data profil ke database server."
+        );
+      }
+
+      // 2. Simpan pembaruan ke session client lokal
       const updated = saveUserSession({
         id: session?.id,
         name: session?.name || "Warga Siaga",
@@ -153,9 +173,12 @@ export function WargaCompleteProfileModal({
         village: selectedDesa,
         address: addressDetail.trim(),
         isProfileComplete: true,
+        accessToken: localToken || undefined,
       });
 
-      setSuccessMsg("Data profil warga berhasil disimpan! Selamat datang di Portal Warga Siaga.");
+      setSuccessMsg(
+        "Data profil warga berhasil disimpan! Selamat datang di Portal Warga Siaga."
+      );
 
       if (onProfileUpdated) {
         onProfileUpdated(updated);
@@ -166,29 +189,11 @@ export function WargaCompleteProfileModal({
         setIsOpen(false);
       }, 1200);
     } catch (err: any) {
-      console.warn("Gagal simpan ke server, menerapkan penyimpanan profil lokal:", err);
-      // Fallback ke penyimpanan session lokal agar user tidak terblokir jika offline
-      const updated = saveUserSession({
-        id: session?.id,
-        name: session?.name || "Warga Siaga",
-        fullName: session?.fullName || session?.name || "Warga Siaga",
-        email: session?.email || "warga@dermayu.id",
-        role: "warga",
-        phone: cleanPhone,
-        district: selectedKecamatan,
-        village: selectedDesa,
-        address: addressDetail.trim(),
-        isProfileComplete: true,
-      });
-
-      setSuccessMsg("Data profil warga berhasil disimpan secara lokal!");
-      if (onProfileUpdated) {
-        onProfileUpdated(updated);
-      }
-
-      setTimeout(() => {
-        setIsOpen(false);
-      }, 1200);
+      console.error("Gagal simpan ke server:", err);
+      setErrorMsg(
+        err.message ||
+          "Gagal menyimpan data ke server. Pastikan koneksi internet stabil lalu coba lagi."
+      );
     } finally {
       setLoading(false);
     }

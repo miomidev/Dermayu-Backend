@@ -46,6 +46,23 @@ export async function GET(req: NextRequest) {
         email: true,
         phone: true,
         role: true,
+        address: true,
+        district_id: true,
+        village_id: true,
+        district: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        village: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         is_active: true,
         created_at: true,
         last_login_at: true,

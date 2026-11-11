@@ -249,10 +249,61 @@ export default function AdminDashboard() {
     fullName: "",
     email: "",
     phone: "",
+    address: "",
     role: "OFFICER" as "OFFICER" | "SUPERADMIN" | "CITIZEN",
     isActive: true,
     password: "",
   });
+
+  const handleSelectMenu = (menu: SidebarMenu) => {
+    setActiveMenu(menu);
+    setSidebarOpen(false);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("dermayu_admin_active_tab", menu.toLowerCase());
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", menu.toLowerCase());
+        window.history.replaceState({}, "", url.toString());
+      } catch {}
+    }
+  };
+
+  // Restore active tab from URL query param (?tab=users) or localStorage on page load / refresh
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const validTabs: Record<string, SidebarMenu> = {
+      dashboard: "DASHBOARD",
+      reports: "REPORTS",
+      map: "MAP",
+      alerts: "ALERTS",
+      evacuation: "EVACUATION",
+      contacts: "CONTACTS",
+      users: "USERS",
+      audit: "AUDIT",
+    };
+
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabParam = searchParams.get("tab")?.toLowerCase();
+      const storedTab = localStorage.getItem("dermayu_admin_active_tab")?.toLowerCase();
+
+      const targetTab = (tabParam && validTabs[tabParam])
+        ? validTabs[tabParam]
+        : (storedTab && validTabs[storedTab])
+        ? validTabs[storedTab]
+        : null;
+
+      if (targetTab) {
+        setActiveMenu(targetTab);
+        if (!tabParam) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", targetTab.toLowerCase());
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
+    } catch {}
+  }, []);
 
   // Delete User Modal State (Superadmin)
   const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
@@ -831,6 +882,7 @@ export default function AdminDashboard() {
       fullName: user.full_name,
       email: user.email,
       phone: user.phone || "",
+      address: user.address || "",
       role: user.role || "OFFICER",
       isActive: user.is_active ?? true,
       password: "",
@@ -852,6 +904,7 @@ export default function AdminDashboard() {
           fullName: editUserForm.fullName,
           email: editUserForm.email,
           phone: editUserForm.phone || null,
+          address: editUserForm.address || null,
           role: editUserForm.role,
           isActive: editUserForm.isActive,
           password: editUserForm.password ? editUserForm.password : undefined,
@@ -865,6 +918,7 @@ export default function AdminDashboard() {
           full_name: editUserForm.fullName,
           email: editUserForm.email,
           phone: editUserForm.phone,
+          address: editUserForm.address,
           role: editUserForm.role,
           is_active: editUserForm.isActive,
         };
@@ -1216,10 +1270,7 @@ export default function AdminDashboard() {
             </div>
 
             <button
-              onClick={() => {
-                setActiveMenu("DASHBOARD");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("DASHBOARD")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "DASHBOARD"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1233,10 +1284,7 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu("REPORTS");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("REPORTS")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "REPORTS"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1255,10 +1303,7 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu("MAP");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("MAP")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "MAP"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1279,10 +1324,7 @@ export default function AdminDashboard() {
             </div>
 
             <button
-              onClick={() => {
-                setActiveMenu("ALERTS");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("ALERTS")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "ALERTS"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1301,10 +1343,7 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu("EVACUATION");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("EVACUATION")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "EVACUATION"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1319,10 +1358,7 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu("CONTACTS");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("CONTACTS")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "CONTACTS"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1343,10 +1379,7 @@ export default function AdminDashboard() {
             </div>
 
             <button
-              onClick={() => {
-                setActiveMenu("USERS");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("USERS")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "USERS"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1363,10 +1396,7 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu("AUDIT");
-                setSidebarOpen(false);
-              }}
+              onClick={() => handleSelectMenu("AUDIT")}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeMenu === "AUDIT"
                   ? "bg-[#38746D] text-white shadow-xs font-bold"
@@ -1538,7 +1568,7 @@ export default function AdminDashboard() {
                   <h3 className="text-sm font-extrabold text-[#132422]">Pintasan Cepat Komando</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setActiveMenu("REPORTS")}
+                      onClick={() => handleSelectMenu("REPORTS")}
                       className="p-4 rounded-2xl bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-all group cursor-pointer"
                     >
                       <TableIcon className="w-5 h-5 text-[#38746D] mb-2 group-hover:scale-110 transition-transform" />
@@ -1547,7 +1577,7 @@ export default function AdminDashboard() {
                     </button>
 
                     <button
-                      onClick={() => setActiveMenu("MAP")}
+                      onClick={() => handleSelectMenu("MAP")}
                       className="p-4 rounded-2xl bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-all group cursor-pointer"
                     >
                       <MapIcon className="w-5 h-5 text-[#38746D] mb-2 group-hover:scale-110 transition-transform" />
@@ -1565,7 +1595,7 @@ export default function AdminDashboard() {
                     </button>
 
                     <button
-                      onClick={() => setActiveMenu("EVACUATION")}
+                      onClick={() => handleSelectMenu("EVACUATION")}
                       className="p-4 rounded-2xl bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-all group cursor-pointer"
                     >
                       <Building2 className="w-5 h-5 text-[#38746D] mb-2 group-hover:scale-110 transition-transform" />
@@ -2028,16 +2058,54 @@ export default function AdminDashboard() {
                           <tr key={u.id || u.public_id} className="hover:bg-[#F8FAF9] transition-colors">
                             <td className="py-3 px-4 font-bold text-[#132422]">
                               <div className="flex items-center space-x-2.5">
-                                <div className="w-7 h-7 rounded-full bg-[#EEF5F3] text-[#38746D] font-extrabold flex items-center justify-center text-[11px] border border-[#38746D]/20 shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-[#EEF5F3] text-[#38746D] font-extrabold flex items-center justify-center text-xs border border-[#38746D]/20 shrink-0">
                                   {u.full_name?.charAt(0)?.toUpperCase() || "U"}
                                 </div>
-                                <div className="truncate max-w-[180px]">
-                                  <div className="font-bold text-[#132422]">{u.full_name}</div>
-                                  {u.phone && <div className="text-[10px] text-[#718783]">{u.phone}</div>}
+                                <div className="min-w-0 max-w-[240px]">
+                                  <div className="font-bold text-[#132422] truncate">{u.full_name}</div>
+                                  {(u.village?.name || u.district?.name || u.address) ? (
+                                    <div
+                                      className="text-[10px] text-[#718783] font-normal truncate flex items-center gap-1 mt-0.5"
+                                      title={[
+                                        u.village?.name ? `Ds. ${u.village.name}` : null,
+                                        u.district?.name ? `Kec. ${u.district.name}` : null,
+                                        u.address,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(", ")}
+                                    >
+                                      <MapPin className="w-2.5 h-2.5 text-[#38746D] shrink-0" />
+                                      <span className="truncate">
+                                        {[
+                                          u.village?.name ? `Ds. ${u.village.name}` : null,
+                                          u.district?.name ? `Kec. ${u.district.name}` : null,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(", ")}
+                                        {u.address ? ` (${u.address})` : ""}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-gray-400 font-normal italic mt-0.5">
+                                      Domisili belum diatur
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-[#718783] font-medium">{u.email}</td>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-[#132422] text-xs">{u.email || "-"}</div>
+                              {u.phone ? (
+                                <div className="text-[11px] text-[#38746D] font-medium flex items-center gap-1 mt-0.5">
+                                  <Phone className="w-3 h-3 text-[#38746D]" />
+                                  <span>{u.phone}</span>
+                                </div>
+                              ) : (
+                                <div className="text-[10.5px] text-amber-600 font-normal flex items-center gap-1 mt-0.5">
+                                  <span>⚠️ Belum ada No. WA</span>
+                                </div>
+                              )}
+                            </td>
                             <td className="py-3 px-4">
                               <span
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
@@ -2410,6 +2478,17 @@ export default function AdminDashboard() {
                   value={editUserForm.phone}
                   onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
                   placeholder="08123456789"
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">Detail Alamat / Domisili:</label>
+                <input
+                  type="text"
+                  value={editUserForm.address}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, address: e.target.value })}
+                  placeholder="Contoh: RT 02 / RW 01, Blok Karang Tengah"
                   className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
                 />
               </div>

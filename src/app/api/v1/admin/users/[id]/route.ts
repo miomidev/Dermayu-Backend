@@ -6,9 +6,15 @@ import { hashPassword } from "@/lib/auth";
 import { checkSuperAdmin } from "../route";
 
 async function findUserByIdOrPublicId(idOrPublicId: string) {
+  const includeRelations = {
+    district: { select: { id: true, name: true } },
+    village: { select: { id: true, name: true } },
+  };
+
   // Coba cari via public_id (UUID)
   let user = await db.user.findUnique({
     where: { public_id: idOrPublicId },
+    include: includeRelations,
   });
 
   // Jika tidak ditemukan dan input merupakan angka, coba cari via id BigInt
@@ -16,6 +22,7 @@ async function findUserByIdOrPublicId(idOrPublicId: string) {
     try {
       user = await db.user.findUnique({
         where: { id: BigInt(idOrPublicId) },
+        include: includeRelations,
       });
     } catch {}
   }
@@ -24,6 +31,7 @@ async function findUserByIdOrPublicId(idOrPublicId: string) {
   if (!user && idOrPublicId.includes("@")) {
     user = await db.user.findUnique({
       where: { email: idOrPublicId },
+      include: includeRelations,
     });
   }
 
@@ -52,6 +60,11 @@ export async function GET(
       email: user.email,
       phone: user.phone,
       role: user.role,
+      address: user.address,
+      district_id: user.district_id?.toString(),
+      village_id: user.village_id?.toString(),
+      district: (user as any).district ? { id: (user as any).district.id.toString(), name: (user as any).district.name } : null,
+      village: (user as any).village ? { id: (user as any).village.id.toString(), name: (user as any).village.name } : null,
       is_active: user.is_active,
       created_at: user.created_at,
       last_login_at: user.last_login_at,
@@ -67,6 +80,7 @@ const updateUserSchema = z.object({
   email: z.string().email("Format email tidak valid").optional(),
   phone: z.string().optional().nullable(),
   role: z.enum(["CITIZEN", "OFFICER", "SUPERADMIN"]).optional(),
+  address: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   password: z.string().min(6, "Kata sandi minimal 6 karakter").optional().nullable(),
 });
@@ -97,6 +111,7 @@ export async function PATCH(
 
     if (data.fullName !== undefined) updateData.full_name = data.fullName.trim();
     if (data.phone !== undefined) updateData.phone = data.phone?.trim() || null;
+    if (data.address !== undefined) updateData.address = data.address?.trim() || null;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.isActive !== undefined) updateData.is_active = data.isActive;
 
@@ -126,6 +141,15 @@ export async function PATCH(
         email: true,
         phone: true,
         role: true,
+        address: true,
+        district_id: true,
+        village_id: true,
+        district: {
+          select: { id: true, name: true },
+        },
+        village: {
+          select: { id: true, name: true },
+        },
         is_active: true,
         created_at: true,
         updated_at: true,
@@ -160,6 +184,9 @@ export async function PATCH(
         email: updated.email,
         phone: updated.phone,
         role: updated.role,
+        address: updated.address,
+        district: updated.district ? { id: updated.district.id.toString(), name: updated.district.name } : null,
+        village: updated.village ? { id: updated.village.id.toString(), name: updated.village.name } : null,
         is_active: updated.is_active,
         created_at: updated.created_at,
       },

@@ -79,8 +79,34 @@ function GoogleCallbackContent() {
           return;
         }
 
+        const tokenVal =
+          json?.data?.accessToken ||
+          json?.data?.tokens?.accessToken ||
+          json?.accessToken ||
+          json?.tokens?.accessToken;
+        const refreshTokenVal =
+          json?.data?.refreshToken ||
+          json?.data?.tokens?.refreshToken ||
+          json?.refreshToken ||
+          json?.tokens?.refreshToken;
+
+        if (tokenVal) {
+          try {
+            localStorage.setItem("dermayu_token", tokenVal);
+            localStorage.setItem("auth_token", tokenVal);
+          } catch {}
+        }
+        if (refreshTokenVal) {
+          try {
+            localStorage.setItem("dermayu_refresh_token", refreshTokenVal);
+          } catch {}
+        }
+
         // Simpan session pengguna ke localStorage dan cookies
-        const session = saveUserSession(userData);
+        const session = saveUserSession({
+          ...userData,
+          accessToken: tokenVal,
+        });
         touchDashboardActivity();
         setStatus("success");
 

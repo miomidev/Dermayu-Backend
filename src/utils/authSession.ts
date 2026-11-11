@@ -146,6 +146,7 @@ export function saveUserSession(user: {
   isGoogleAuth?: boolean;
   picture?: string;
   avatarUrl?: string;
+  accessToken?: string;
 }): UserSession {
   const roleNorm = (user.role || "").toLowerCase();
   const isSuperadmin =
@@ -219,11 +220,29 @@ export function saveUserSession(user: {
         role: isSuperadmin ? "SUPERADMIN" : isOfficer ? "OFFICER" : "CITIZEN",
       })
     );
+    const currentToken =
+      user.accessToken ||
+      localStorage.getItem("dermayu_token") ||
+      localStorage.getItem("auth_token");
+    const validJwtToken =
+      currentToken && currentToken.includes(".")
+        ? currentToken
+        : session.id || "token_demo";
+
+    if (user.accessToken) {
+      localStorage.setItem("dermayu_token", user.accessToken);
+      localStorage.setItem("auth_token", user.accessToken);
+    }
+
     document.cookie = `user_session=${encodeURIComponent(
       JSON.stringify(session)
     )}; path=/; max-age=604800; SameSite=Lax`;
-    document.cookie = `dermayu_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
-    document.cookie = `auth_token=${encodeURIComponent(session.id || "token_demo")}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `dermayu_token=${encodeURIComponent(
+      validJwtToken
+    )}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `auth_token=${encodeURIComponent(
+      validJwtToken
+    )}; path=/; max-age=604800; SameSite=Lax`;
     window.dispatchEvent(new Event("dermayu_session_updated"));
   }
 

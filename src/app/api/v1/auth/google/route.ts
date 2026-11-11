@@ -30,74 +30,138 @@ interface GoogleUserInfo {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { code, redirectUri } = body;
+    const {
+      code,
+      serverAuthCode,
+      idToken,
+      accessToken: googleAccessToken,
+      redirectUri,
+      email: bodyEmail,
+      fullName: bodyName,
+      avatarUrl: bodyAvatar,
+    } = body;
 
-    if (!code || typeof code !== "string") {
-      return apiError("VALIDATION_ERROR", "Authorization code Google diperlukan", 422);
-    }
+    const authCode = code || serverAuthCode;
 
-    const clientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
+    if (!authCode && !idToken && !googleAccessToken) {
       return apiError(
-        "INTERNAL_ERROR",
-        "Kredensial Google OAuth (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) belum dikonfigurasi di environment server.",
-        500
+        "VALIDATION_ERROR",
+        "Kredensial Google (code, serverAuthCode, idToken, atau accessToken) diperlukan",
+        422
       );
     }
 
-    const effectiveRedirectUri =
-      redirectUri ||
-      req.cookies.get("google_oauth_redirect_uri")?.value ||
-      (process.env.NODE_ENV === "production"
-        ? "https://dermayu.miomidev.com/auth/google/callback"
-        : "http://localhost:8000/auth/google/callback");
+    let userInfo: GoogleUserInfo | null = null;
 
-    // 1. Tukar authorization code dengan access token Google
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: effectiveRedirectUri,
-        grant_type: "authorization_code",
-      }),
-    });
+    // 1. Verifikasi langsung jika mobile mengirim ID Token (Google One Tap / Native SDK)
+    if (idToken && typeof idToken === "string") {
+      try {
+        const idTokenRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+        );
+        if (idTokenRes.ok) {
+          const idData = await idTokenRes.json();
+          if (idData.email) {
+            userInfo = {
+              sub: idData.sub || idData.user_id || "google-user",
+              email: idData.email,
+              email_verified: idData.email_verified === "true" || idData.email_verified === true,
+              name: idData.name || bodyName,
+              picture: idData.picture || bodyAvatar,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("Verifikasi idToken Google gagal, mencoba metode alternatif:", err);
+      }
+    }
 
-    const tokenData: GoogleTokenResponse = await tokenRes.json();
+    // 2. Ambil profil jika mobile/web mengirim Access Token langsung
+    if (!userInfo && googleAccessToken && typeof googleAccessToken === "string") {
+      try {
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+            Accept: "application/json",
+          },
+        });
+        if (userRes.ok) {
+          const uData = await userRes.json();
+          if (uData.email) {
+            userInfo = uData;
+          }
+        }
+      } catch (err) {
+        console.warn("Pengambilan userinfo dengan accessToken Google gagal:", err);
+      }
+    }
 
-    if (!tokenRes.ok || !tokenData.access_token) {
-      console.error("Google token exchange error:", tokenData);
+    // 3. Tukar authorization code dengan token jika dikirim authCode
+    if (!userInfo && authCode && typeof authCode === "string") {
+      const clientId =
+        process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        return apiError(
+          "INTERNAL_ERROR",
+          "Kredensial Google OAuth (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) belum dikonfigurasi di environment server.",
+          500
+        );
+      }
+
+      const effectiveRedirectUri =
+        redirectUri ||
+        req.cookies.get("google_oauth_redirect_uri")?.value ||
+        (process.env.NODE_ENV === "production"
+          ? "https://dermayu.miomidev.com/auth/google/callback"
+          : "http://localhost:8000/auth/google/callback");
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          code: authCode,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: effectiveRedirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      const tokenData: GoogleTokenResponse = await tokenRes.json();
+
+      if (!tokenRes.ok || !tokenData.access_token) {
+        console.error("Google token exchange error:", tokenData);
+        return apiError(
+          "UNAUTHORIZED",
+          `Gagal verifikasi dengan Google: ${tokenData.error_description || tokenData.error || "Token tidak valid"}`,
+          401
+        );
+      }
+
+      // Ambil profil pengguna dari Google UserInfo API
+      const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (userInfoRes.ok) {
+        userInfo = await userInfoRes.json();
+      }
+    }
+
+    if (!userInfo || !userInfo.email) {
       return apiError(
         "UNAUTHORIZED",
-        `Gagal verifikasi dengan Google: ${tokenData.error_description || tokenData.error || "Token tidak valid"}`,
+        "Gagal memverifikasi akun Google atau email pengguna tidak ditemukan",
         401
       );
-    }
-
-    // 2. Ambil profil pengguna dari Google UserInfo API
-    const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!userInfoRes.ok) {
-      return apiError("UNAUTHORIZED", "Gagal mengambil data profil dari Google", 401);
-    }
-
-    const userInfo: GoogleUserInfo = await userInfoRes.json();
-
-    if (!userInfo.email) {
-      return apiError("UNAUTHORIZED", "Akun Google tidak memiliki alamat email yang valid", 400);
     }
 
     const email = userInfo.email.toLowerCase().trim();

@@ -3731,6 +3731,45 @@ function WargaSpatialMap({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Buka rute langsung di aplikasi Google Maps (Universal Link / Android Intent)
+  const openRouteInGoogleMaps = (shelterTarget?: MapShelterPoint | null) => {
+    const shelter = shelterTarget || activeShelterDetailRef.current;
+    if (!shelter) return;
+
+    const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+    const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+
+    // Tentukan travelmode Google Maps: driving | walking | two-wheeler
+    let travelMode = "driving";
+    let avoidParam = "";
+    if (selectedTransportMode === "walking") {
+      travelMode = "walking";
+    } else if (selectedTransportMode === "motorcycle") {
+      travelMode = "two-wheeler";
+      avoidParam = "&avoid=tolls";
+    } else if (selectedTransportMode === "car") {
+      travelMode = "driving";
+      if (selectedTollOption === "nontoll") {
+        avoidParam = "&avoid=tolls";
+      }
+    }
+
+    const originParam = `${startCoord[0]},${startCoord[1]}`;
+    const destParam = `${shelter.lat},${shelter.lng}`;
+    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=${travelMode}${avoidParam}`;
+
+    // Aktifkan juga navigasi internal di webapp
+    startNavigationFromPreview();
+
+    // Buka aplikasi Google Maps secara otomatis (trigger aplikasi Google Maps native pada HP)
+    const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = gmapsUrl;
+    } else {
+      window.open(gmapsUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Preview Rute untuk 3 Klasifikasi (Backward Compatibility)
   const previewShelterRoute = (
     _shelter: MapShelterPoint,
@@ -5245,15 +5284,16 @@ function WargaSpatialMap({
               );
             })()}
 
-            {/* 3. Baris Tombol Aksi Utama (Arahkan Rute Sekarang) */}
+            {/* 3. Baris Tombol Aksi Utama (Buka di Google Maps) */}
             <div className="flex items-center gap-1.5 py-0.5 shrink-0">
               <button
                 type="button"
-                onClick={() => startNavigationFromPreview()}
+                onClick={() => openRouteInGoogleMaps()}
                 className="h-9.5 px-3.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+                title="Buka rute navigasi di Google Maps"
               >
                 <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                <span className="truncate">Arahkan Rute Sekarang</span>
+                <span className="truncate">Buka di Google Maps</span>
               </button>
 
               <a
@@ -6125,11 +6165,12 @@ function WargaSpatialMap({
           <div className="flex items-center gap-1.5 pt-0.5">
             <button
               type="button"
-              onClick={() => startNavigationFromPreview()}
+              onClick={() => openRouteInGoogleMaps()}
               className="h-8.5 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+              title="Buka rute navigasi di Google Maps"
             >
               <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span className="truncate">Arahkan Rute</span>
+              <span className="truncate">Buka di Google Maps</span>
             </button>
 
             <a

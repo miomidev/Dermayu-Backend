@@ -99,6 +99,7 @@ model User {
   role              Role      @default(CITIZEN)
   district_id       BigInt?
   village_id        BigInt?
+  address           String?   @db.VarChar(255)
   avatar_url        String?   @db.VarChar(255)
   is_active         Boolean   @default(true)
   email_verified_at DateTime?

@@ -10,7 +10,14 @@ export interface UserSession {
   fullName?: string;
   email: string;
   role: "warga" | "petugas" | "superadmin" | "CITIZEN" | "OFFICER" | "SUPERADMIN";
+  phone?: string | null;
   district?: string;
+  village?: string;
+  address?: string;
+  isProfileComplete?: boolean;
+  isGoogleAuth?: boolean;
+  picture?: string;
+  avatarUrl?: string;
   lastDashboardActive: number;
   loginTime?: number;
 }
@@ -126,11 +133,19 @@ export function touchDashboardActivity(): void {
  * Menyimpan data session saat login berhasil (3 Role: warga, petugas, superadmin).
  */
 export function saveUserSession(user: {
+  id?: string;
   name?: string;
   fullName?: string;
   email: string;
   role: string;
+  phone?: string | null;
   district?: string;
+  village?: string;
+  address?: string;
+  isProfileComplete?: boolean;
+  isGoogleAuth?: boolean;
+  picture?: string;
+  avatarUrl?: string;
 }): UserSession {
   const roleNorm = (user.role || "").toLowerCase();
   const isSuperadmin =
@@ -157,19 +172,38 @@ export function saveUserSession(user: {
 
   const now = Date.now();
 
+  const isProfileComplete =
+    user.isProfileComplete !== undefined
+      ? user.isProfileComplete
+      : Boolean(
+          user.phone &&
+          user.phone.trim().length >= 9 &&
+          user.district &&
+          user.village &&
+          user.address &&
+          user.address.trim().length >= 3
+        );
+
   const session: UserSession = {
-    id: (user as any).id || (isSuperadmin ? "admin-01" : isOfficer ? "petugas-01" : "warga-01"),
+    id: user.id || (isSuperadmin ? "admin-01" : isOfficer ? "petugas-01" : "warga-01"),
     name: displayName,
     fullName: displayName,
     email: user.email,
     role: normalizedRole,
+    phone: user.phone || null,
     district:
       user.district ||
       (isSuperadmin
         ? "Pusat Komando Indramayu"
         : isOfficer
         ? "Pusdalops BPBD Indramayu"
-        : "Kandanghaur - Eretan Wetan"),
+        : ""),
+    village: user.village || "",
+    address: user.address || "",
+    isProfileComplete,
+    isGoogleAuth: user.isGoogleAuth !== undefined ? user.isGoogleAuth : false,
+    picture: user.picture || user.avatarUrl,
+    avatarUrl: user.avatarUrl || user.picture,
     loginTime: now,
     lastDashboardActive: now,
   };

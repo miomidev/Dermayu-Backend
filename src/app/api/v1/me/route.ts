@@ -10,8 +10,9 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
+    const userIdBigInt = BigInt(auth.context.user.userId);
     const user = await db.user.findUnique({
-      where: { id: BigInt(auth.context.user.userId) },
+      where: { id: userIdBigInt },
       select: {
         id: true,
         public_id: true,
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
         avatar_url: true,
         district_id: true,
         village_id: true,
+        address: true,
         created_at: true,
         district: {
           select: { id: true, code: true, name: true },
@@ -36,7 +38,19 @@ export async function GET(req: NextRequest) {
       return apiError("NOT_FOUND", "Pengguna tidak ditemukan", 404);
     }
 
-    return apiSuccess(user);
+    const isProfileComplete = Boolean(
+      user.phone &&
+      user.phone.trim().length >= 9 &&
+      (user.district_id || user.district) &&
+      (user.village_id || user.village) &&
+      user.address &&
+      user.address.trim().length >= 3
+    );
+
+    return apiSuccess({
+      ...user,
+      isProfileComplete,
+    });
   } catch (error) {
     console.error("GET /me error:", error);
     return apiError("INTERNAL_ERROR", "Terjadi kesalahan pada server", 500);
@@ -44,11 +58,14 @@ export async function GET(req: NextRequest) {
 }
 
 const updateProfileSchema = z.object({
-  fullName: z.string().min(3).optional(),
-  phone: z.string().min(9).max(20).optional(),
+  fullName: z.string().min(2).optional(),
+  phone: z.string().min(8).max(20).optional(),
   avatarUrl: z.string().url().optional().or(z.literal("")),
   districtId: z.number().or(z.string()).optional(),
+  districtName: z.string().optional(),
   villageId: z.number().or(z.string()).optional(),
+  villageName: z.string().optional(),
+  address: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -69,16 +86,41 @@ export async function PATCH(req: NextRequest) {
       avatar_url?: string | null;
       district_id?: bigint | null;
       village_id?: bigint | null;
+      address?: string | null;
     } = {};
 
     if (data.fullName) updateData.full_name = data.fullName;
     if (data.phone) updateData.phone = data.phone;
     if (data.avatarUrl !== undefined) updateData.avatar_url = data.avatarUrl || null;
-    if (data.districtId !== undefined) updateData.district_id = data.districtId ? BigInt(data.districtId) : null;
-    if (data.villageId !== undefined) updateData.village_id = data.villageId ? BigInt(data.villageId) : null;
+    if (data.address !== undefined) updateData.address = data.address;
 
+    // Resolusi Kecamatan (ID atau Nama)
+    if (data.districtId !== undefined && data.districtId !== "") {
+      updateData.district_id = BigInt(data.districtId);
+    } else if (data.districtName) {
+      const foundDist = await db.district.findFirst({
+        where: { name: { equals: data.districtName, mode: "insensitive" } },
+      });
+      if (foundDist) {
+        updateData.district_id = foundDist.id;
+      }
+    }
+
+    // Resolusi Desa / Kelurahan (ID atau Nama)
+    if (data.villageId !== undefined && data.villageId !== "") {
+      updateData.village_id = BigInt(data.villageId);
+    } else if (data.villageName) {
+      const foundVil = await db.village.findFirst({
+        where: { name: { equals: data.villageName, mode: "insensitive" } },
+      });
+      if (foundVil) {
+        updateData.village_id = foundVil.id;
+      }
+    }
+
+    const userIdBigInt = BigInt(auth.context.user.userId);
     const updatedUser = await db.user.update({
-      where: { id: BigInt(auth.context.user.userId) },
+      where: { id: userIdBigInt },
       data: updateData,
       select: {
         id: true,
@@ -90,13 +132,32 @@ export async function PATCH(req: NextRequest) {
         avatar_url: true,
         district_id: true,
         village_id: true,
+        address: true,
+        district: {
+          select: { id: true, code: true, name: true },
+        },
+        village: {
+          select: { id: true, code: true, name: true },
+        },
       },
     });
 
-    return apiSuccess(updatedUser);
+    const isProfileComplete = Boolean(
+      updatedUser.phone &&
+      updatedUser.phone.trim().length >= 9 &&
+      (updatedUser.district_id || updatedUser.district) &&
+      (updatedUser.village_id || updatedUser.village) &&
+      updatedUser.address &&
+      updatedUser.address.trim().length >= 3
+    );
+
+    return apiSuccess({
+      ...updatedUser,
+      isProfileComplete,
+    });
   } catch (error) {
     console.error("PATCH /me error:", error);
-    return apiError("INTERNAL_ERROR", "Terjadi kesalahan pada server", 500);
+    return apiError("INTERNAL_ERROR", "Terjadi kesalahan pada server saat memperbarui data", 500);
   }
 }
 

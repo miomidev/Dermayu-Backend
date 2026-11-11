@@ -40,13 +40,16 @@ export default function WargaProfilePage() {
     const active = getActiveSession();
     if (active) {
       setSession(active);
-      if (active.name) setFullName(active.name);
+      if (active.name || active.fullName) setFullName(active.fullName || active.name);
       if (active.email) setEmail(active.email);
+      if (active.phone) setPhone(active.phone);
+      if (active.address) setRtRw(active.address);
+      if (active.village) setVillage(active.village);
       if (active.district) {
         const parts = active.district.split("-").map((s) => s.trim());
         if (parts.length > 1) {
           setDistrict(parts[0]);
-          setVillage(parts[1]);
+          if (!active.village) setVillage(parts[1]);
         } else {
           setDistrict(active.district);
         }
@@ -60,10 +63,28 @@ export default function WargaProfilePage() {
     // Simpan ke helper authSession
     saveUserSession({
       name: fullName,
+      fullName,
       email: email,
       role: "warga",
-      district: `${district} - ${village}`,
+      phone: phone,
+      district: district,
+      village: village,
+      address: rtRw,
+      isProfileComplete: true,
     });
+
+    fetch("/api/v1/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        fullName,
+        phone,
+        districtName: district,
+        villageName: village,
+        address: rtRw,
+      }),
+    }).catch(() => {});
 
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

@@ -177,6 +177,10 @@ export async function POST(req: NextRequest) {
     try {
       user = await db.user.findFirst({
         where: { email },
+        include: {
+          district: true,
+          village: true,
+        },
       });
 
       if (user) {
@@ -214,6 +218,10 @@ export async function POST(req: NextRequest) {
             is_active: true,
             email_verified_at: new Date(),
             last_login_at: new Date(),
+          },
+          include: {
+            district: true,
+            village: true,
           },
         });
 
@@ -253,7 +261,17 @@ export async function POST(req: NextRequest) {
       });
     } catch (_) { }
 
-    // 6. Siapkan Objek Sesi Pengguna
+    // 6. Evaluasi Kelengkapan Profil Warga (No WA, Kecamatan, Desa, RT/RW Blok)
+    const isProfileComplete = Boolean(
+      user?.phone &&
+      user.phone.trim().length >= 9 &&
+      (user.district_id || user.district) &&
+      (user.village_id || user.village) &&
+      user.address &&
+      user.address.trim().length >= 3
+    );
+
+    // 7. Siapkan Objek Sesi Pengguna
     const normalizedRole =
       userRole === Role.SUPERADMIN ? "superadmin" : userRole === Role.OFFICER ? "petugas" : "warga";
 
@@ -262,13 +280,19 @@ export async function POST(req: NextRequest) {
       name: fullName,
       fullName,
       email,
+      phone: user?.phone || null,
       role: normalizedRole,
       district:
-        normalizedRole === "superadmin"
+        user?.district?.name ||
+        (normalizedRole === "superadmin"
           ? "Pusat Komando Indramayu"
           : normalizedRole === "petugas"
             ? "Pusdalops BPBD Indramayu"
-            : "Kabupaten Indramayu",
+            : ""),
+      village: user?.village?.name || "",
+      address: user?.address || "",
+      isProfileComplete,
+      isGoogleAuth: true,
       picture: avatarUrl,
       lastDashboardActive: Date.now(),
       loginTime: Date.now(),
@@ -277,6 +301,7 @@ export async function POST(req: NextRequest) {
     const response = apiSuccess({
       success: true,
       user: userSession,
+      isProfileComplete,
       accessToken,
       refreshToken,
       tokens: {

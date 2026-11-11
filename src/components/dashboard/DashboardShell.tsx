@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { AppHeader } from "@/components/dashboard/AppHeader";
 import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
 import { PwaBackHandler } from "@/components/ui/PwaBackHandler";
+import { WargaCompleteProfileModal } from "@/components/dashboard/WargaCompleteProfileModal";
 import {
   getActiveSession,
   touchDashboardActivity,
@@ -216,6 +217,14 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
 
       {/* 4. UX BACK BUTTON INTERCEPTOR KHUSUS PWA MOBILE */}
       <PwaBackHandler role={role} />
+
+      {/* 5. MODAL POPUP WAJIB LENGKAPI DATA PROFIL WARGA (NO WA, KECAMATAN, DESA, RT/RW BLOK) */}
+      {role === "warga" && (
+        <WargaCompleteProfileModal
+          session={session}
+          onProfileUpdated={(updated) => setSession(updated)}
+        />
+      )}
     </div>
   );
 }

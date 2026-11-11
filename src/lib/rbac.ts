@@ -16,7 +16,14 @@ export function authorize(
   req: NextRequest,
   allowedRoles?: Role[]
 ): { ok: true; context: AuthContext } | { ok: false; response: ReturnType<typeof apiError> } {
-  const token = extractBearerToken(req.headers.get("authorization"));
+  let token = extractBearerToken(req.headers.get("authorization"));
+  if (!token) {
+    token =
+      req.cookies.get("dermayu_token")?.value ||
+      req.cookies.get("auth_token")?.value ||
+      null;
+  }
+
   if (!token) {
     return {
       ok: false,

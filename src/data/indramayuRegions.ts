@@ -173,3 +173,4 @@ export const INDRAMAYU_REGIONS: IndramayuRegion[] = [
     villages: ["Bangkaloa Ilir", "Bunder", "Kalensari", "Kasmaran", "Kongsijaya", "Ujungaris", "Ujungjaya", "Widasari"],
   },
 ];
+

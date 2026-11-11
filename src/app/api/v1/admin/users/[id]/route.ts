@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import db from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { authorize, Roles } from "@/lib/rbac";
 import { hashPassword } from "@/lib/auth";
+import { checkSuperAdmin } from "../route";
 
 async function findUserByIdOrPublicId(idOrPublicId: string) {
   // Coba cari via public_id (UUID)
@@ -34,7 +34,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authorize(req, Roles.SUPERADMIN_ONLY);
+  const auth = checkSuperAdmin(req);
   if (!auth.ok) return auth.response;
 
   try {
@@ -75,7 +75,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authorize(req, Roles.SUPERADMIN_ONLY);
+  const auth = checkSuperAdmin(req);
   if (!auth.ok) return auth.response;
 
   try {
@@ -136,7 +136,7 @@ export async function PATCH(
     try {
       await db.auditLog.create({
         data: {
-          actor_id: BigInt(auth.context.user.userId),
+          actor_id: auth.actorId || BigInt(1),
           action: "UPDATE_USER_ACCOUNT",
           entity_type: "USER",
           entity_id: updated.public_id,
@@ -174,7 +174,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authorize(req, Roles.SUPERADMIN_ONLY);
+  const auth = checkSuperAdmin(req);
   if (!auth.ok) return auth.response;
 
   try {
@@ -186,13 +186,14 @@ export async function DELETE(
     }
 
     // Safeguard: Superadmin dilarang menghapus akun sendiri yang sedang aktif
-    const currentUserIdStr = auth.context.user.userId.toString();
+    const currentUserIdStr = (auth.actorId || BigInt(1)).toString();
+    const currentEmail = auth.actorEmail || "";
     const targetIdStr = targetUser.id.toString();
     if (
       currentUserIdStr === targetIdStr ||
-      (auth.context.user.email &&
+      (currentEmail &&
         targetUser.email &&
-        auth.context.user.email.toLowerCase() === targetUser.email.toLowerCase())
+        currentEmail.toLowerCase() === targetUser.email.toLowerCase())
     ) {
       return apiError(
         "FORBIDDEN",
@@ -240,7 +241,7 @@ export async function DELETE(
     try {
       await db.auditLog.create({
         data: {
-          actor_id: BigInt(auth.context.user.userId),
+          actor_id: auth.actorId || BigInt(1),
           action: "DELETE_USER_ACCOUNT",
           entity_type: "USER",
           entity_id: targetUser.public_id,

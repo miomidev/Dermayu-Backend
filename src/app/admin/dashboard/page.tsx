@@ -328,7 +328,9 @@ export default function AdminDashboard() {
         };
 
         setCurrentUser(resolvedUser);
-        setToken(storedToken || "demo_token");
+        const resolvedToken = storedToken || "demo_token";
+        setToken(resolvedToken);
+        loadDashboardData(resolvedToken);
       } catch {
         window.location.replace("/");
       }
@@ -354,7 +356,13 @@ export default function AdminDashboard() {
 
   // Load dashboard data with robust single-source-of-truth fallback
   const loadDashboardData = async (authToken?: string) => {
-    const activeToken = authToken || token;
+    let activeToken = authToken || token;
+    if ((!activeToken || activeToken === "demo_token") && typeof window !== "undefined") {
+      activeToken =
+        localStorage.getItem("dermayu_token") ||
+        localStorage.getItem("auth_token") ||
+        null;
+    }
     setRefreshing(true);
     try {
       // 1. Fetch Reports from server API or fallback to citizen reports
@@ -363,6 +371,7 @@ export default function AdminDashboard() {
         if (activeToken) {
           const reportsRes = await fetch("/api/v1/reports?limit=100", {
             headers: { Authorization: `Bearer ${activeToken}` },
+            credentials: "include",
           });
           if (reportsRes.ok) {
             const reportsData = await reportsRes.json();
@@ -532,10 +541,11 @@ export default function AdminDashboard() {
         { id: "off-3", public_id: "TRC-03", full_name: "Relawan PMI Cantigi", email: "pmi.cantigi@dermayu.id", phone: "0811-9988-7766" },
       ]);
 
-      // 6. Users & Officers fetch (Real persistent store)
+      // 6. Users & Officers fetch (Real persistent store from PostgreSQL)
       try {
         const usersRes = await fetch("/api/v1/admin/users", {
           headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : {},
+          credentials: "include",
           cache: "no-store",
         });
         if (usersRes.ok) {
@@ -543,32 +553,18 @@ export default function AdminDashboard() {
           const list = usersJson.data || [];
           if (Array.isArray(list) && list.length > 0) {
             setManagedUsers(list);
-          } else {
-            setManagedUsers([
-              { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
-              { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
-              { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
-            ]);
+            setStats((prev) => ({ ...prev, totalUsers: list.length }));
           }
-        } else {
-          setManagedUsers([
-            { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
-            { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
-            { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
-          ]);
         }
-      } catch {
-        setManagedUsers([
-          { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
-          { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
-          { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
-        ]);
+      } catch (err) {
+        console.warn("Gagal memuat users dari database:", err);
       }
 
-      // 7. Audit Logs fetch (Real persistent store)
+      // 7. Audit Logs fetch (Real persistent store from PostgreSQL)
       try {
         const auditRes = await fetch("/api/v1/admin/audit-logs", {
           headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : {},
+          credentials: "include",
           cache: "no-store",
         });
         if (auditRes.ok) {

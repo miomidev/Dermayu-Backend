@@ -88,6 +88,53 @@ export function buildCorridorFallback(
 }
 
 /**
+ * Titik Waypoint Jalur Arteri Nasional Pantura (Non-Tol)
+ * Wajib dilewati untuk moda Motor dan Mobil Tanpa Tol
+ * agar OSRM secara konsisten memplot rute mengikuti Jalan Arteri Nasional Pantura,
+ * bukan jalan Tol Cipali / Jagorawi.
+ */
+export function getNonTollCorridorWaypoints(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): { lat: number; lng: number }[] {
+  const waypoints: { lat: number; lng: number }[] = [];
+
+  // 1. Perjalanan dari Arah Barat (Jabodetabek / Bogor / Bekasi / Karawang) menuju Indramayu
+  if (startLng < 107.5 && endLng >= 107.8) {
+    // Simpang Jomin Cikampek: Titik persimpangan utama non-tol Pantura
+    waypoints.push({ lat: -6.394, lng: 107.458 });
+    // Pamanukan Subang: Pusat jalur arteri Pantura Subang
+    waypoints.push({ lat: -6.280, lng: 107.810 });
+    // Patrol Indramayu: Pintu masuk arteri Pantura barat Indramayu
+    if (endLng >= 108.0) {
+      waypoints.push({ lat: -6.305, lng: 108.005 });
+    }
+    // Lohbener Indramayu: Persimpangan jalan nasional menuju Kota Indramayu / Jatibarang / Sliyeg
+    if (endLng >= 108.2 && endLat > -6.55) {
+      waypoints.push({ lat: -6.402, lng: 108.270 });
+    }
+  }
+  // 2. Perjalanan dari Arah Selatan (Bandung / Sumedang) menuju Indramayu
+  else if (startLat < -6.75 && startLng >= 107.4 && startLng <= 108.3 && endLat >= -6.6) {
+    // Jalur Arteri Nasional Non-Tol Tomo / Kadipaten
+    waypoints.push({ lat: -6.805, lng: 108.165 });
+    // Jatibarang Indramayu
+    waypoints.push({ lat: -6.530, lng: 108.315 });
+  }
+  // 3. Perjalanan dari Arah Timur (Cirebon / Jawa Tengah) menuju Indramayu
+  else if (startLng > 108.5 && endLng <= 108.45) {
+    // Jalur Arteri Kapetakan Pantura Cirebon
+    waypoints.push({ lat: -6.535, lng: 108.520 });
+    // Karangampel Indramayu
+    waypoints.push({ lat: -6.450, lng: 108.430 });
+  }
+
+  return waypoints;
+}
+
+/**
  * Menghitung durasi perjalanan realistis berdasarkan moda & opsi tol
  */
 export function calculateSmartDuration(

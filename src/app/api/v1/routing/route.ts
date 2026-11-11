@@ -4,6 +4,7 @@ import {
   EvacuationTollOption,
   VEHICLE_SPEED_KMH,
   buildCorridorFallback,
+  getNonTollCorridorWaypoints,
   calculateSmartDuration,
   formatEvacuationDuration,
   formatEvacuationDistance,
@@ -62,28 +63,34 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Tentukan Profile OSRM:
-    // - Mobil dengan Tol: "driving" (menggunakan jalan tol berbayar seperti Tol Cipali, dll)
-    // - Mobil Non-Tol / Motor / Jalan Kaki: "bike" atau "foot"
-    //   Profile "bike" di OSM strictly melarang jalan tol (motorway/trunk toll) dan mengikuti jaringan jalan nasional / provinsi / arteri
-    let osrmProfile = "driving";
-    if (effectiveMode === "walking") {
-      osrmProfile = "foot";
-    } else if (effectiveMode === "motorcycle" || (effectiveMode === "car" && effectiveToll === "nontoll")) {
-      osrmProfile = "bike";
+    // Tentukan Rute & Titik Koridor Arteri Non-Tol
+    // - Mobil dengan Tol: "driving" langsung (OSRM memilih jalan tol Cipali / Jagorawi tercepat)
+    // - Mobil Non-Tol / Motor: WAJIB lewat Jalur Arteri Nasional Pantura (Simpang Jomin, Pamanukan, Patrol, Lohbener)
+    // - Pejalan Kaki: "foot" rute pejalan kaki
+    const isNonToll =
+      effectiveMode === "motorcycle" || (effectiveMode === "car" && effectiveToll === "nontoll");
+
+    const nonTollWaypoints = isNonToll
+      ? getNonTollCorridorWaypoints(numOriginLat, numOriginLng, numDestLat, numDestLng)
+      : [];
+
+    const allWaypoints: { lat: number; lng: number }[] = [...nonTollWaypoints];
+    if (Array.isArray(waypoints) && waypoints.length > 0) {
+      for (const wp of waypoints) {
+        if (wp.lat && wp.lng) {
+          allWaypoints.push({ lat: Number(wp.lat), lng: Number(wp.lng) });
+        }
+      }
     }
 
     // Bangun URL Query OSRM
     let coordPairs = `${numOriginLng},${numOriginLat}`;
-    if (Array.isArray(waypoints) && waypoints.length > 0) {
-      for (const wp of waypoints) {
-        if (wp.lat && wp.lng) {
-          coordPairs += `;${wp.lng},${wp.lat}`;
-        }
-      }
+    for (const wp of allWaypoints) {
+      coordPairs += `;${wp.lng},${wp.lat}`;
     }
     coordPairs += `;${numDestLng},${numDestLat}`;
 
+    const osrmProfile = effectiveMode === "walking" ? "foot" : "driving";
     const osrmUrl = `https://router.project-osrm.org/route/v1/${osrmProfile}/${coordPairs}?overview=full&geometries=geojson&steps=false&alternatives=false`;
 
     let distanceMeters = 0;

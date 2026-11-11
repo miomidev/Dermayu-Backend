@@ -1735,6 +1735,7 @@ function WargaSpatialMap({
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
           setUserCoords([latitude, longitude]);
+          shelterRoutesCacheRef.current.clear();
           setIsGpsLocked(true);
           updateUserMarkerOnMap(latitude, longitude, accuracy);
           if (mapInstanceRef.current && !initialGpsFittedRef.current) {
@@ -3215,7 +3216,7 @@ function WargaSpatialMap({
         activeRouteLayerRef.current?.addLayer(startDotMarker);
 
         // Garis Penghubung Putus-Putus Awal (First-Mile Walking Dotted Line)
-        // Jika lokasi pengguna berada di dalam gang/halaman/rumah (berjarak > 3 meter dari jalan raya)
+        // Hanya digambar jika lokasi pengguna berjarak dekat dari jalan raya (maksimal 1.5 km, misal di dalam gang/halaman)
         if (targetOriginCoord) {
           const distFromUser = calcMetersSafe(
             targetOriginCoord[0],
@@ -3223,7 +3224,7 @@ function WargaSpatialMap({
             roadStartCoord[0],
             roadStartCoord[1]
           );
-          if (distFromUser > 3) {
+          if (distFromUser > 3 && distFromUser <= 1500) {
             const firstMileLine = L.polyline([targetOriginCoord, roadStartCoord], {
               color: "#1E293B",
               weight: 3,
@@ -3317,38 +3318,73 @@ function WargaSpatialMap({
   // Ganti Moda Transportasi (Motor, Mobil, Jalan Kaki)
   const handleSelectTransportMode = async (newMode: "motorcycle" | "car" | "walking") => {
     setSelectedTransportMode(newMode);
+    selectedTransportModeRef.current = newMode;
+    const effectiveToll = newMode === "car" ? selectedTollOptionRef.current : "nontoll";
     if (newMode !== "car") {
       setSelectedTollOption("nontoll");
+      selectedTollOptionRef.current = "nontoll";
     }
 
+    // 1. Jika sedang dalam Mode Detail / Preview Posko
+    if (activeShelterDetailRef.current) {
+      setIsPreviewRoutesLoading(true);
+      const computed = await fetchAndComputeShelterRoutes(
+        activeShelterDetailRef.current,
+        customWaypoint,
+        newMode,
+        effectiveToll
+      );
+      setShelterPreviewRoutes(computed);
+      setSelectedPreviewRouteIndex(0);
+      setIsPreviewRoutesLoading(false);
+      const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+      const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+      renderNavRoutesOnMap(
+        computed,
+        0,
+        newMode,
+        [activeShelterDetailRef.current.lat, activeShelterDetailRef.current.lng],
+        startCoord,
+        false
+      );
+    }
+
+    // 2. Jika sedang dalam Mode Navigasi Berjalan (Active Navigation)
     if (activeNavRouteRef.current?.shelter) {
       await drawSafeRoute(activeNavRouteRef.current.shelter, newMode, activeNavRouteRef.current.selectedRouteIndex);
-    } else {
-      setActiveNavRoute((prev) => {
-        if (!prev) return null;
-        const updatedRoutes = prev.routes.map((rt) => {
-          const durSec = computeModeDuration(rt.distanceMeters, rt.durationSeconds, newMode);
-          return {
-            ...rt,
-            durationText: formatNavDuration(durSec),
-          };
-        });
-
-        const updated = {
-          ...prev,
-          transportMode: newMode,
-          routes: updatedRoutes,
-        };
-        renderNavRoutesOnMap(updatedRoutes, prev.selectedRouteIndex, newMode, prev.destinationCoords, prev.originCoords);
-        return updated;
-      });
     }
   };
 
   // Ganti Opsi Tol (Khusus Mobil: Lewat Tol vs Non-Tol)
   const handleSelectTollOption = async (newToll: "toll" | "nontoll") => {
     setSelectedTollOption(newToll);
+    selectedTollOptionRef.current = newToll;
 
+    // 1. Jika sedang dalam Mode Detail / Preview Posko
+    if (activeShelterDetailRef.current) {
+      setIsPreviewRoutesLoading(true);
+      const computed = await fetchAndComputeShelterRoutes(
+        activeShelterDetailRef.current,
+        customWaypoint,
+        "car",
+        newToll
+      );
+      setShelterPreviewRoutes(computed);
+      setSelectedPreviewRouteIndex(0);
+      setIsPreviewRoutesLoading(false);
+      const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+      const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+      renderNavRoutesOnMap(
+        computed,
+        0,
+        "car",
+        [activeShelterDetailRef.current.lat, activeShelterDetailRef.current.lng],
+        startCoord,
+        false
+      );
+    }
+
+    // 2. Jika sedang dalam Mode Navigasi Berjalan (Active Navigation)
     if (activeNavRouteRef.current?.shelter) {
       await drawSafeRoute(activeNavRouteRef.current.shelter, "car", activeNavRouteRef.current.selectedRouteIndex);
     }
@@ -3377,7 +3413,8 @@ function WargaSpatialMap({
   const fetchAndComputeShelterRoutes = async (
     shelter: MapShelterPoint,
     customWp?: any,
-    initialMode: "motorcycle" | "car" | "walking" = "motorcycle"
+    initialMode: "motorcycle" | "car" | "walking" = "motorcycle",
+    initialToll?: "toll" | "nontoll"
   ): Promise<NavigationRouteOption[]> => {
     const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
     const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
@@ -3386,7 +3423,8 @@ function WargaSpatialMap({
     const poskoLat = shelter.lat;
     const poskoLng = shelter.lng;
 
-    const baseMeters = parseDistanceInMeters(shelter.distance);
+    const directDistMeters = calcMetersSafe(userLat, userLng, poskoLat, poskoLng);
+    const baseMeters = Math.round(directDistMeters * 1.25);
     const baseMinutes = Math.max(1, Math.round(baseMeters / 300));
 
     // Kumpulkan seluruh titik hambatan: 20 data kurasi + laporan banjir warga aktif terverifikasi
@@ -3418,7 +3456,7 @@ function WargaSpatialMap({
     const allObstacles = [...FLOOD_OBSTACLES, ...dynamicObstacles];
 
     const computedRoutes: NavigationRouteOption[] = [];
-    const effectiveToll = initialMode === "car" ? selectedTollOptionRef.current : "nontoll";
+    const effectiveToll = initialMode === "car" ? (initialToll || selectedTollOptionRef.current) : "nontoll";
 
     // 1. Panggil Endpoint Routing Cerdas Internal Dermayu
     try {
@@ -3832,15 +3870,15 @@ function WargaSpatialMap({
     let isCancelled = false;
     const loadRoutes = async () => {
       setIsPreviewRoutesLoading(true);
-      const cacheKey = `${activeShelterDetail.id}-${selectedTransportMode}-${selectedTollOption}-${customWaypoint ? `${customWaypoint.lat},${customWaypoint.lng}` : ""}`;
+      const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+      const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+      const cacheKey = `${activeShelterDetail.id}_${startCoord[0].toFixed(3)},${startCoord[1].toFixed(3)}_${selectedTransportMode}_${selectedTollOption}_${customWaypoint ? `${customWaypoint.lat},${customWaypoint.lng}` : ""}`;
       const cached = shelterRoutesCacheRef.current.get(cacheKey);
       if (cached && cached.length > 0) {
         if (!isCancelled) {
           setShelterPreviewRoutes(cached);
           setSelectedPreviewRouteIndex(0);
           setIsPreviewRoutesLoading(false);
-          const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
-          const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
           renderNavRoutesOnMap(
             cached,
             0,
@@ -3853,14 +3891,12 @@ function WargaSpatialMap({
         return;
       }
 
-      const computed = await fetchAndComputeShelterRoutes(activeShelterDetail, customWaypoint, selectedTransportMode);
+      const computed = await fetchAndComputeShelterRoutes(activeShelterDetail, customWaypoint, selectedTransportMode, selectedTollOption);
       if (!isCancelled) {
         shelterRoutesCacheRef.current.set(cacheKey, computed);
         setShelterPreviewRoutes(computed);
         setSelectedPreviewRouteIndex(0);
         setIsPreviewRoutesLoading(false);
-        const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
-        const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
         renderNavRoutesOnMap(
           computed,
           0,
@@ -3877,7 +3913,7 @@ function WargaSpatialMap({
     return () => {
       isCancelled = true;
     };
-  }, [activeShelterDetail?.id, selectedTransportMode, selectedTollOption, customWaypoint]);
+  }, [activeShelterDetail?.id, selectedTransportMode, selectedTollOption, customWaypoint, userCoords]);
 
   // Update lokasi GPS saat Mode Navigasi Berjalan aktif
   const handleGpsLocationUpdateInNavigation = (coords: [number, number], accuracy?: number) => {
@@ -5139,10 +5175,7 @@ function WargaSpatialMap({
               <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedTransportMode("motorcycle");
-                    setSelectedTollOption("nontoll");
-                  }}
+                  onClick={() => handleSelectTransportMode("motorcycle")}
                   className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                     selectedTransportMode === "motorcycle"
                       ? "bg-[#38746D] text-white shadow-xs"
@@ -5155,7 +5188,7 @@ function WargaSpatialMap({
 
                 <button
                   type="button"
-                  onClick={() => setSelectedTransportMode("car")}
+                  onClick={() => handleSelectTransportMode("car")}
                   className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                     selectedTransportMode === "car"
                       ? "bg-[#38746D] text-white shadow-xs"
@@ -5168,10 +5201,7 @@ function WargaSpatialMap({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedTransportMode("walking");
-                    setSelectedTollOption("nontoll");
-                  }}
+                  onClick={() => handleSelectTransportMode("walking")}
                   className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                     selectedTransportMode === "walking"
                       ? "bg-[#38746D] text-white shadow-xs"
@@ -5190,7 +5220,7 @@ function WargaSpatialMap({
                   <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
                     <button
                       type="button"
-                      onClick={() => setSelectedTollOption("toll")}
+                      onClick={() => handleSelectTollOption("toll")}
                       className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
                         selectedTollOption === "toll"
                           ? "bg-amber-600 text-white shadow-2xs"
@@ -5201,7 +5231,7 @@ function WargaSpatialMap({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedTollOption("nontoll")}
+                      onClick={() => handleSelectTollOption("nontoll")}
                       className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
                         selectedTollOption === "nontoll"
                           ? "bg-[#38746D] text-white shadow-2xs"
@@ -6102,10 +6132,7 @@ function WargaSpatialMap({
             <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedTransportMode("motorcycle");
-                  setSelectedTollOption("nontoll");
-                }}
+                onClick={() => handleSelectTransportMode("motorcycle")}
                 className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                   selectedTransportMode === "motorcycle"
                     ? "bg-[#38746D] text-white shadow-xs"
@@ -6118,7 +6145,7 @@ function WargaSpatialMap({
 
               <button
                 type="button"
-                onClick={() => setSelectedTransportMode("car")}
+                onClick={() => handleSelectTransportMode("car")}
                 className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                   selectedTransportMode === "car"
                     ? "bg-[#38746D] text-white shadow-xs"
@@ -6131,10 +6158,7 @@ function WargaSpatialMap({
 
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedTransportMode("walking");
-                  setSelectedTollOption("nontoll");
-                }}
+                onClick={() => handleSelectTransportMode("walking")}
                 className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-black transition cursor-pointer ${
                   selectedTransportMode === "walking"
                     ? "bg-[#38746D] text-white shadow-xs"
@@ -6153,7 +6177,7 @@ function WargaSpatialMap({
                 <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setSelectedTollOption("toll")}
+                    onClick={() => handleSelectTollOption("toll")}
                     className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
                       selectedTollOption === "toll"
                         ? "bg-amber-600 text-white shadow-2xs"
@@ -6164,7 +6188,7 @@ function WargaSpatialMap({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedTollOption("nontoll")}
+                    onClick={() => handleSelectTollOption("nontoll")}
                     className={`px-2 py-0.5 rounded-md text-[10.5px] font-extrabold transition cursor-pointer ${
                       selectedTollOption === "nontoll"
                         ? "bg-[#38746D] text-white shadow-2xs"

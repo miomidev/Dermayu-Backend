@@ -1497,9 +1497,29 @@ function WargaSpatialMap({
     }
   };
 
-  // User GPS Coordinates & Dynamic Proximity States
-  const [userCoords, setUserCoords] = useState<[number, number]>([-6.3475, 108.1189]);
-  const [isGpsLocked, setIsGpsLocked] = useState(false);
+  // User GPS Coordinates & Dynamic Proximity States (Bebas dari bug titik dummy Kandanghaur)
+  const [userCoords, setUserCoords] = useState<[number, number]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("dermayu_last_gps");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === 2 && typeof parsed[0] === "number" && typeof parsed[1] === "number") {
+            return [parsed[0], parsed[1]];
+          }
+        }
+      } catch (_) {}
+    }
+    return [-6.3475, 108.1189];
+  });
+  const [isGpsLocked, setIsGpsLocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return !!localStorage.getItem("dermayu_last_gps");
+      } catch (_) {}
+    }
+    return false;
+  });
 
   // Sinkronisasi data jika props telemetry dikirim dari parent
   useEffect(() => {
@@ -1721,12 +1741,12 @@ function WargaSpatialMap({
     }
   };
 
-  // Sinkronisasi reaktif: Pastikan titik "Lokasi Anda" SELALU diperbarui saat userCoords berubah
+  // Sinkronisasi reaktif: Pastikan titik "Lokasi Anda" diperbarui HANYA saat GPS riil sudah terkunci
   useEffect(() => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && isGpsLocked) {
       updateUserMarkerOnMap(userCoords[0], userCoords[1]);
     }
-  }, [userCoords]);
+  }, [userCoords, isGpsLocked]);
 
   // Deteksi & Pelacakan Real-Time GPS (getCurrentPosition + watchPosition)
   useEffect(() => {
@@ -1737,6 +1757,9 @@ function WargaSpatialMap({
           setUserCoords([latitude, longitude]);
           shelterRoutesCacheRef.current.clear();
           setIsGpsLocked(true);
+          try {
+            localStorage.setItem("dermayu_last_gps", JSON.stringify([latitude, longitude]));
+          } catch (_) {}
           updateUserMarkerOnMap(latitude, longitude, accuracy);
           if (mapInstanceRef.current && !initialGpsFittedRef.current) {
             initialGpsFittedRef.current = true;
@@ -1745,7 +1768,7 @@ function WargaSpatialMap({
         },
         (err) => {
           console.warn("GPS otomatis belum aktif atau izin ditolak:", err.message);
-          updateUserMarkerOnMap(userCoords[0], userCoords[1], 50);
+          // Jangan pasang marker palsu jika izin belum diberikan
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
@@ -1755,6 +1778,9 @@ function WargaSpatialMap({
           const { latitude, longitude, accuracy } = pos.coords;
           setUserCoords([latitude, longitude]);
           setIsGpsLocked(true);
+          try {
+            localStorage.setItem("dermayu_last_gps", JSON.stringify([latitude, longitude]));
+          } catch (_) {}
           updateUserMarkerOnMap(latitude, longitude, accuracy);
         },
         (err) => {
@@ -1766,8 +1792,6 @@ function WargaSpatialMap({
       return () => {
         navigator.geolocation.clearWatch(watchId);
       };
-    } else {
-      updateUserMarkerOnMap(userCoords[0], userCoords[1], 50);
     }
   }, []);
 
@@ -2410,8 +2434,10 @@ function WargaSpatialMap({
     setMapZoom(map.getZoom());
     setMapBounds(map.getBounds());
 
-    // Pasang marker user segera setelah peta Leaflet siap
-    updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+    // Pasang marker user segera jika GPS sudah terverifikasi nyata (misal dari cache lokal)
+    if (isGpsLocked) {
+      updateUserMarkerOnMap(userCoords[0], userCoords[1]);
+    }
 
     map.on("click", (e) => {
       if (isPickingWaypointRef.current) {

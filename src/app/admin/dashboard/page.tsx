@@ -46,6 +46,12 @@ import {
   Lock,
   UserCheck,
   UserX,
+  Smartphone,
+  Copy,
+  Link2,
+  Globe,
+  Share2,
+  Sparkles,
 } from "lucide-react";
 
 // Dynamically import Leaflet CommandMap with SSR disabled
@@ -59,7 +65,7 @@ const CommandMap = dynamic(() => import("@/components/CommandMap"), {
   ),
 });
 
-type SidebarMenu = "DASHBOARD" | "REPORTS" | "MAP" | "ALERTS" | "EVACUATION" | "CONTACTS" | "USERS" | "AUDIT";
+type SidebarMenu = "DASHBOARD" | "REPORTS" | "MAP" | "ALERTS" | "EVACUATION" | "CONTACTS" | "USERS" | "AUDIT" | "APK";
 
 interface AuditLogItem {
   id: string;
@@ -281,6 +287,7 @@ export default function AdminDashboard() {
       contacts: "CONTACTS",
       users: "USERS",
       audit: "AUDIT",
+      apk: "APK",
     };
 
     try {
@@ -313,6 +320,71 @@ export default function AdminDashboard() {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState("ALL");
+
+  // APK Release Manager State
+  const [apkRelease, setApkRelease] = useState<{
+    isReleased: boolean;
+    downloadUrl: string;
+    version: string;
+    fileSize: string;
+    releaseNotes: string;
+    updatedAt?: string;
+    updatedBy?: string;
+  }>({
+    isReleased: true,
+    downloadUrl: "https://dermayu.web.id/dermayu-release.apk",
+    version: "v1.0.0",
+    fileSize: "61.6 MB",
+    releaseNotes: "Rilis resmi aplikasi Dermayu Android dengan rute evakuasi cerdas dan Google Maps.",
+  });
+  const [apkLoading, setApkLoading] = useState(false);
+  const [apkSaving, setApkSaving] = useState(false);
+  const [apkCopied, setApkCopied] = useState(false);
+
+  const fetchApkRelease = async () => {
+    try {
+      setApkLoading(true);
+      const res = await fetch("/api/v1/app-release");
+      const data = await res.json();
+      if (data?.data) {
+        setApkRelease(data.data);
+      }
+    } catch (err) {
+      console.warn("Failed to load apk release:", err);
+    } finally {
+      setApkLoading(false);
+    }
+  };
+
+  const handleSaveApkRelease = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      setApkSaving(true);
+      const res = await fetch("/api/v1/app-release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...apkRelease,
+          updatedBy: currentUser?.fullName || currentUser?.name || "Super Admin",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.data) {
+        setApkRelease(data.data);
+        setToastMsg({ text: "Pengaturan rilis APK berhasil disimpan ke sistem!", type: "success" });
+      } else {
+        setToastMsg({ text: data?.message || "Gagal menyimpan konfigurasi APK", type: "error" });
+      }
+    } catch (err: any) {
+      setToastMsg({ text: "Terjadi kesalahan koneksi saat menyimpan APK", type: "error" });
+    } finally {
+      setApkSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApkRelease();
+  }, []);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -1411,6 +1483,23 @@ export default function AdminDashboard() {
                 {auditLogs.length}
               </span>
             </button>
+
+            <button
+              onClick={() => handleSelectMenu("APK")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeMenu === "APK"
+                  ? "bg-[#38746D] text-white shadow-xs font-bold"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <Smartphone className="w-4 h-4 text-emerald-300" />
+                <span>Rilis Aplikasi (.APK)</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                PROD
+              </span>
+            </button>
           </div>
         </div>
 
@@ -1601,6 +1690,15 @@ export default function AdminDashboard() {
                       <Building2 className="w-5 h-5 text-[#38746D] mb-2 group-hover:scale-110 transition-transform" />
                       <div className="font-bold text-xs text-[#132422]">Posko Pengungsian</div>
                       <div className="text-[10.5px] text-[#718783] mt-0.5">Pantau kapasitas tempat evakuasi</div>
+                    </button>
+
+                    <button
+                      onClick={() => handleSelectMenu("APK")}
+                      className="p-4 rounded-2xl bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] hover:border-[#38746D] text-left transition-all group cursor-pointer col-span-2"
+                    >
+                      <Smartphone className="w-5 h-5 text-[#38746D] mb-2 group-hover:scale-110 transition-transform" />
+                      <div className="font-bold text-xs text-[#132422]">Rilis Aplikasi Android (.APK)</div>
+                      <div className="text-[10.5px] text-[#718783] mt-0.5">Kelola link Google Drive APK &amp; pembaruan versi</div>
                     </button>
                   </div>
                 </div>
@@ -2324,6 +2422,315 @@ export default function AdminDashboard() {
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* VIEW 9: MANAJEMEN RILIS APLIKASI ANDROID (.APK) */}
+          {activeMenu === "APK" && (
+            <div className="bg-white border border-[#D5E4E0] rounded-3xl p-5 sm:p-6 shadow-xs space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F1EE]">
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-[#132422] flex items-center space-x-2.5">
+                    <Smartphone className="w-5 h-5 text-[#38746D]" />
+                    <span>Pusat Rilis &amp; Tautan Unduhan Aplikasi Android (.APK)</span>
+                  </h2>
+                  <p className="text-xs text-[#718783] mt-1">
+                    Kelola tautan berkas APK (Google Drive), versi aplikasi, catatan pembaruan, dan status ketersediaan unduhan untuk warga.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchApkRelease}
+                    disabled={apkLoading}
+                    className="px-3.5 py-2 rounded-xl bg-[#F8FAF9] border border-[#D5E4E0] hover:bg-[#EEF5F3] text-xs font-bold text-[#1D443F] flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-[#38746D] ${apkLoading ? "animate-spin" : ""}`} />
+                    <span>Segarkan</span>
+                  </button>
+                  <a
+                    href="/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 rounded-xl bg-white border border-[#D5E4E0] hover:bg-[#F8FAF9] text-xs font-bold text-[#1D443F] flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-[#38746D]" />
+                    <span>Lihat Web Landing</span>
+                    <ExternalLink className="w-3 h-3 text-[#718783]" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Grid 2 Columns */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Form Column (7 Cols) */}
+                <form onSubmit={handleSaveApkRelease} className="lg:col-span-7 space-y-5">
+                  {/* Status Toggle Card */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-[#132422]">Status Publikasi Unduhan APK</div>
+                        <div className="text-[11px] text-[#718783] mt-0.5">
+                          {apkRelease.isReleased
+                            ? "Aplikasi berstatus RILIS RESMI. Tombol Unduh .APK di website akan langsung mengarahkan warga ke berkas APK."
+                            : "Aplikasi berstatus TAHAP PENGEMBANGAN. Pengunjung akan diarahkan memasang versi PWA."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setApkRelease({ ...apkRelease, isReleased: !apkRelease.isReleased })}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                          apkRelease.isReleased ? "bg-[#38746D]" : "bg-gray-300"
+                        }`}
+                        role="switch"
+                        aria-checked={apkRelease.isReleased}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            apkRelease.isReleased ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          apkRelease.isReleased
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : "bg-amber-50 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {apkRelease.isReleased ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Publikasi Aktif (Tersedia untuk Warga)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Mode Pengembangan (PWA Mode)</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Input Tautan APK (Google Drive) */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-[#132422]">
+                      Tautan Unduhan Berkas APK (Google Drive Link):
+                    </label>
+                    <div className="relative">
+                      <Link2 className="w-4 h-4 text-[#718783] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="url"
+                        value={apkRelease.downloadUrl}
+                        onChange={(e) => setApkRelease({ ...apkRelease, downloadUrl: e.target.value })}
+                        placeholder="https://drive.google.com/file/d/1abc.../view?usp=sharing"
+                        required={apkRelease.isReleased}
+                        className="w-full pl-10 pr-24 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] placeholder-[#718783] focus:outline-hidden focus:border-[#38746D] focus:bg-white font-mono"
+                      />
+                      {apkRelease.downloadUrl && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(apkRelease.downloadUrl);
+                              setApkCopied(true);
+                              setTimeout(() => setApkCopied(false), 2000);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-white border border-[#D5E4E0] text-[10px] font-semibold text-[#1D443F] hover:bg-[#EEF5F3] flex items-center gap-1"
+                          >
+                            <Copy className="w-3 h-3 text-[#38746D]" />
+                            <span>{apkCopied ? "Tersalin!" : "Salin"}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Petunjuk Penggunaan Google Drive */}
+                    <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/60 text-xs text-blue-900 space-y-1.5">
+                      <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Cara Menyimpan &amp; Membagikan File APK dari Google Drive:</span>
+                      </div>
+                      <ol className="list-decimal list-inside space-y-1 text-[11px] text-blue-800 leading-relaxed pl-1">
+                        <li>Unggah berkas <code className="bg-blue-100/70 px-1 py-0.5 rounded text-blue-900 font-mono font-bold">app-release.apk</code> ke Google Drive Anda.</li>
+                        <li>Klik kanan pada file APK &rarr; pilih <strong>Bagikan (Share)</strong>.</li>
+                        <li>Pada bagian <em>Akses umum</em>, ubah pilihan menjadi <strong>&quot;Siapa saja yang memiliki link&quot;</strong> (Anyone with the link).</li>
+                        <li>Klik <strong>Salin Link</strong> (Copy link), lalu tempelkan (paste) pada kolom tautan di atas.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* Dual Grid: Versi & Ukuran Berkas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-[#132422]">
+                        Versi Aplikasi:
+                      </label>
+                      <input
+                        type="text"
+                        value={apkRelease.version}
+                        onChange={(e) => setApkRelease({ ...apkRelease, version: e.target.value })}
+                        placeholder="v1.0.0"
+                        className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] font-mono focus:outline-hidden focus:border-[#38746D] focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-[#132422]">
+                        Ukuran Berkas Installer:
+                      </label>
+                      <input
+                        type="text"
+                        value={apkRelease.fileSize}
+                        onChange={(e) => setApkRelease({ ...apkRelease, fileSize: e.target.value })}
+                        placeholder="61.6 MB"
+                        className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] font-mono focus:outline-hidden focus:border-[#38746D] focus:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Catatan Rilis / Changelog */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-[#132422]">
+                      Catatan Pembaruan Rilis (Changelog):
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={apkRelease.releaseNotes}
+                      onChange={(e) => setApkRelease({ ...apkRelease, releaseNotes: e.target.value })}
+                      placeholder="Tuliskan fitur-fitur baru pada rilis ini..."
+                      className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] leading-relaxed focus:outline-hidden focus:border-[#38746D] focus:bg-white resize-none"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={apkSaving}
+                      className="px-6 py-2.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {apkSaving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          <span>Menyimpan Pengaturan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-200" />
+                          <span>Simpan Pengaturan Rilis APK</span>
+                        </>
+                      )}
+                    </button>
+
+                    {apkRelease.downloadUrl && (
+                      <a
+                        href={apkRelease.downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 rounded-xl bg-white border border-[#D5E4E0] hover:bg-[#EEF5F3] text-xs font-bold text-[#1D443F] flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-[#38746D]" />
+                        <span>Uji Buka Tautan</span>
+                      </a>
+                    )}
+                  </div>
+                </form>
+
+                {/* Right Column: Live Mockup / Preview (5 Cols) */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#D5E4E0] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1D443F]">
+                        Pratinjau Tampilan Warga (Modal Download)
+                      </span>
+                      <span className="text-[10px] text-[#4B635F]">Live Preview</span>
+                    </div>
+
+                    {/* Preview Box */}
+                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm text-center space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-xl bg-[#EEF5F3] border border-[#D5E4E0] flex items-center justify-center text-[#38746D]">
+                        <Smartphone className="w-6 h-6" />
+                      </div>
+
+                      {apkRelease.isReleased ? (
+                        <div>
+                          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold mb-1.5">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Rilis Resmi Android (Tersedia)</span>
+                          </div>
+                          <h4 className="font-extrabold text-sm text-[#132422]">
+                            Aplikasi DERMAYU Siap Diunduh
+                          </h4>
+                          <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-[#4B635F]">
+                            <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                              {apkRelease.version || "v1.0.0"}
+                            </span>
+                            <span>•</span>
+                            <span>{apkRelease.fileSize || "61.6 MB"}</span>
+                          </div>
+                          <p className="mt-2 text-[11px] text-[#4B635F] line-clamp-2 italic">
+                            &quot;{apkRelease.releaseNotes || "Rilis resmi aplikasi Dermayu Android."}&quot;
+                          </p>
+
+                          <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2">
+                            <div className="flex-1 py-2 px-2 rounded-full border border-slate-200 text-[10.5px] text-slate-500 font-medium">
+                              Pasang PWA
+                            </div>
+                            <div className="flex-2 py-2 px-3 rounded-full bg-[#38746D] text-white text-[10.5px] font-bold flex items-center justify-center gap-1">
+                              <Download className="w-3 h-3" />
+                              <span>Unduh .APK Sekarang</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold mb-1.5">
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            <span>Tahap Pengembangan</span>
+                          </div>
+                          <h4 className="font-extrabold text-sm text-[#132422]">
+                            Aplikasi .APK Sedang Disiapkan
+                          </h4>
+                          <p className="mt-1 text-[11px] text-[#4B635F]">
+                            Saat ini aplikasi .APK masih tahap pengembangan. Pengunjung diarahkan menggunakan versi PWA.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Summary Info */}
+                  <div className="p-4 rounded-2xl bg-white border border-[#D5E4E0] text-xs space-y-2">
+                    <div className="font-bold text-[#132422] flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#38746D]" />
+                      <span>Informasi Distribusi Sistem</span>
+                    </div>
+                    <div className="text-[11px] text-[#4B635F] space-y-1">
+                      <div className="flex justify-between">
+                        <span>Penyimpanan:</span>
+                        <strong className="text-[#132422]">Google Drive Cloud</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Terakhir Diperbarui:</span>
+                        <span className="font-mono text-[#132422]">
+                          {apkRelease.updatedAt
+                            ? new Date(apkRelease.updatedAt).toLocaleString("id-ID")
+                            : "Baru saja"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Diperbarui Oleh:</span>
+                        <span className="text-[#132422]">{apkRelease.updatedBy || "Super Admin"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>

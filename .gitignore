@@ -44,5 +44,8 @@ next-env.d.ts
 /data/
 !src/data/
 
+*.apk
+public/*.apk
+
 .env*.local
 .env.local

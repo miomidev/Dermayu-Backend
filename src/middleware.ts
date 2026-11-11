@@ -8,7 +8,7 @@ interface UserSessionPayload {
   lastDashboardActive?: number;
 }
 
-const TIMEOUT_MS = 15 * 60 * 1000; // 15 menit grace period
+const TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 hari sliding session
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

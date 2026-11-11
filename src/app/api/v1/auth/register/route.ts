@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     // Store refresh token
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 14);
 
     await db.refreshToken.create({
       data: {
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           accessToken,
           refreshToken,
           tokenType: "Bearer",
-          expiresIn: 900, // 15 mins
+          expiresIn: 7 * 24 * 3600, // 7 hari
         },
       },
       undefined,

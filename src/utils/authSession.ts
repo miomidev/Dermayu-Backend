@@ -1,6 +1,7 @@
 /**
  * Dermayu Role-Based Authentication & Dashboard Session Manager
- * Mengatur grace period 15 menit ketika user meninggalkan dashboard.
+ * Mengatur sliding session 7 hari (1 minggu) tanpa logout selama user aktif.
+ * Jika tidak aktif > 7 hari (misal 8 hari), session otomatis kedaluwarsa.
  * 3 Role: warga, petugas, superadmin
  */
 
@@ -24,11 +25,12 @@ export interface UserSession {
 
 export const SESSION_KEY = "dermayu_session";
 export const LEGACY_SESSION_KEY = "user_session";
-export const TIMEOUT_MS = 15 * 60 * 1000; // 15 menit grace period
+export const TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 hari (604.800.000 ms) sliding session
 
 /**
  * Mendapatkan session yang sedang aktif jika belum kedaluwarsa.
- * Jika selisih waktu sejak terakhir aktif di dashboard > 15 menit, session dihapus.
+ * Jika selisih waktu sejak terakhir aktif > 7 hari, session dihapus.
+ * Jika masih aktif dalam kurun 7 hari, timestamp diperbarui (sliding session).
  */
 export function getActiveSession(): UserSession | null {
   if (typeof window === "undefined") return null;
@@ -76,12 +78,22 @@ export function getActiveSession(): UserSession | null {
       return session;
     }
 
-    // Cek apakah jeda sejak terakhir aktif di dashboard sudah lewat 15 menit
+    // Cek apakah jeda sejak terakhir aktif sudah lewat 7 hari
     const elapsed = now - session.lastDashboardActive;
     if (elapsed > TIMEOUT_MS) {
       clearUserSession();
       return null;
     }
+
+    // Sliding session: perbarui lastDashboardActive ke timestamp sekarang
+    session.lastDashboardActive = now;
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      localStorage.setItem(LEGACY_SESSION_KEY, JSON.stringify(session));
+      document.cookie = `user_session=${encodeURIComponent(
+        JSON.stringify(session)
+      )}; path=/; max-age=604800; SameSite=Lax`;
+    } catch (_) {}
 
     if (!session.id) {
       session.id =

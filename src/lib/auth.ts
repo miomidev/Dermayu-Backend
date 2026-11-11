@@ -31,13 +31,13 @@ export function hashToken(token: string): string {
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
-  // Access token short lived: 15m as per PRD SEC-03
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" });
+  // Access token aktif selama 7 hari (1 minggu) sliding session sesuai kebutuhan pengguna
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
 export function generateRefreshToken(payload: { userId: string }): string {
-  // Refresh token: 7d
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  // Refresh token: 14 hari
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "14d" });
 }
 
 export function verifyAccessToken(token: string): TokenPayload | null {

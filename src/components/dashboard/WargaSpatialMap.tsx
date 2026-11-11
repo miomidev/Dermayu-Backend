@@ -3285,7 +3285,9 @@ function WargaSpatialMap({
         }
       }
 
-      // 5. Viewport FitBounds Otomatis membingkai titik awal pengguna, seluruh rute jalan, dan titik posko
+      // 5. Viewport FitBounds Cerdas Asimetris ala Google Maps
+      // Di Mobile: Mengalokasikan bottom padding setinggi bottom sheet agar garis rute 100% fokus & tampak di area peta atas
+      // Di Desktop: Mengalokasikan left padding untuk floating panel navigasi 420px
       const allFitCoords = [
         ...(targetOriginCoord ? [targetOriginCoord] : []),
         ...activeRoute.coordinates,
@@ -3293,11 +3295,34 @@ function WargaSpatialMap({
       ];
       const bounds = L.latLngBounds(allFitCoords);
       if (bounds.isValid()) {
-        mapInstanceRef.current?.fitBounds(bounds, {
-          padding: [80, 80],
-          maxZoom: 17,
-          animate: true,
-        });
+        const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+        if (isMobile) {
+          const winHeight = typeof window !== "undefined" ? window.innerHeight : 700;
+          const curSnap = sheetSnapRef.current;
+          // Alokasi padding bawah: bottom sheet + bottom navigation (68px)
+          const bottomPadding =
+            curSnap === "min"
+              ? 165
+              : curSnap === "full"
+              ? Math.round(winHeight * 0.35) + 70
+              : Math.round(winHeight * 0.44) + 70; // ~380px saat mid snap
+          const topPadding = 75; // ruang untuk floating top bar ala Google Maps
+
+          mapInstanceRef.current?.fitBounds(bounds, {
+            paddingTopLeft: [20, topPadding],
+            paddingBottomRight: [20, bottomPadding],
+            maxZoom: 16,
+            animate: true,
+          });
+        } else {
+          // Desktop: ada floating left panel selebar ~420px
+          mapInstanceRef.current?.fitBounds(bounds, {
+            paddingTopLeft: [440, 50],
+            paddingBottomRight: [50, 50],
+            maxZoom: 16,
+            animate: true,
+          });
+        }
       }
     }
   };
@@ -3914,6 +3939,47 @@ function WargaSpatialMap({
       isCancelled = true;
     };
   }, [activeShelterDetail?.id, selectedTransportMode, selectedTollOption, customWaypoint, userCoords]);
+
+  // Re-adjust camera bounds saat bottom sheet di-drag di mobile (min vs mid vs full)
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    if (!mapInstanceRef.current) return;
+
+    const curRoute =
+      activeNavRoute?.routes?.[activeNavRoute.selectedRouteIndex] ||
+      (shelterPreviewRoutes.length > 0 ? shelterPreviewRoutes[selectedPreviewRouteIndex] : null);
+
+    if (curRoute && curRoute.coordinates && curRoute.coordinates.length > 0) {
+      const userLatLng = userMarkerRef.current ? userMarkerRef.current.getLatLng() : null;
+      const startCoord: [number, number] = userLatLng ? [userLatLng.lat, userLatLng.lng] : userCoords;
+      const destCoord: [number, number] | undefined =
+        activeNavRoute?.destinationCoords ||
+        (activeShelterDetail ? [activeShelterDetail.lat, activeShelterDetail.lng] : undefined);
+
+      const allFitCoords = [
+        startCoord,
+        ...curRoute.coordinates,
+        ...(destCoord ? [destCoord] : []),
+      ];
+      const bounds = L.latLngBounds(allFitCoords);
+      if (bounds.isValid()) {
+        const winHeight = window.innerHeight;
+        const bottomPadding =
+          sheetSnap === "min"
+            ? 165
+            : sheetSnap === "full"
+            ? Math.round(winHeight * 0.35) + 70
+            : Math.round(winHeight * 0.44) + 70;
+
+        mapInstanceRef.current.fitBounds(bounds, {
+          paddingTopLeft: [20, 75],
+          paddingBottomRight: [20, bottomPadding],
+          maxZoom: 16,
+          animate: true,
+        });
+      }
+    }
+  }, [sheetSnap]);
 
   // Update lokasi GPS saat Mode Navigasi Berjalan aktif
   const handleGpsLocationUpdateInNavigation = (coords: [number, number], accuracy?: number) => {
@@ -5052,108 +5118,7 @@ function WargaSpatialMap({
               sheetSnap === "min" ? "hidden" : "block"
             }`}
           >
-            {/* Baris Tombol Aksi Fungsional */}
-            <div className="flex items-center gap-1.5 py-0.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => startNavigationFromPreview()}
-                className="h-9 px-3 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
-              >
-                <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                <span className="truncate">Arahkan Rute</span>
-              </button>
-
-              <a
-                href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
-                onClick={(e) => e.stopPropagation()}
-                title={`Hubungi ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
-                className="w-9 h-9 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
-              >
-                <Phone className="w-3.5 h-3.5 text-emerald-700" />
-              </a>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const needs = activeMeta.emergencyNeeds && activeMeta.emergencyNeeds.length > 0 ? activeMeta.emergencyNeeds.join(", ") : "Logistik Dasar, Air Bersih, Obat-obatan";
-                  setToastMessage(`Kebutuhan ${activeShelterDetail.name}: ${needs}`);
-                  setTimeout(() => setToastMessage(null), 3500);
-                }}
-                title="Cek Kebutuhan Logistik"
-                className="w-9 h-9 rounded-xl bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
-              >
-                <Package className="w-3.5 h-3.5 text-amber-600" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (navigator.share) {
-                    navigator.share({
-                      title: activeShelterDetail.name,
-                      text: `Posko Evakuasi DERMAYU: ${activeShelterDetail.name} (${activeShelterDetail.location}) - Jarak: ${activeShelterDetail.distance.split("(")[0].trim()}. Kapasitas: ${activeShelterDetail.capacityFilled}/${activeShelterDetail.capacityTotal} Jiwa.`,
-                      url: window.location.href,
-                    }).catch(() => { });
-                  } else {
-                    navigator.clipboard?.writeText(`${activeShelterDetail.name} - ${activeShelterDetail.location} (${activeShelterDetail.distance.split("(")[0].trim()})`);
-                    setToastMessage("Alamat posko disalin ke clipboard!");
-                    setTimeout(() => setToastMessage(null), 2500);
-                  }
-                }}
-                title="Bagikan Lokasi Posko"
-                className="w-9 h-9 rounded-xl bg-white hover:bg-sky-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
-              >
-                <Share2 className="w-3.5 h-3.5 text-sky-600" />
-              </button>
-            </div>
-
-            {/* Informasi Kapasitas & Progress Bar Kuwu */}
-            <div className="py-2 px-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-[11px] shrink-0">
-              <div className="flex items-center justify-between text-slate-600 gap-1">
-                <span className="truncate">
-                  Kapasitas: <strong className="text-emerald-700 font-extrabold">{activeShelterDetail.capacityFilled}/{activeShelterDetail.capacityTotal}</strong>
-                  <span className="text-slate-400"> (Sisa {activeShelterDetail.capacityTotal - activeShelterDetail.capacityFilled})</span>
-                </span>
-                <span className="text-[10.5px] text-slate-500 shrink-0">
-                  Kuwu: <strong className="text-slate-800">{activeShelterDetail.contactPerson}</strong>
-                </span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
-                <div
-                  className="h-full bg-[#38746D] rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.round((activeShelterDetail.capacityFilled / activeShelterDetail.capacityTotal) * 100)
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Foto Posko (Bento Grid jika > 1 foto) */}
-            <div className="w-full">
-              <ShelterBentoGallery
-                photos={(() => {
-                  const isKemdikbud = Boolean(
-                    (activeShelterDetail.foto && activeShelterDetail.foto.includes("kemendikdasmen.go.id")) ||
-                    (activeShelterDetail.photos?.[0] && activeShelterDetail.photos[0].includes("kemendikdasmen.go.id"))
-                  );
-                  if (isKemdikbud) {
-                    return [activeShelterDetail.foto || activeShelterDetail.photos![0]];
-                  }
-                  return activeShelterDetail.photos && activeShelterDetail.photos.length > 0
-                    ? activeShelterDetail.photos
-                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : []);
-                })()}
-                name={activeShelterDetail.name}
-                compact
-              />
-            </div>
-
-            {/* Selector Moda Transportasi & Opsi Jalan Tol */}
+            {/* 1. Selector Moda Transportasi & Opsi Jalan Tol (Paling Atas ala Google Maps) */}
             <div className="p-2.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-2 shrink-0">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-extrabold text-slate-800">Moda Kendaraan:</span>
@@ -5252,6 +5217,133 @@ function WargaSpatialMap({
                     : "Rute diarahkan melalui jalan lingkungan & trotoar arteri bebas hambatan tol."}
                 </p>
               )}
+            </div>
+
+            {/* 2. Ringkasan Durasi, Jarak & Jalur Terpilih (Google Maps Primary ETA Banner) */}
+            {(() => {
+              const curRoute = shelterPreviewRoutes[selectedPreviewRouteIndex] || shelterPreviewRoutes[0];
+              const distText = curRoute?.distanceText || (calcMetersSafe(userCoords[0], userCoords[1], activeShelterDetail.lat, activeShelterDetail.lng) > 0 ? formatEvacuationDistance(calcMetersSafe(userCoords[0], userCoords[1], activeShelterDetail.lat, activeShelterDetail.lng)) : activeShelterDetail.distance);
+              const durText = curRoute?.durationText || "Menghitung...";
+              const summaryText = curRoute?.summary || (selectedTransportMode === "motorcycle" ? "lewat Jalur Arteri Pantura (Wajib Non-Tol)" : "lewat Jalur Utama Evakuasi");
+              const badgeText = curRoute?.statusBadge || (selectedTransportMode === "motorcycle" ? "Bebas Tol" : selectedTransportMode === "car" && selectedTollOption === "toll" ? "Rute Tol Tercepat" : "Bebas Banjir");
+
+              return (
+                <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-600/30 flex items-center justify-between gap-3 shadow-2xs shrink-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-black text-[#132422] tracking-tight">{durText}</span>
+                      <span className="text-xs font-bold text-slate-500">({distText})</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                      {summaryText}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#38746D] text-white shrink-0 shadow-2xs">
+                    {badgeText}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* 3. Baris Tombol Aksi Utama (Arahkan Rute Sekarang) */}
+            <div className="flex items-center gap-1.5 py-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => startNavigationFromPreview()}
+                className="h-9.5 px-3.5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer border border-[#24544E] flex-1 min-w-0"
+              >
+                <Navigation className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="truncate">Arahkan Rute Sekarang</span>
+              </button>
+
+              <a
+                href={`tel:${activeShelterDetail.contactPhone.replace(/[^0-9]/g, "")}`}
+                onClick={(e) => e.stopPropagation()}
+                title={`Hubungi ${activeShelterDetail.contactPerson} (${activeShelterDetail.contactPhone})`}
+                className="w-9.5 h-9.5 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+              </a>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const needs = activeMeta.emergencyNeeds && activeMeta.emergencyNeeds.length > 0 ? activeMeta.emergencyNeeds.join(", ") : "Logistik Dasar, Air Bersih, Obat-obatan";
+                  setToastMessage(`Kebutuhan ${activeShelterDetail.name}: ${needs}`);
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+                title="Cek Kebutuhan Logistik"
+                className="w-9.5 h-9.5 rounded-xl bg-white hover:bg-amber-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Package className="w-3.5 h-3.5 text-amber-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (navigator.share) {
+                    navigator.share({
+                      title: activeShelterDetail.name,
+                      text: `Posko Evakuasi DERMAYU: ${activeShelterDetail.name} (${activeShelterDetail.location}) - Jarak: ${activeShelterDetail.distance.split("(")[0].trim()}. Kapasitas: ${activeShelterDetail.capacityFilled}/${activeShelterDetail.capacityTotal} Jiwa.`,
+                      url: window.location.href,
+                    }).catch(() => { });
+                  } else {
+                    navigator.clipboard?.writeText(`${activeShelterDetail.name} - ${activeShelterDetail.location} (${activeShelterDetail.distance.split("(")[0].trim()})`);
+                    setToastMessage("Alamat posko disalin ke clipboard!");
+                    setTimeout(() => setToastMessage(null), 2500);
+                  }
+                }}
+                title="Bagikan Lokasi Posko"
+                className="w-9.5 h-9.5 rounded-xl bg-white hover:bg-sky-50 border border-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              >
+                <Share2 className="w-3.5 h-3.5 text-sky-600" />
+              </button>
+            </div>
+
+            {/* 4. Informasi Kapasitas & Progress Bar Kuwu */}
+            <div className="py-2 px-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 text-[11px] shrink-0">
+              <div className="flex items-center justify-between text-slate-600 gap-1">
+                <span className="truncate">
+                  Kapasitas: <strong className="text-emerald-700 font-extrabold">{activeShelterDetail.capacityFilled}/{activeShelterDetail.capacityTotal}</strong>
+                  <span className="text-slate-400"> (Sisa {activeShelterDetail.capacityTotal - activeShelterDetail.capacityFilled})</span>
+                </span>
+                <span className="text-[10.5px] text-slate-500 shrink-0">
+                  Kuwu: <strong className="text-slate-800">{activeShelterDetail.contactPerson}</strong>
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+                <div
+                  className="h-full bg-[#38746D] rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round((activeShelterDetail.capacityFilled / activeShelterDetail.capacityTotal) * 100)
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 5. Foto Posko (Bento Grid jika > 1 foto) */}
+            <div className="w-full">
+              <ShelterBentoGallery
+                photos={(() => {
+                  const isKemdikbud = Boolean(
+                    (activeShelterDetail.foto && activeShelterDetail.foto.includes("kemendikdasmen.go.id")) ||
+                    (activeShelterDetail.photos?.[0] && activeShelterDetail.photos[0].includes("kemendikdasmen.go.id"))
+                  );
+                  if (isKemdikbud) {
+                    return [activeShelterDetail.foto || activeShelterDetail.photos![0]];
+                  }
+                  return activeShelterDetail.photos && activeShelterDetail.photos.length > 0
+                    ? activeShelterDetail.photos
+                    : (activeShelterDetail.foto ? [activeShelterDetail.foto] : []);
+                })()}
+                name={activeShelterDetail.name}
+                compact
+              />
             </div>
 
             {/* Pilihan & Saran Rute Evakuasi (100% Dinamis OSRM & Deteksi Genangan) */}
@@ -6989,11 +7081,7 @@ function WargaSpatialMap({
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
           className={`absolute z-[1000] pointer-events-auto transition-all duration-300 ease-out flex flex-row items-end md:items-start gap-2.5 sm:gap-3 md:gap-4 ${
             isDetailActive
-              ? sheetSnap === "full"
-                ? "hidden md:flex md:top-4 md:right-4"
-                : sheetSnap === "mid"
-                ? "bottom-[calc(42vh+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
-                : "bottom-[calc(85px+12px)] left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
+              ? "hidden md:flex md:top-4 md:right-4"
               : "bottom-20 left-3.5 sm:left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex"
           }`}
         >
@@ -7006,6 +7094,50 @@ function WargaSpatialMap({
             />
           )}
         </motion.div>
+
+        {/* ============================================================== */}
+        {/* FLOATING TOP ROUTE BAR (MOBILE ONLY) ALA GOOGLE MAPS           */}
+        {/* Menggantikan navbar standar di mobile saat melihat detail rute */}
+        {/* ============================================================== */}
+        <AnimatePresence>
+          {!isNavigating && viewMode !== "IDLE" && (
+            <motion.div
+              key="mobile-top-route-bar"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden absolute top-3.5 inset-x-3.5 z-[1000] pointer-events-auto flex items-center justify-between bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-xl border border-slate-200"
+            >
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+                title="Kembali ke Peta Utama"
+                aria-label="Kembali"
+              >
+                <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+              </button>
+              <div className="flex-1 min-w-0 mx-2.5 text-center">
+                <span className="text-[10px] font-extrabold text-[#38746D] uppercase tracking-wider block">
+                  Tujuan Posko Evakuasi
+                </span>
+                <span className="text-xs font-black text-slate-800 truncate block">
+                  {activeShelterDetail?.name || activeNavRoute?.shelter?.name || "Posko Siaga"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+                title="Tutup Seleksi Rute"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ============================================================== */}
         {/* 1. UNIFIED PANEL: DESKTOP FLOATING PANEL (DAN MOBILE SAAT IDLE) */}

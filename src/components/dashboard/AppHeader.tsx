@@ -243,6 +243,11 @@ export function AppHeader({
 
   const isDashboard = isWargaDashboard || isPetugasDashboard;
 
+  // Halaman peta interaktif & rute evakuasi (di mobile dimaksimalkan layar penuh ala Google Maps)
+  const isMapRoutePage =
+    pathname?.startsWith("/warga/evakuasi") ||
+    pathname?.startsWith("/petugas/peta-sar");
+
   // Hasil filter pencarian desktop
   const filteredDesktopResults = desktopQuery.trim()
     ? searchableData
@@ -635,8 +640,10 @@ export function AppHeader({
       {/* 2. MOBILE HEADER & DYNAMIC HERO BANNER (< md)                */}
       {/* Hero memanjang dari ujung atas layar dan memendek ke atas    */}
       {/* Tanpa kedipan layar dan transisi warna app bar sealami fisis */}
+      {/* Di halaman rute peta evakuasi, disembunyikan agar layar 100% */}
+      {/* lapang ala Google Maps untuk kenyamanan navigasi warga/tim SAR*/}
       {/* ============================================================ */}
-      <div className="md:hidden relative z-40 w-full">
+      <div className={`md:hidden relative z-40 w-full ${isMapRoutePage ? "hidden" : ""}`}>
         {/* 2A. SIBLING 1: PERSISTENT STICKY APP BAR BACKGROUND BASE (z-10) */}
         <div
           style={{

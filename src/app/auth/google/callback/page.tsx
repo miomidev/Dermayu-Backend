@@ -61,7 +61,8 @@ function GoogleCallbackContent() {
 
         const json = await res.json();
 
-        if (!res.ok || !json.success) {
+        // Evaluasi respon API Google Auth DERMAYU
+        if (!res.ok) {
           const msg =
             json?.error?.message ||
             json?.message ||
@@ -71,7 +72,7 @@ function GoogleCallbackContent() {
           return;
         }
 
-        const userData = json.data?.user;
+        const userData = json?.data?.user || json?.user || (json?.data?.id ? json?.data : null);
         if (!userData) {
           setStatus("error");
           setErrorMessage("Data profil pengguna dari Google tidak lengkap.");

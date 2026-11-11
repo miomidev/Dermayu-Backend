@@ -275,9 +275,16 @@ export async function POST(req: NextRequest) {
     };
 
     const response = apiSuccess({
+      success: true,
       user: userSession,
       accessToken,
       refreshToken,
+      tokens: {
+        accessToken,
+        refreshToken,
+        tokenType: "Bearer",
+        expiresIn: 7 * 24 * 3600,
+      },
     });
 
     // 7. Tulis HTTP Cookies untuk middleware & session security

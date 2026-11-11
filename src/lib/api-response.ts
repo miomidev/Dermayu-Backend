@@ -19,6 +19,7 @@ export function serializeData<T>(obj: T): T {
 export function apiSuccess<T>(data: T, meta?: PaginationMeta, status = 200) {
   return NextResponse.json(
     {
+      success: true,
       data: serializeData(data),
       ...(meta ? { meta } : {}),
     },
@@ -34,6 +35,8 @@ export function apiError(
 ) {
   return NextResponse.json(
     {
+      success: false,
+      message,
       error: {
         code,
         message,

@@ -40,6 +40,12 @@ import {
   Download,
   FileText,
   Check,
+  Pencil,
+  Trash2,
+  Key,
+  Lock,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 
 // Dynamically import Leaflet CommandMap with SSR disabled
@@ -231,9 +237,31 @@ export default function AdminDashboard() {
   const [newUserForm, setNewUserForm] = useState({
     fullName: "",
     email: "",
+    phone: "",
     password: "",
-    role: "OFFICER" as "OFFICER" | "ADMIN",
+    role: "OFFICER" as "OFFICER" | "SUPERADMIN" | "CITIZEN",
   });
+
+  // Edit User Modal State (Superadmin)
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
+  const [editUserForm, setEditUserForm] = useState({
+    id: "",
+    fullName: "",
+    email: "",
+    phone: "",
+    role: "OFFICER" as "OFFICER" | "SUPERADMIN" | "CITIZEN",
+    isActive: true,
+    password: "",
+  });
+
+  // Delete User Modal State (Superadmin)
+  const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+
+  // User Management filters
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("ALL");
+  const [userStatusFilter, setUserStatusFilter] = useState("ALL");
 
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -504,11 +532,38 @@ export default function AdminDashboard() {
         { id: "off-3", public_id: "TRC-03", full_name: "Relawan PMI Cantigi", email: "pmi.cantigi@dermayu.id", phone: "0811-9988-7766" },
       ]);
 
-      setManagedUsers([
-        { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", created_at: "2026-10-15T08:00:00Z" },
-        { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", created_at: "2026-10-20T10:30:00Z" },
-        { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", created_at: "2026-11-01T12:00:00Z" },
-      ]);
+      // 6. Users & Officers fetch (Real persistent store)
+      try {
+        const usersRes = await fetch("/api/v1/admin/users", {
+          headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : {},
+          cache: "no-store",
+        });
+        if (usersRes.ok) {
+          const usersJson = await usersRes.json();
+          const list = usersJson.data || [];
+          if (Array.isArray(list) && list.length > 0) {
+            setManagedUsers(list);
+          } else {
+            setManagedUsers([
+              { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
+              { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
+              { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
+            ]);
+          }
+        } else {
+          setManagedUsers([
+            { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
+            { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
+            { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
+          ]);
+        }
+      } catch {
+        setManagedUsers([
+          { id: "u-1", full_name: "Super Admin DERMAYU", email: "superadmin@dermayu.id", role: "SUPERADMIN", is_active: true, created_at: "2026-10-15T08:00:00Z" },
+          { id: "u-2", full_name: "Komandan Surya BPBD", email: "petugas@dermayu.id", role: "OFFICER", is_active: true, created_at: "2026-10-20T10:30:00Z" },
+          { id: "u-3", full_name: "Warga Indramayu", email: "warga@dermayu.id", role: "CITIZEN", is_active: true, created_at: "2026-11-01T12:00:00Z" },
+        ]);
+      }
 
       // 7. Audit Logs fetch (Real persistent store)
       try {
@@ -727,26 +782,182 @@ export default function AdminDashboard() {
     e.preventDefault();
     setActionLoading(true);
     try {
-      const newUser = {
-        id: `u-${Date.now()}`,
-        full_name: newUserForm.fullName,
-        email: newUserForm.email,
-        role: newUserForm.role,
-        created_at: new Date().toISOString(),
-      };
-      setManagedUsers([newUser, ...managedUsers]);
-      setStats((prev) => ({ ...prev, totalUsers: prev.totalUsers + 1 }));
-      recordAuditLogFrontend(
-        "CREATE_USER",
-        "USER",
-        newUser.id,
-        `Pendaftaran akun: ${newUser.full_name} (${newUser.role} | ${newUser.email})`
-      );
-      showToast("Akun petugas/admin baru berhasil didaftarkan!");
-      setCreateUserModalOpen(false);
-      setNewUserForm({ fullName: "", email: "", password: "", role: "OFFICER" });
+      const res = await fetch("/api/v1/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fullName: newUserForm.fullName,
+          email: newUserForm.email,
+          phone: newUserForm.phone || undefined,
+          password: newUserForm.password,
+          role: newUserForm.role,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const createdUser = json.data?.user || {
+          id: `u-${Date.now()}`,
+          full_name: newUserForm.fullName,
+          email: newUserForm.email,
+          phone: newUserForm.phone,
+          role: newUserForm.role,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        };
+        setManagedUsers((prev) => [createdUser, ...prev]);
+        setStats((prev) => ({ ...prev, totalUsers: prev.totalUsers + 1 }));
+        recordAuditLogFrontend(
+          "CREATE_USER",
+          "USER",
+          createdUser.public_id || createdUser.id?.toString(),
+          `Pendaftaran akun: ${createdUser.full_name} (${createdUser.role} | ${createdUser.email})`
+        );
+        showToast("Akun baru berhasil didaftarkan ke sistem!");
+        setCreateUserModalOpen(false);
+        setNewUserForm({ fullName: "", email: "", phone: "", password: "", role: "OFFICER" });
+      } else {
+        showToast(json?.error?.message || "Gagal membuat user baru", "error");
+      }
     } catch {
-      showToast("Gagal membuat user", "error");
+      showToast("Koneksi gagal saat membuat user", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleOpenEditUser = (user: any) => {
+    setEditUserForm({
+      id: user.id?.toString() || user.public_id || "",
+      fullName: user.full_name,
+      email: user.email,
+      phone: user.phone || "",
+      role: user.role || "OFFICER",
+      isActive: user.is_active ?? true,
+      password: "",
+    });
+    setEditUserModalOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/v1/admin/users/${editUserForm.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fullName: editUserForm.fullName,
+          email: editUserForm.email,
+          phone: editUserForm.phone || null,
+          role: editUserForm.role,
+          isActive: editUserForm.isActive,
+          password: editUserForm.password ? editUserForm.password : undefined,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const updated = json.data?.user || {
+          id: editUserForm.id,
+          full_name: editUserForm.fullName,
+          email: editUserForm.email,
+          phone: editUserForm.phone,
+          role: editUserForm.role,
+          is_active: editUserForm.isActive,
+        };
+
+        setManagedUsers((prev) =>
+          prev.map((u) =>
+            u.id?.toString() === editUserForm.id || u.public_id === editUserForm.id
+              ? { ...u, ...updated }
+              : u
+          )
+        );
+
+        recordAuditLogFrontend(
+          "UPDATE_USER",
+          "USER",
+          editUserForm.id,
+          `Pembaruan akun: ${editUserForm.fullName} (${editUserForm.role} | Status: ${editUserForm.isActive ? "Aktif" : "Nonaktif"})`
+        );
+        showToast("Data akun berhasil diperbarui!");
+        setEditUserModalOpen(false);
+      } else {
+        showToast(json?.error?.message || "Gagal memperbarui data user", "error");
+      }
+    } catch {
+      showToast("Koneksi gagal saat memperbarui user", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleOpenDeleteUser = (user: any) => {
+    if (user.email === currentUser?.email) {
+      showToast("Anda tidak dapat menghapus akun Anda sendiri yang sedang digunakan.", "error");
+      return;
+    }
+    setUserToDelete(user);
+    setDeleteUserModalOpen(true);
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setActionLoading(true);
+    try {
+      const targetId = userToDelete.id?.toString() || userToDelete.public_id;
+      const res = await fetch(`/api/v1/admin/users/${targetId}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (json.data?.action === "deactivated") {
+          setManagedUsers((prev) =>
+            prev.map((u) =>
+              u.id?.toString() === targetId || u.public_id === targetId
+                ? {
+                    ...u,
+                    is_active: false,
+                    full_name: u.full_name.includes("[NONAKTIF]")
+                      ? u.full_name
+                      : `${u.full_name} [NONAKTIF]`,
+                  }
+                : u
+            )
+          );
+          showToast("Akun dinonaktifkan (arsip data penugasan/laporan tersimpan aman).");
+        } else {
+          setManagedUsers((prev) =>
+            prev.filter((u) => u.id?.toString() !== targetId && u.public_id !== targetId)
+          );
+          setStats((prev) => ({ ...prev, totalUsers: Math.max(0, prev.totalUsers - 1) }));
+          showToast("Akun pengguna berhasil dihapus permanen!");
+        }
+
+        recordAuditLogFrontend(
+          "DELETE_USER",
+          "USER",
+          targetId,
+          `Penghapusan/Nonaktif akun: ${userToDelete.full_name} (${userToDelete.email})`
+        );
+        setDeleteUserModalOpen(false);
+        setUserToDelete(null);
+      } else {
+        showToast(json?.error?.message || "Gagal menghapus user", "error");
+      }
+    } catch {
+      showToast("Koneksi gagal saat menghapus akun", "error");
     } finally {
       setActionLoading(false);
     }
@@ -1715,7 +1926,7 @@ export default function AdminDashboard() {
           {/* VIEW 7: MANAJEMEN PENGGUNA (SUPERADMIN) */}
           {activeMenu === "USERS" && (
             <div className="bg-white border border-[#D5E4E0] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#E8F1EE]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F1EE]">
                 <div>
                   <h2 className="text-base font-extrabold text-[#132422] flex items-center space-x-2">
                     <Users className="w-5 h-5 text-[#38746D]" />
@@ -1726,13 +1937,63 @@ export default function AdminDashboard() {
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setCreateUserModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5 cursor-pointer active:scale-95"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tambah Petugas / Admin</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#718783] font-medium hidden sm:inline">
+                    Total: <strong className="text-[#132422]">{managedUsers.length}</strong> Akun
+                  </span>
+                  <button
+                    onClick={() => setCreateUserModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Petugas / Admin</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* SEARCH & FILTER CONTROLS */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#718783] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="Cari nama pengguna, email, atau nomor HP..."
+                    className="w-full pl-9 pr-8 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] placeholder-[#718783] focus:outline-hidden focus:border-[#38746D] focus:bg-white"
+                  />
+                  {userSearchQuery && (
+                    <button
+                      onClick={() => setUserSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#718783] hover:text-[#132422]"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value)}
+                    className="px-3 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs font-semibold text-[#132422] focus:outline-hidden focus:border-[#38746D] cursor-pointer"
+                  >
+                    <option value="ALL">Semua Peran (Role)</option>
+                    <option value="SUPERADMIN">Super Admin (SUPERADMIN)</option>
+                    <option value="OFFICER">Petugas SAR / TRC (OFFICER)</option>
+                    <option value="CITIZEN">Warga Siaga (CITIZEN)</option>
+                  </select>
+
+                  <select
+                    value={userStatusFilter}
+                    onChange={(e) => setUserStatusFilter(e.target.value)}
+                    className="px-3 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs font-semibold text-[#132422] focus:outline-hidden focus:border-[#38746D] cursor-pointer"
+                  >
+                    <option value="ALL">Semua Status</option>
+                    <option value="ACTIVE">● Aktif</option>
+                    <option value="INACTIVE">○ Nonaktif</option>
+                  </select>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-[#D5E4E0]">
@@ -1744,26 +2005,100 @@ export default function AdminDashboard() {
                       <th className="py-3 px-4">Peran (Role)</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Terdaftar</th>
+                      <th className="py-3 px-4 text-center w-28">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E8F1EE]">
-                    {managedUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-[#F8FAF9]">
-                        <td className="py-3 px-4 font-bold text-[#132422]">{u.full_name}</td>
-                        <td className="py-3 px-4 text-[#718783]">{u.email}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-[#EEF5F3] text-[#1D443F] border border-[#38746D]/20">
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-emerald-700 font-bold">● Aktif</span>
-                        </td>
-                        <td className="py-3 px-4 text-[#718783]">
-                          {new Date(u.created_at).toLocaleDateString("id-ID")}
-                        </td>
-                      </tr>
-                    ))}
+                    {managedUsers
+                      .filter((u) => {
+                        const q = userSearchQuery.toLowerCase().trim();
+                        const matchSearch =
+                          !q ||
+                          u.full_name?.toLowerCase().includes(q) ||
+                          u.email?.toLowerCase().includes(q) ||
+                          u.phone?.toLowerCase().includes(q);
+                        const matchRole = userRoleFilter === "ALL" || u.role === userRoleFilter;
+                        const matchStatus =
+                          userStatusFilter === "ALL" ||
+                          (userStatusFilter === "ACTIVE" && (u.is_active ?? true)) ||
+                          (userStatusFilter === "INACTIVE" && u.is_active === false);
+                        return matchSearch && matchRole && matchStatus;
+                      })
+                      .map((u) => {
+                        const isSelf = u.email === currentUser?.email;
+                        const isActive = u.is_active ?? true;
+
+                        return (
+                          <tr key={u.id || u.public_id} className="hover:bg-[#F8FAF9] transition-colors">
+                            <td className="py-3 px-4 font-bold text-[#132422]">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="w-7 h-7 rounded-full bg-[#EEF5F3] text-[#38746D] font-extrabold flex items-center justify-center text-[11px] border border-[#38746D]/20 shrink-0">
+                                  {u.full_name?.charAt(0)?.toUpperCase() || "U"}
+                                </div>
+                                <div className="truncate max-w-[180px]">
+                                  <div className="font-bold text-[#132422]">{u.full_name}</div>
+                                  {u.phone && <div className="text-[10px] text-[#718783]">{u.phone}</div>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-[#718783] font-medium">{u.email}</td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  u.role === "SUPERADMIN"
+                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                    : u.role === "OFFICER"
+                                    ? "bg-[#EEF5F3] text-[#1D443F] border-[#38746D]/20"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                }`}
+                              >
+                                {u.role}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              {isActive ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span>Aktif</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-red-50 text-red-600 border border-red-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                  <span>Nonaktif</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-[#718783]">
+                              {u.created_at ? new Date(u.created_at).toLocaleDateString("id-ID") : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditUser(u)}
+                                  title="Edit Pengguna"
+                                  className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#38746D] border border-[#38746D]/20 flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDeleteUser(u)}
+                                  title={isSelf ? "Akun Anda saat ini (tidak dapat dihapus)" : "Hapus / Nonaktifkan Akun"}
+                                  disabled={isSelf}
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                                    isSelf
+                                      ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                                      : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 cursor-pointer active:scale-95"
+                                  }`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -1973,14 +2308,25 @@ export default function AdminDashboard() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">Nomor HP / WhatsApp (Opsional):</label>
+                <input
+                  type="tel"
+                  value={newUserForm.phone}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value })}
+                  placeholder="08123456789"
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-[#132422] mb-1">Kata Sandi Awal:</label>
                 <input
                   type="password"
                   value={newUserForm.password}
                   onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
-                  placeholder="Minimal 8 karakter"
+                  placeholder="Minimal 6 karakter"
                   required
-                  minLength={8}
+                  minLength={6}
                   className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
                 />
               </div>
@@ -1993,7 +2339,8 @@ export default function AdminDashboard() {
                   className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D] cursor-pointer font-medium"
                 >
                   <option value="OFFICER">Petugas Lapangan / Relawan TRC (OFFICER)</option>
-                  <option value="ADMIN">Admin Operator Komando (ADMIN)</option>
+                  <option value="SUPERADMIN">Super Admin Pusat Komando (SUPERADMIN)</option>
+                  <option value="CITIZEN">Warga Siaga Bencana (CITIZEN)</option>
                 </select>
               </div>
 
@@ -2014,6 +2361,171 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT USER (SUPERADMIN ONLY) */}
+      {editUserModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-gray-100 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 className="font-extrabold text-base text-[#132422] flex items-center space-x-2">
+                <Pencil className="w-5 h-5 text-[#38746D]" />
+                <span>Edit Data Pengguna &amp; Petugas</span>
+              </h3>
+              <button
+                onClick={() => setEditUserModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateUser} className="space-y-3.5 text-left">
+              <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">Nama Lengkap:</label>
+                <input
+                  type="text"
+                  value={editUserForm.fullName}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, fullName: e.target.value })}
+                  placeholder="Nama Lengkap"
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">Email Resmi:</label>
+                <input
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                  placeholder="email@dermayu.id"
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">Nomor HP / WhatsApp:</label>
+                <input
+                  type="tel"
+                  value={editUserForm.phone}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                  placeholder="08123456789"
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#132422] mb-1">Peran Akses (Role):</label>
+                  <select
+                    value={editUserForm.role}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value as any })}
+                    className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D] cursor-pointer font-medium"
+                  >
+                    <option value="OFFICER">OFFICER (Petugas)</option>
+                    <option value="SUPERADMIN">SUPERADMIN</option>
+                    <option value="CITIZEN">CITIZEN (Warga)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#132422] mb-1">Status Akun:</label>
+                  <select
+                    value={editUserForm.isActive ? "active" : "inactive"}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, isActive: e.target.value === "active" })}
+                    className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D] cursor-pointer font-medium"
+                  >
+                    <option value="active">● Aktif</option>
+                    <option value="inactive">○ Nonaktif</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#132422] mb-1">
+                  Reset Kata Sandi Baru <span className="text-[11px] font-normal text-[#718783]">(Kosongkan jika tidak diubah)</span>:
+                </label>
+                <input
+                  type="password"
+                  value={editUserForm.password}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+                  placeholder="Masukkan kata sandi baru (minimal 6 karakter)"
+                  minLength={6}
+                  className="w-full px-3.5 py-2.5 bg-[#F8FAF9] border border-[#D5E4E0] rounded-xl text-xs text-[#132422] focus:outline-none focus:border-[#38746D]"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditUserModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                  {actionLoading ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE USER CONFIRMATION (SUPERADMIN ONLY) */}
+      {deleteUserModalOpen && userToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-100 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center space-x-3 pb-3 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-[#132422]">Hapus / Nonaktifkan Akun</h3>
+                <p className="text-xs text-[#718783]">Tindakan pencabutan hak akses sistem</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-red-50/60 border border-red-200/60 text-xs text-red-900 space-y-2">
+              <p>
+                Apakah Anda yakin ingin menghapus akun{" "}
+                <strong className="font-extrabold text-[#132422]">{userToDelete.full_name}</strong> (
+                <span className="font-mono text-red-700">{userToDelete.email}</span>)?
+              </p>
+              <p className="text-[11px] text-[#718783]">
+                Catatan: Jika akun memiliki riwayat laporan bencana atau penugasan armada SAR, sistem akan menonaktifkan akun secara aman untuk menjaga integritas audit data.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteUserModalOpen(false);
+                  setUserToDelete(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                disabled={actionLoading}
+                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{actionLoading ? "Memproses..." : "Ya, Hapus Akun"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

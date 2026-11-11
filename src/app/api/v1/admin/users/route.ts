@@ -33,11 +33,11 @@ export async function GET(req: NextRequest) {
 }
 
 const createUserSchema = z.object({
-  fullName: z.string().min(3, "Nama minimal 3 karakter"),
+  fullName: z.string().min(2, "Nama minimal 2 karakter"),
   email: z.string().email("Format email tidak valid"),
   phone: z.string().optional(),
-  password: z.string().min(8, "Kata sandi minimal 8 karakter"),
-  role: z.enum(["OFFICER", "SUPERADMIN"]),
+  password: z.string().min(6, "Kata sandi minimal 6 karakter"),
+  role: z.enum(["CITIZEN", "OFFICER", "SUPERADMIN"]),
 });
 
 export async function POST(req: NextRequest) {

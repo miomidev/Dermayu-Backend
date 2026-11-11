@@ -30,10 +30,12 @@ import {
   Database,
   ClipboardList,
   Copy,
+  Loader2,
 } from "lucide-react";
 import { FullscreenCameraModal } from "@/components/dashboard/FullscreenCameraModal";
 import { AiScannerOverlay, type AiScanResult } from "@/components/dashboard/AiScannerOverlay";
 import { BeaconAlertIcon } from "@/components/ui/Icons";
+import { LogoDermayu } from "@/components/ui/LogoDermayu";
 import { REALISTIC_FLOOD_PHOTOS } from "@/data/curatedEvakuasiData";
 
 export type ReportCategoryCode =
@@ -669,6 +671,16 @@ export default function WargaLaporPage() {
     setIsAiScanning(false);
   };
 
+  // Efek transisi otomatis saat inferensi inline AI selesai langsung di dalam kotak foto
+  useEffect(() => {
+    if (isAiScanning && !isAiAnalyzing && pendingPhoto) {
+      const timer = setTimeout(() => {
+        handleScanComplete();
+      }, 750);
+      return () => clearTimeout(timer);
+    }
+  }, [isAiScanning, isAiAnalyzing, pendingPhoto]);
+
   const handleResetPhoto = () => {
     setPhotos([]);
     setPendingPhoto(null);
@@ -774,10 +786,10 @@ export default function WargaLaporPage() {
       : "DITERIMA";
 
     const statusNote = isActuallyOffline
-      ? "📡 Tiket Token Darurat diterbitkan. Laporan & koordinat tersimpan aman di memori perangkat. Sistem akan otomatis meneruskannya ke Posko BPBD saat sinyal internet pulih."
+      ? "Laporan & koordinat tersimpan aman di memori perangkat. Sistem akan otomatis meneruskannya ke Posko BPBD saat sinyal internet pulih."
       : isAutoVerified
-      ? `Bukti foto terkonfirmasi valid${pctStr}. Laporan aktif di Peta Rute Evakuasi dan diteruskan ke Regu SAR Posko.`
-      : `Laporan tersimpan di sistem kendali dan dalam antrean verifikasi petugas posko siaga sebelum dipetakan.`;
+      ? "Bukti foto terkonfirmasi valid. Laporan aktif di Peta Rute Evakuasi dan diteruskan ke Regu SAR Posko."
+      : "Laporan tersimpan di sistem kendali dan dalam antrean verifikasi petugas posko siaga sebelum dipetakan.";
 
     const effectiveTitle = notes.trim()
       ? notes.length > 55
@@ -956,14 +968,7 @@ export default function WargaLaporPage() {
         }}
       />
 
-      {/* Overlay Animasi Verifikasi Foto */}
-      <AiScannerOverlay
-        isOpen={isAiScanning}
-        photoUrl={pendingPhoto}
-        scanResult={aiScanResult}
-        isAnalyzing={isAiAnalyzing}
-        onScanComplete={handleScanComplete}
-      />
+      {/* Verifikasi foto sekarang berjalan langsung inline di dalam kotak Ambil Foto, tanpa modal popup */}
 
       {/* Modal Lightbox Preview Foto Aduan */}
       <AnimatePresence>
@@ -1046,8 +1051,8 @@ export default function WargaLaporPage() {
                 </div>
               </div>
 
-              {/* Tiket Code Box */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 flex items-center justify-between gap-3">
+              {/* Tiket Code Box (Di-hide agar popup lebih bersih & fokus ke status laporan) */}
+              {/* <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 flex items-center justify-between gap-3">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                     Nomor Tiket
@@ -1073,7 +1078,7 @@ export default function WargaLaporPage() {
                     </>
                   )}
                 </button>
-              </div>
+              </div> */}
 
               {/* Status Validation Box */}
               {successModal.isAutoVerified ? (
@@ -1229,44 +1234,135 @@ export default function WargaLaporPage() {
                     </div>
                   </div>
 
-                  {/* Dropzone Kamera */}
-                  <div className="relative rounded-2xl border-2 border-dashed border-[#38746D]/30 bg-[#F8FAF9] p-6 sm:p-8 text-center hover:bg-[#EEF5F3]/50 transition-all group">
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-[#38746D] rounded-tl-sm" />
-                      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-[#38746D] rounded-tr-sm" />
-                      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-[#38746D] rounded-bl-sm" />
-                      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-[#38746D] rounded-br-sm" />
+                  {/* Dropzone Kamera / Inline AI Scanner (Langsung di dalam kotak, tanpa modal popup) */}
+                  <div className="relative rounded-2xl border-2 border-dashed border-[#38746D]/30 bg-[#F8FAF9] p-5 sm:p-8 text-center transition-all overflow-hidden min-h-[220px] flex items-center justify-center">
+                    {isAiScanning && pendingPhoto ? (
+                      <div className="flex flex-col items-center justify-center py-6 sm:py-8 w-full animate-in fade-in duration-300">
+                        {/* Circular Spinner with Brand Logo (Clean visual design) */}
+                        <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+                          {/* Outer subtle ring track */}
+                          <div className="absolute inset-0 rounded-full border border-[#38746D]/15 bg-[#38746D]/5" />
 
-                      <Scan className="w-7 h-7 sm:w-8 sm:h-8 text-[#38746D]" />
-                    </div>
+                          {/* Animated rotating progress ring */}
+                          {isAiAnalyzing ? (
+                            <svg
+                              className="absolute inset-0 w-full h-full -rotate-90 animate-spin"
+                              viewBox="0 0 120 120"
+                              style={{ animationDuration: "1.4s" }}
+                            >
+                              <circle
+                                cx="60"
+                                cy="60"
+                                r="50"
+                                fill="none"
+                                stroke="#D5E4E0"
+                                strokeWidth="3"
+                              />
+                              <circle
+                                cx="60"
+                                cy="60"
+                                r="50"
+                                fill="none"
+                                stroke="#38746D"
+                                strokeWidth="3.5"
+                                strokeLinecap="round"
+                                strokeDasharray="314"
+                                strokeDashoffset="210"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="absolute inset-0 w-full h-full -rotate-90"
+                              viewBox="0 0 120 120"
+                            >
+                              <circle
+                                cx="60"
+                                cy="60"
+                                r="50"
+                                fill="none"
+                                stroke="#10b981"
+                                strokeWidth="3.5"
+                                strokeLinecap="round"
+                                strokeDasharray="314"
+                                strokeDashoffset="0"
+                                className="transition-all duration-500 ease-out"
+                              />
+                            </svg>
+                          )}
 
-                    <h3 className="text-sm sm:text-base font-bold text-[#132422] mt-3 sm:mt-4">
-                      Ambil Foto Kondisi Genangan Air
-                    </h3>
-                    <p className="text-xs text-[#4B635F] max-w-sm mx-auto mt-1 leading-relaxed">
-                      Foto langsung kondisi air yang menggenangi jalan, rumah, atau pekarangan dari kamera ponsel atau unggah dari galeri.
-                    </p>
+                          {/* Inner Central Disc with DERMAYU Logo */}
+                          <div
+                            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${
+                              isAiAnalyzing
+                                ? "bg-[#38746D] shadow-[#38746D]/25"
+                                : "bg-emerald-600 shadow-emerald-600/30 scale-105"
+                            }`}
+                          >
+                            {isAiAnalyzing ? (
+                              <div className="flex items-center justify-center p-2.5">
+                                <LogoDermayu
+                                  variant="light"
+                                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow"
+                                />
+                              </div>
+                            ) : (
+                              <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-in zoom-in-75 duration-300" />
+                            )}
+                          </div>
+                        </div>
 
-                    {/* Tombol Aksi Utama */}
-                    <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-                      <button
-                        type="button"
-                        onClick={() => setIsCameraOpen(true)}
-                        className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-bold shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        <Camera className="w-4 h-4 text-[#88BDB6]" />
-                        <span>Buka Kamera Langsung</span>
-                      </button>
+                        {/* Text Section matching reference typography */}
+                        <div className="mt-5 space-y-1.5 text-center">
+                          <h3 className="text-base sm:text-lg font-bold text-[#132422] tracking-tight">
+                            {isAiAnalyzing ? "Mohon Tunggu Sebentar" : "Pemeriksaan Selesai"}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-[#4B635F] max-w-xs mx-auto leading-relaxed">
+                            {isAiAnalyzing
+                              ? "Sedang memproses dan menganalisis foto..."
+                              : "Bukti foto terverifikasi, membuka formulir..."}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full">
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-white border border-[#D5E4E0] shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                          <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-[#38746D] rounded-tl-sm" />
+                          <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-[#38746D] rounded-tr-sm" />
+                          <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-[#38746D] rounded-bl-sm" />
+                          <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-[#38746D] rounded-br-sm" />
 
-                      <button
-                        type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="w-full sm:w-auto flex-1 py-3 px-5 rounded-xl bg-white hover:bg-gray-50 text-[#132422] border border-[#D5E4E0] text-xs sm:text-sm font-bold shadow-2xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        <ImageIcon className="w-4 h-4 text-[#38746D]" />
-                        <span>Pilih dari Galeri</span>
-                      </button>
-                    </div>
+                          <Scan className="w-7 h-7 sm:w-8 sm:h-8 text-[#38746D]" />
+                        </div>
+
+                        <h3 className="text-sm sm:text-base font-bold text-[#132422] mt-3 sm:mt-4">
+                          Ambil Foto Kondisi Genangan Air
+                        </h3>
+                        <p className="text-xs text-[#4B635F] max-w-sm mx-auto mt-1 leading-relaxed">
+                          Foto langsung kondisi air yang menggenangi jalan, rumah, atau pekarangan dari kamera ponsel atau unggah dari galeri.
+                        </p>
+
+                        {/* Tombol Aksi Utama (Rounded-full konsisten dengan CTA app & 1 baris rapi) */}
+                        <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-lg mx-auto">
+                          <button
+                            type="button"
+                            onClick={() => setIsCameraOpen(true)}
+                            className="w-full sm:w-auto flex-1 py-3.5 px-5 sm:px-6 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-[#38746D]/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                          >
+                            <Camera className="w-4 h-4 text-[#88BDB6] shrink-0" />
+                            <span className="whitespace-nowrap">Buka Kamera Langsung</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="w-full sm:w-auto flex-1 py-3.5 px-5 sm:px-6 rounded-full bg-white hover:bg-[#EEF5F3] text-[#132422] hover:text-[#1D443F] border border-[#D5E4E0] hover:border-[#38746D]/30 text-xs sm:text-sm font-extrabold shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                          >
+                            <ImageIcon className="w-4 h-4 text-[#38746D] shrink-0" />
+                            <span className="whitespace-nowrap">Pilih dari Galeri</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 3 Panduan Pelaporan yang Praktis */}
@@ -1603,12 +1699,12 @@ export default function WargaLaporPage() {
                     Riwayat Aduan Saya
                   </h3>
                   <p className="text-xs text-[#4B635F]">
-                    Tiket laporan darurat Anda &amp; status penanganan tim SAR
+                    Riwayat laporan darurat Anda &amp; status penanganan tim SAR
                   </p>
                 </div>
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] font-bold text-xs border border-[#38746D]/20">
-                {reports.length} Tiket
+                {reports.length} Laporan
               </span>
             </div>
 
@@ -1636,35 +1732,29 @@ export default function WargaLaporPage() {
                       key={item.id}
                       className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-xs space-y-3 hover:border-[#88BDB6] transition-all"
                     >
-                      {/* Atas: Tiket ID, Validasi % & Waktu */}
+                      {/* Atas: Status di Peta & Waktu (Bersih, tanpa nomor tiket & tanpa badge bertumpuk) */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-[11px] font-extrabold text-[#1D443F] bg-[#EEF5F3] px-2 py-0.5 rounded-md border border-[#38746D]/20">
-                            {item.id}
-                          </span>
+                          {item.isFloodDetected ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10.5px] font-bold text-emerald-800 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                              <span>Aktif di Peta</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10.5px] font-semibold text-amber-800 shadow-2xs" title="Menunggu verifikasi petugas posko sebelum masuk ke peta">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <span>Menunggu Verifikasi</span>
+                            </span>
+                          )}
                           {item.isOfflineQueue && (
-                            <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping inline-block" />
-                              Token Offline
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                              <span>Tersimpan Offline</span>
                             </span>
                           )}
                           {item.syncedAt && (
                             <span className="text-[9.5px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
                               Sinkron: {item.syncedAt}
-                            </span>
-                          )}
-                          {typeof item.aiConfidence === "number" && (
-                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              {(item.aiConfidence <= 1 ? item.aiConfidence * 100 : item.aiConfidence).toFixed(0)}% Valid
-                            </span>
-                          )}
-                          {item.isFloodDetected ? (
-                            <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
-                              📍 Aktif di Peta Evakuasi
-                            </span>
-                          ) : (
-                            <span className="text-[9.5px] font-medium text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1" title="Menunggu verifikasi petugas posko sebelum masuk ke peta">
-                              ⏳ Menunggu Verifikasi Posko
                             </span>
                           )}
                         </div>
@@ -1737,6 +1827,16 @@ export default function WargaLaporPage() {
                                       REALISTIC_FLOOD_PHOTOS[pIdx % REALISTIC_FLOOD_PHOTOS.length];
                                   }}
                                 />
+
+                                {/* Badge Validasi AI di dalam gambar (Floating Pill Elegan) */}
+                                {typeof item.aiConfidence === "number" && (
+                                  <div className="absolute top-2.5 right-2.5 z-10 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 shadow-xs flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span>
+                                      Validasi AI {(item.aiConfidence <= 1 ? item.aiConfidence * 100 : item.aiConfidence).toFixed(0)}%
+                                    </span>
+                                  </div>
+                                )}
                               </button>
                             ))}
                           </div>

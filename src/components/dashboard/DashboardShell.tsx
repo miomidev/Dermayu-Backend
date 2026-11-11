@@ -218,13 +218,13 @@ export function DashboardShell({ role, children }: DashboardShellProps) {
       {/* 4. UX BACK BUTTON INTERCEPTOR KHUSUS PWA MOBILE */}
       <PwaBackHandler role={role} />
 
-      {/* 5. MODAL POPUP WAJIB LENGKAPI DATA PROFIL WARGA (NO WA, KECAMATAN, DESA, RT/RW BLOK) */}
-      {role === "warga" && (
+      {/* 5. MODAL POPUP LENGKAPI DATA PROFIL WARGA (Di-hide sesuai kebutuhan) */}
+      {/* {role === "warga" && (
         <WargaCompleteProfileModal
           session={session}
           onProfileUpdated={(updated) => setSession(updated)}
         />
-      )}
+      )} */}
     </div>
   );
 }

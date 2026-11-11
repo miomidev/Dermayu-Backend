@@ -332,7 +332,7 @@ export default function AdminDashboard() {
     updatedBy?: string;
   }>({
     isReleased: true,
-    downloadUrl: "https://dermayu.web.id/dermayu-release.apk",
+    downloadUrl: "https://download1472.mediafire.com/8wkshx6doixgnQyfDYPzpJn12nsrJeEjFL6tlih6jHml1LA2_z7MdHDX2h_s8kN8YcJ6vxG6rVkijGtXaCZgjrmqhjDjPbmzNs9WggFLAAKK3-2ETkKXlrnFpxr1WAFID-OX2gZjnPNagWNjMfswdsTI8FhyfdopUajQiLIwfKEz/5h2ozq3i1wh6zs7/Dermayu+Apps.apk",
     version: "v1.0.0",
     fileSize: "61.6 MB",
     releaseNotes: "Rilis resmi aplikasi Dermayu Android dengan rute evakuasi cerdas dan Google Maps.",

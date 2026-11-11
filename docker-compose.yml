@@ -28,6 +28,7 @@ services:
       - dermayu_network
     volumes:
       - dermayu_uploads:/app/public/uploads
+      - dermayu_data:/app/data
 
   ai:
     build:
@@ -66,3 +67,4 @@ networks:
 
 volumes:
   dermayu_uploads:
+  dermayu_data:

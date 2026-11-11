@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     const effectiveToll: EvacuationTollOption =
       effectiveMode === "car" ? (tollOption === "toll" ? "toll" : "nontoll") : "nontoll";
 
-    // Buat Cache Key
-    const cacheKey = `${numOriginLat.toFixed(4)},${numOriginLng.toFixed(4)}_${numDestLat.toFixed(4)},${numDestLng.toFixed(4)}_${effectiveMode}_${effectiveToll}_${waypoints.length}`;
+    // Buat Cache Key (v2 dengan kalibrasi kecepatan riil)
+    const cacheKey = `v2_${numOriginLat.toFixed(4)},${numOriginLng.toFixed(4)}_${numDestLat.toFixed(4)},${numDestLng.toFixed(4)}_${effectiveMode}_${effectiveToll}_${waypoints.length}`;
     const cached = routeMemoryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       return NextResponse.json({

@@ -8,11 +8,12 @@ export type EvacuationTransportMode = "motorcycle" | "car" | "walking";
 export type EvacuationTollOption = "toll" | "nontoll";
 
 // Kecepatan rata-rata realistis wilayah Jawa Barat & Indramayu (km/h)
+// Dikalibrasi berdasarkan kondisi lalu lintas riil Google Maps (lampu merah, kepadatan Pantura, dan akses tol)
 export const VEHICLE_SPEED_KMH = {
-  carToll: 75,       // Tol Cipali, Cisumdawu, Jagorawi
-  carNonToll: 45,    // Arteri Nasional Pantura / Provinsi
-  motorcycle: 40,    // Sepeda Motor di jalan arteri Pantura / pedesaan
-  walking: 4.8,      // Pejalan kaki
+  carToll: 48.5,     // Tol Cipali, Cisumdawu, Jagorawi (termasuk akses gerbang tol & antrean)
+  carNonToll: 31.5,  // Arteri Nasional Pantura / Provinsi (memperhitungkan lampu merah, pasar tumpah, kepadatan)
+  motorcycle: 36.5,  // Sepeda Motor di jalan arteri Pantura / pedesaan (lebih lincah selap-selip saat macet)
+  walking: 4.0,      // Pejalan kaki evakuasi
 };
 
 // Koridor Jalan Utama Penghubung Jawa Barat (Arteri Non-Tol & Pantura)

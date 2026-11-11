@@ -40,8 +40,8 @@ keras_module = None
 try:
     import numpy as np
     from PIL import Image
+    os.environ.setdefault("KERAS_BACKEND", "tensorflow")
     try:
-        os.environ.setdefault("KERAS_BACKEND", "torch")
         import keras
         keras_module = keras
     except ImportError:

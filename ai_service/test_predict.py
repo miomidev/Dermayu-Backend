@@ -29,8 +29,8 @@ def test_local_model(image_path: str):
 
     import numpy as np
     from PIL import Image
+    os.environ.setdefault("KERAS_BACKEND", "tensorflow")
     try:
-        os.environ.setdefault("KERAS_BACKEND", "torch")
         import keras
     except ImportError:
         import tensorflow as tf

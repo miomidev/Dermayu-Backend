@@ -25,6 +25,7 @@ import {
   Share2,
   Eye,
   Check,
+  ChevronLeft,
   ChevronRight,
   WifiOff,
   Database,
@@ -143,16 +144,6 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const QUICK_LOCATIONS = [
-  "Eretan Wetan (Kandanghaur)",
-  "Eretan Kulon (Kandanghaur)",
-  "Ilir (Kandanghaur)",
-  "Cantigi Kulon",
-  "Cantigi Wetan",
-  "Pasekan",
-  "Karangsong (Indramayu)",
-  "Limbangan (Juntinyuat)",
-];
 
 const initialReports: ReportTicket[] = [];
 
@@ -306,6 +297,34 @@ export default function WargaLaporPage() {
 
   // Reports List State - Inisialisasi aman [] untuk mencegah error hydration mismatch Next.js SSR
   const [reports, setReports] = useState<ReportTicket[]>([]);
+
+  // State Pagination Riwayat Aduan Saya (2 aduan per halaman)
+  const [reportPage, setReportPage] = useState(1);
+  const reportsPerPage = 2;
+  const totalReportPages = Math.max(1, Math.ceil(reports.length / reportsPerPage));
+  const startReportIndex = (reportPage - 1) * reportsPerPage;
+  const paginatedReports = reports.slice(startReportIndex, startReportIndex + reportsPerPage);
+
+  // Pastikan reportPage tidak melebihi totalReportPages
+  useEffect(() => {
+    if (reportPage > totalReportPages) {
+      setReportPage(totalReportPages);
+    }
+  }, [reportPage, totalReportPages]);
+
+  // Algoritma Penomoran Halaman dengan Ellipsis Pintar (Sesuai Posko)
+  const getReportPageNumbers = (current: number, total: number) => {
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 3) {
+      return [1, 2, 3, 4, "...", total];
+    }
+    if (current >= total - 2) {
+      return [1, "...", total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  };
 
   // Status Koneksi Jaringan & Mode Offline (PWA Offline-First)
   const [isOnline, setIsOnline] = useState(true);
@@ -549,6 +568,8 @@ export default function WargaLaporPage() {
   // Trigger verification inference via Next.js proxy dengan dukungan Edge Offline Heuristic
   const triggerAiInference = async (dataUrl: string, fileObj?: File) => {
     setIsAiAnalyzing(true);
+    // Minimum scanning display duration ~2 seconds for smooth UX
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Deteksi Jika Perangkat Berada di Mode Offline:
     // Terapkan penampungan antrean offline (review) agar warga tetap bisa simpan laporan
@@ -569,7 +590,7 @@ export default function WargaLaporPage() {
           is_rejected: false,
         });
         setIsAiAnalyzing(false);
-      }, 500);
+      }, 2000);
       return;
     }
 
@@ -589,6 +610,9 @@ export default function WargaLaporPage() {
           body: JSON.stringify({ dataUrl }),
         });
       }
+
+      // Tunggu hingga minimal 2 detik animasi scan selesai
+      await minDelay;
 
       if (res.ok) {
         const json = await res.json();
@@ -613,6 +637,7 @@ export default function WargaLaporPage() {
         is_rejected: false,
       });
     } catch (err) {
+      await minDelay;
       console.warn("AI scan offline fallback applied:", err);
       // Fallback mulus saat offline / fetch error: arahkan ke review posko
       setAiScanResult({
@@ -674,12 +699,13 @@ export default function WargaLaporPage() {
   // Efek transisi otomatis saat inferensi inline AI selesai langsung di dalam kotak foto
   useEffect(() => {
     if (isAiScanning && !isAiAnalyzing && pendingPhoto) {
+      const isRejected = aiScanResult && (aiScanResult.is_rejected ?? (aiScanResult.prob_flood * 100 < 25));
       const timer = setTimeout(() => {
         handleScanComplete();
-      }, 750);
+      }, isRejected ? 1400 : 750);
       return () => clearTimeout(timer);
     }
-  }, [isAiScanning, isAiAnalyzing, pendingPhoto]);
+  }, [isAiScanning, isAiAnalyzing, pendingPhoto, aiScanResult]);
 
   const handleResetPhoto = () => {
     setPhotos([]);
@@ -828,6 +854,7 @@ export default function WargaLaporPage() {
 
     const updated = [newTicket, ...reports];
     saveReportsToStorage(updated);
+    setReportPage(1);
 
     // Kirim juga ke server database agar sinkron secara real-time ke semua sesi petugas (termasuk jendela incognito)
     if (!isActuallyOffline) {
@@ -1030,112 +1057,83 @@ export default function WargaLaporPage() {
               <button
                 type="button"
                 onClick={() => setSuccessModal(null)}
-                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#F4F9F8] hover:bg-[#E8F3F1] text-[#4B635F] hover:text-[#132422] flex items-center justify-center transition-colors cursor-pointer"
                 title="Tutup dialog"
               >
                 <X className="w-4 h-4" />
               </button>
 
               {/* Icon & Title */}
-              <div className="flex items-center gap-3.5 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/20 text-[#38746D] flex items-center justify-center shrink-0 shadow-2xs">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="flex items-center gap-3.5 mb-5">
+                <div className="w-12 h-12 rounded-full bg-[#EEF5F3] border border-[#38746D]/20 text-[#38746D] flex items-center justify-center shrink-0 shadow-2xs">
+                  <CheckCircle2 className="w-6 h-6 text-[#38746D]" />
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-[#132422] leading-snug">
                     Laporan Berhasil Terkirim
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#4B635F] mt-0.5">
                     Laporan Anda sudah kami terima dan masuk ke sistem.
                   </p>
                 </div>
               </div>
 
-              {/* Tiket Code Box (Di-hide agar popup lebih bersih & fokus ke status laporan) */}
-              {/* <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Nomor Tiket
-                  </span>
-                  <span className="text-sm font-extrabold text-[#132422] font-mono tracking-wide">
-                    #{successModal.ticketCode}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopyTicket(successModal.ticketCode)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:border-[#38746D] text-slate-700 hover:text-[#38746D] transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  {copiedTicket ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">Tersalin</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Salin</span>
-                    </>
-                  )}
-                </button>
-              </div> */}
-
               {/* Status Validation Box */}
               {successModal.isAutoVerified ? (
-                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-950 mb-4">
-                  <div className="flex items-center gap-2 font-bold text-xs mb-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                <div className="p-4 rounded-2xl bg-[#EEF5F3] border border-[#38746D]/15 text-[#132422] mb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 font-bold text-xs mb-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
                     <span>Laporan Terverifikasi</span>
                   </div>
-                  <p className="text-[11.5px] text-emerald-800 leading-relaxed">
+                  <p className="text-xs text-[#4B635F] leading-relaxed">
                     Titik banjir telah aktif di peta dan otomatis dihindari dalam pencarian rute evakuasi.
                   </p>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-950 mb-4">
-                  <div className="flex items-center gap-2 font-bold text-xs mb-1">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-[#132422] mb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-800 font-bold text-xs mb-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-700" />
                     <span>Menunggu Verifikasi Petugas</span>
                   </div>
-                  <p className="text-[11.5px] text-amber-800 leading-relaxed">
+                  <p className="text-xs text-[#4B635F] leading-relaxed">
                     Petugas posko siaga akan mengecek foto dan lokasi laporan Anda terlebih dahulu sebelum ditampilkan di peta publik.
                   </p>
                 </div>
               )}
 
-              {/* Ringkasan Laporan */}
-              <div className="space-y-1.5 mb-5 text-xs border-t border-slate-100 pt-3">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-slate-400">Lokasi:</span>
-                  <span className="font-semibold text-slate-800 text-right truncate max-w-[220px]">
+              {/* Ringkasan Laporan dalam Card Bersih */}
+              <div className="rounded-2xl bg-[#F8FAF9] border border-[#D5E4E0]/70 p-3.5 space-y-2 mb-5 text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[#4B635F] shrink-0 font-medium">Lokasi</span>
+                  <span className="font-bold text-[#132422] text-right truncate max-w-[220px]">
                     {successModal.location}
                   </span>
                 </div>
                 {successModal.notes && (
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-slate-400 shrink-0">Catatan:</span>
-                    <span className="font-medium text-slate-700 text-right line-clamp-2 max-w-[220px]">
+                  <div className="flex items-start justify-between gap-3 pt-2 border-t border-[#D5E4E0]/40">
+                    <span className="text-[#4B635F] shrink-0 font-medium">Catatan</span>
+                    <span className="font-medium text-[#132422] text-right line-clamp-2 max-w-[220px]">
                       {successModal.notes}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Tombol Aksi */}
+              {/* Tombol Aksi Rounded-full */}
               {successModal.isAutoVerified ? (
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <Link
                     href={`/warga/evakuasi?reportId=${encodeURIComponent(successModal.ticketCode)}&lat=${successModal.lat}&lng=${successModal.lng}`}
                     onClick={() => setSuccessModal(null)}
-                    className="flex-1 py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#2C5C56] text-white text-xs sm:text-sm font-bold text-center transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 py-3 px-5 rounded-full bg-[#38746D] hover:bg-[#2C5C56] active:scale-98 text-white text-xs sm:text-sm font-bold text-center transition shadow-md shadow-[#38746D]/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <MapPin className="w-4 h-4" />
+                    <MapPin className="w-4 h-4 text-[#88BDB6]" />
                     <span>Lihat di Peta</span>
                   </Link>
                   <button
                     type="button"
                     onClick={() => setSuccessModal(null)}
-                    className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold text-center transition cursor-pointer"
+                    className="py-3 px-6 rounded-full border border-[#D5E4E0] bg-white hover:bg-slate-50 active:scale-98 text-slate-700 text-xs sm:text-sm font-bold text-center transition cursor-pointer shadow-2xs"
                   >
                     Tutup
                   </button>
@@ -1144,9 +1142,9 @@ export default function WargaLaporPage() {
                 <button
                   type="button"
                   onClick={() => setSuccessModal(null)}
-                  className="w-full py-3 px-4 rounded-xl bg-[#38746D] hover:bg-[#2C5C56] text-white text-xs sm:text-sm font-bold text-center transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-3 px-5 rounded-full bg-[#38746D] hover:bg-[#2C5C56] active:scale-98 text-white text-xs sm:text-sm font-bold text-center transition shadow-md shadow-[#38746D]/20 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-4 h-4 text-[#88BDB6]" />
                   <span>Lihat Riwayat Laporan Saya</span>
                 </button>
               )}
@@ -1241,7 +1239,13 @@ export default function WargaLaporPage() {
                         {/* Circular Spinner with Brand Logo (Clean visual design) */}
                         <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
                           {/* Outer subtle ring track */}
-                          <div className="absolute inset-0 rounded-full border border-[#38746D]/15 bg-[#38746D]/5" />
+                          <div
+                            className={`absolute inset-0 rounded-full border transition-colors duration-500 ${
+                              !isAiAnalyzing && (aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25))
+                                ? "border-rose-500/20 bg-rose-500/5"
+                                : "border-[#38746D]/15 bg-[#38746D]/5"
+                            }`}
+                          />
 
                           {/* Animated rotating progress ring */}
                           {isAiAnalyzing ? (
@@ -1280,7 +1284,11 @@ export default function WargaLaporPage() {
                                 cy="60"
                                 r="50"
                                 fill="none"
-                                stroke="#10b981"
+                                stroke={
+                                  aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25)
+                                    ? "#f43f5e"
+                                    : "#10b981"
+                                }
                                 strokeWidth="3.5"
                                 strokeLinecap="round"
                                 strokeDasharray="314"
@@ -1290,11 +1298,13 @@ export default function WargaLaporPage() {
                             </svg>
                           )}
 
-                          {/* Inner Central Disc with DERMAYU Logo */}
+                          {/* Inner Central Disc with DERMAYU Logo / Check / Cross */}
                           <div
                             className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${
                               isAiAnalyzing
                                 ? "bg-[#38746D] shadow-[#38746D]/25"
+                                : (aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25))
+                                ? "bg-rose-600 shadow-rose-600/30 scale-105"
                                 : "bg-emerald-600 shadow-emerald-600/30 scale-105"
                             }`}
                           >
@@ -1305,6 +1315,8 @@ export default function WargaLaporPage() {
                                   className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow"
                                 />
                               </div>
+                            ) : (aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25)) ? (
+                              <X className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-in zoom-in-75 duration-300 stroke-[3]" />
                             ) : (
                               <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-in zoom-in-75 duration-300" />
                             )}
@@ -1314,11 +1326,17 @@ export default function WargaLaporPage() {
                         {/* Text Section matching reference typography */}
                         <div className="mt-5 space-y-1.5 text-center">
                           <h3 className="text-base sm:text-lg font-bold text-[#132422] tracking-tight">
-                            {isAiAnalyzing ? "Mohon Tunggu Sebentar" : "Pemeriksaan Selesai"}
+                            {isAiAnalyzing
+                              ? "Mohon Tunggu Sebentar"
+                              : (aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25))
+                              ? "Foto Ditolak (Bukan Banjir)"
+                              : "Pemeriksaan Selesai"}
                           </h3>
                           <p className="text-xs sm:text-sm text-[#4B635F] max-w-xs mx-auto leading-relaxed">
                             {isAiAnalyzing
                               ? "Sedang memproses dan menganalisis foto..."
+                              : (aiScanResult?.is_rejected ?? (aiScanResult && aiScanResult.prob_flood * 100 < 25))
+                              ? "Foto tidak terdeteksi genangan air, silakan ganti foto..."
                               : "Bukti foto terverifikasi, membuka formulir..."}
                           </p>
                         </div>
@@ -1452,12 +1470,15 @@ export default function WargaLaporPage() {
                 className="bg-white rounded-3xl border border-[#D5E4E0] p-6 sm:p-7 shadow-xs space-y-6"
               >
                 {/* Header Konfirmasi */}
-                <div className="flex items-center justify-between pb-3 border-b border-[#D5E4E0]/60">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0">
+                <div className="pb-3 border-b border-[#D5E4E0]/60 space-y-2.5 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
+                  {/* Baris atas mobile: Icon di kiri & Tombol Ganti Foto di kanan (sejajar) */}
+                  <div className="flex items-center justify-between sm:contents">
+                    <div className="w-9 h-9 rounded-xl bg-[#EEF5F3] text-[#38746D] border border-[#38746D]/15 flex items-center justify-center shrink-0 sm:mr-3">
                       <BeaconAlertIcon className="w-4.5 h-4.5" />
                     </div>
-                    <div>
+
+                    {/* Teks Header Desktop (sejajar dengan icon di layar besar) */}
+                    <div className="hidden sm:block flex-1 min-w-0">
                       <h2 className="text-base sm:text-lg font-bold text-[#132422]">
                         Konfirmasi Laporan Kejadian
                       </h2>
@@ -1465,15 +1486,27 @@ export default function WargaLaporPage() {
                         Periksa foto bukti genangan dan pastikan titik lokasi sudah tepat
                       </p>
                     </div>
+
+                    {/* Tombol Ganti Foto (sejajar icon di mobile, di kanan di desktop) */}
+                    <button
+                      type="button"
+                      onClick={handleResetPhoto}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#38746D]/25 bg-[#EEF5F3] text-[#38746D] hover:bg-[#E0ECE8] hover:border-[#38746D]/40 text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-[#38746D]" />
+                      <span>Ganti Foto</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleResetPhoto}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer shrink-0"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Ganti Foto</span>
-                  </button>
+
+                  {/* Teks Header Mobile (di bawah baris Icon + Tombol Ganti Foto) */}
+                  <div className="sm:hidden">
+                    <h2 className="text-base font-bold text-[#132422]">
+                      Konfirmasi Laporan Kejadian
+                    </h2>
+                    <p className="text-xs text-[#4B635F] mt-0.5">
+                      Periksa foto bukti genangan dan pastikan titik lokasi sudah tepat
+                    </p>
+                  </div>
                 </div>
 
                 {/* Hero Preview Foto + Status Verifikasi */}
@@ -1598,31 +1631,6 @@ export default function WargaLaporPage() {
                         <span>{gpsError}</span>
                       </p>
                     )}
-
-                    {/* Pilihan Cepat Desa Rawan */}
-                    <div className="pt-1 space-y-1.5">
-                      <span className="text-[10.5px] text-[#718783] block font-semibold">
-                        Pilihan cepat desa / wilayah rawan:
-                      </span>
-                      <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap scrollbar-none snap-x touch-pan-x">
-                        {QUICK_LOCATIONS.map((loc) => (
-                          <button
-                            type="button"
-                            key={loc}
-                            onClick={() => {
-                              if (!location.includes(loc)) {
-                                setLocation((prev) =>
-                                  prev ? `${prev}, ${loc}` : loc
-                                );
-                              }
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold bg-[#F8FAF9] hover:bg-[#EEF5F3] border border-[#D5E4E0] text-[#4B635F] hover:text-[#1D443F] transition-colors cursor-pointer shrink-0 snap-start active:scale-95 whitespace-nowrap"
-                          >
-                            + {loc}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Field 2: Catatan Tambahan (Opsional) */}
@@ -1719,7 +1727,7 @@ export default function WargaLaporPage() {
                   </p>
                 </div>
               ) : (
-                reports.map((item) => {
+                paginatedReports.map((item) => {
                   const statusStyle = STATUS_CONFIG[item.status] || {
                     dotClass: "bg-gray-400",
                     badgeClass: "bg-gray-50 border-gray-200 text-gray-700",
@@ -1880,6 +1888,79 @@ export default function WargaLaporPage() {
                 })
               )}
             </div>
+
+            {/* Pagination Controls Riwayat Aduan (Sesuai Style Fitur Posko) */}
+            {reports.length > reportsPerPage && (
+              <div className="pt-2 border-t border-[#E8F1EE] flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+                {/* Info Status Item */}
+                <div className="text-xs text-[#4B635F] font-medium order-2 sm:order-1 text-center sm:text-left">
+                  Menampilkan <strong className="text-[#132422]">{startReportIndex + 1}</strong> -{" "}
+                  <strong className="text-[#132422]">
+                    {Math.min(reports.length, startReportIndex + reportsPerPage)}
+                  </strong>{" "}
+                  dari <strong className="text-[#132422]">{reports.length}</strong> aduan
+                </div>
+
+                {/* Pagination Navigation Buttons */}
+                <div className="flex items-center gap-2 order-1 sm:order-2">
+                  {/* Tombol Prev Lingkaran Solid */}
+                  <button
+                    type="button"
+                    onClick={() => setReportPage((p) => Math.max(1, p - 1))}
+                    disabled={reportPage <= 1}
+                    className="w-8 h-8 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-30 disabled:cursor-not-allowed transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                    aria-label="Halaman Sebelumnya"
+                    title="Halaman Sebelumnya"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Deretan Angka Halaman dengan Indikator Aktif Hijau DERMAYU */}
+                  <div className="flex items-center bg-[#F8FAF9] border border-[#D5E4E0] rounded-full px-1.5 py-0.5 gap-1">
+                    {getReportPageNumbers(reportPage, totalReportPages).map((p, idx) => {
+                      if (p === "...") {
+                        return (
+                          <span
+                            key={`dots-${idx}`}
+                            className="w-7 h-7 flex items-center justify-center text-gray-400 font-bold text-xs select-none"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      const pageNum = p as number;
+                      const isActive = pageNum === reportPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setReportPage(pageNum)}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition cursor-pointer ${
+                            isActive
+                              ? "border-2 border-[#38746D] text-[#38746D] font-black bg-white shadow-2xs"
+                              : "text-gray-600 hover:text-[#38746D] font-semibold hover:bg-white"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tombol Next Lingkaran Solid */}
+                  <button
+                    type="button"
+                    onClick={() => setReportPage((p) => Math.min(totalReportPages, p + 1))}
+                    disabled={reportPage >= totalReportPages}
+                    className="w-8 h-8 rounded-full bg-[#38746D] text-white flex items-center justify-center hover:bg-[#24544E] disabled:opacity-30 disabled:cursor-not-allowed transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                    aria-label="Halaman Berikutnya"
+                    title="Halaman Berikutnya"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

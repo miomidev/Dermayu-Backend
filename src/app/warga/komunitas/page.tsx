@@ -273,34 +273,6 @@ export function KomunitasView() {
     }
   }, [activeMenuPostId]);
 
-  // FAB State & IntersectionObserver (Deteksi Scroll Desktop)
-  const topButtonRef = useRef<HTMLButtonElement>(null);
-  const [isTopButtonVisible, setIsTopButtonVisible] = useState(true);
-
-  useEffect(() => {
-    // Jika di detail view atau sedang buat postingan inline, top button tidak dirender
-    if (selectedPostId || isCreatingPost) {
-      setIsTopButtonVisible(false);
-      return;
-    }
-
-    const el = topButtonRef.current;
-    if (!el) {
-      setIsTopButtonVisible(false);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsTopButtonVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [selectedPostId, isCreatingPost]);
-
   const handleFabClick = () => {
     setSelectedPostId(null);
     setIsCreatingPost(true);
@@ -544,30 +516,6 @@ export function KomunitasView() {
         )}
       </AnimatePresence>
 
-      {/* HEADER KOMUNITAS WARGA SIAGA (Desktop Saja: Disembunyikan di Mobile agar Tidak Memakan Ruang Layar & Redundan) */}
-      {!selectedPostId && !isCreatingPost && (
-        <div className="hidden sm:flex bg-white rounded-3xl p-5 sm:p-6 border border-[#D5E4E0] shadow-2xs sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#EEF5F3] text-[#1D443F] text-[11px] font-bold border border-[#D5E4E0]">
-              <Users className="w-3.5 h-3.5 text-[#38746D]" />
-              <span>Kanal Informasi Warga Pantura</span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-bold text-[#132422]">
-              Kabar Lapangan & Gotong Royong Warga
-            </h2>
-          </div>
-
-          <button
-            ref={topButtonRef}
-            type="button"
-            onClick={() => setIsCreatingPost(true)}
-            className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#38746D] hover:bg-[#24544E] active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Buat Kabar Baru</span>
-          </button>
-        </div>
-      )}
 
       {/* GRID UTAMA: KOLOM KIRI (FEED / DETAIL / BUAT POST) + KOLOM KANAN (WIDGETS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -1198,6 +1146,17 @@ export function KomunitasView() {
                       </span>
                     )}
                   </button>
+
+                  {/* Tombol Buat Kabar Baru (Toolbar) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingPost(true)}
+                    className="h-12 px-4 sm:px-4.5 rounded-full bg-[#38746D] hover:bg-[#24544E] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+                    title="Buat Kabar Baru"
+                  >
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                    <span className="hidden sm:inline">Buat Kabar</span>
+                  </button>
                 </div>
 
                 {/* Horizontal Category Tabs (Akses Cepat Kategori) */}
@@ -1688,7 +1647,7 @@ export function KomunitasView() {
         </div>
       </div>
 
-      {/* Floating Action Button (FAB) Tanda Plus di Bawah Kanan (Mobile Selalu Muncul, Desktop Saat Scroll) */}
+      {/* Floating Action Button (FAB) Tanda Plus di Bawah Kanan (Selalu Aktif di Mobile & Desktop) */}
       <AnimatePresence>
         {!isCreatingPost && (
           <motion.div
@@ -1696,9 +1655,7 @@ export function KomunitasView() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className={`fixed z-40 right-4 sm:right-6 bottom-20 md:bottom-8 ${
-              !isTopButtonVisible ? "flex" : "flex md:hidden"
-            }`}
+            className="fixed z-40 right-4 sm:right-6 bottom-20 md:bottom-8 flex"
           >
             <button
               type="button"
